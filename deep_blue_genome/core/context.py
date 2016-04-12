@@ -52,26 +52,5 @@ class CacheMixin(DatabaseMixin):
     @property
     def cache(self):
         return self._cache
-    
-class OutputMixin(Context):
-    
-    '''
-    Output file storage support
-    '''
-    
-    _cli_options = [
-        cli.option(
-            '--output-dir',
-            type=click.Path(file_okay=False, writable=True, exists=True, resolve_path=True),
-            help='Directory to place the output in.'
-        )
-    ]
-    
-    def __init__(self, output_dir, **kwargs):
-        super().__init__(**kwargs)
-        self._output_dir = pb.local.path(output_dir)
-    
-    @property
-    def output_dir(self):
-        return self._output_dir
+
     
