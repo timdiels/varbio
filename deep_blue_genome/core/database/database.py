@@ -40,34 +40,34 @@ _ReturnTuple = namedtuple('_ReturnTuple', 'expression_matrices clusterings'.spli
 class Database(object):
     
     '''
-    RDBMS support
+    Create instance connected to a MySQL database
     
     Any `load_*` function, loads additional data on an entity. Allowing to load
     lazy relations and deferred columns in bulk.
     
-    Note: Use bulk methods for large amounts or performance will suffer.
+    Use bulk methods for large amounts or performance will suffer.
     
-    None of Database's methods commit or rollback `Database.session` or any session passed into a method.
+    None of `Database`\ 's methods commit or rollback any session. It's up to
+    the session creator to commit when done.
     
-    Note: A Session object should not be shared across threads.
+    Parameters
+    ----------
+    context : ConfigurationMixin
+    host : str
+        dns or ip of the DB host
+    user : str
+        username to log in with
+    password : str
+        password to log in with
+    name : str
+        name of database
+    
+    Notes
+    -----
+    Session objects should not be shared across threads, they're not thread safe.
     '''
     
-    def __init__(self, context, host, user, password, name): # TODO whether or not to add a session id other than "We are global, NULL, session"
-        '''
-        Create instance connected to MySQL
-        
-        Parameters
-        ----------
-        context : ConfigurationMixin
-        host : str
-            dns or ip of the DB host
-        user : str
-            username to log in with
-        password : str
-            password to log in with
-        name : str
-            name of database
-        ''' 
+    def __init__(self, context, host, user, password, name): # TODO whether or not to add a session id other than "We are global, NULL, session" 
         self._context = context
         
         self._engine = sa.create_engine('mysql+pymysql://{}:{}@{}/{}'.format(user, password, host, name), echo=False)
@@ -137,12 +137,12 @@ class Database(object):
         '''
         Create new session of database
         
-        Consider using `self.scoped_session` instead.
+        See also: `self.scoped_session` instead.
         '''
         return self._Session(bind=self._engine)
     
     @property
-    def session(self):
+    def session(self): # TODO See above
         '''
         Application global SQLAlchemy database session.
         '''
@@ -441,7 +441,7 @@ class Database(object):
         # Run query and return result
         return pd.DataFrame(iter(stmt), columns=['group_id', 'gene', gene_collection_name])
         
-    # XXX rewrite docstrings: pd.DataFrame(...) -> pandas.DataFrame({'key' : [val_type]})
+    # XXX rewrite docstrings: pd.DataFrame(...) -> pd.DataFrame({'key' : [val_type]})
     def get_gene_collections_by_genes(self, gene_groups, min_genes_present, expression_matrices=False, clusterings=False, session=None):
         '''
         Get expression matrices and/or clusterings containing (some of) given genes
@@ -474,7 +474,7 @@ class Database(object):
         if not session:
             session = self.session
             
-        # Insert baitss
+        # Insert gene_groups
         query_id = self.get_next_id(BaitsQueryItem)
         gene_groups = gene_groups.copy()
         gene_groups['query_id'] = query_id

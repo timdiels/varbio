@@ -16,7 +16,7 @@
 # along with Deep Blue Genome.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-Database entities (i.e. tables)
+Database entities (i.e. roughly equivalent to the tables of the database)
 '''
 
 from deep_blue_genome.core.database.dbms_info import mysql_innodb
@@ -31,7 +31,7 @@ from datetime import datetime
 
 # Note: there are some `x = None` statements in class definitions, this is to
 # help autocomplete IDE functions know these attributes exist. Their actual
-# value is filled in by e.g. sqlalchemy. Sqlalchemy does not require these statements.
+# value is filled in by sqlalchemy. Sqlalchemy does not require these statements.
 
 class DBEntity(object):
     @declared_attr
@@ -41,7 +41,7 @@ class DBEntity(object):
 DBEntity = declarative_base(cls=DBEntity)
 
 
-class LastId(DBEntity):
+class LastId(DBEntity): #TODO rm
     
     '''
     Contains last id used per table

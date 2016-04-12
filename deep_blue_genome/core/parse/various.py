@@ -24,13 +24,6 @@ from chicken_turtle_util.algorithms import merge_overlapping_named_sets
 from itertools import chain
 from io import TextIOWrapper
 
-# TODO validation should be part of reading. We at least want to save a log of
-# warnings. TODO input validation error handling + setting stuff as warning or
-# error. Different users care about different things, in different use cases. By
-# default there should be a strict config and a more lenient config. Sadly, the
-# lenient config should be picked as default. In either case, errors and warnings
-# will be logged. Though keep in mind that in the future one might even want to limit logging.
-
 '''
 File reading.
 
@@ -49,11 +42,7 @@ Some of the design principles used:
 - Don't trust the user, sanitise frantically
 '''
 
-# XXX test promises in robustness for the various file formats
-
 # XXX in the future this may be of interest https://pypi.python.org/pypi/python-string-utils/0.3.0  We could donate our own things to that library eventually...
-
-# XXX switch from pb.Path to pathlib from the std. pb will still be used for writing shell-like scripts, but its pb.Path will be avoided and will not be exposed in one of our API
     
 _sed = pb.local['sed']
 _tr = pb.local['tr']

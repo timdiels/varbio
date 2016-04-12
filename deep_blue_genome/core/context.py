@@ -22,38 +22,13 @@ To create a context class: e.g. class MyContext(Mixin1, Mixin2, ...): pass
 '''
 
 from deep_blue_genome.core.exception_handlers import UnknownGeneHandler
-from collections import namedtuple
-from chicken_turtle_util.context import *
 from deep_blue_genome.core.cache import Cache
 from deep_blue_genome.core.database import Database
 import plumbum as pb
-import tempfile
-    
-class ConfigurationMixin(Context):
-    
-    '''
-    Support for a main application configuration.
-    
-    Expects a dict-like format of an ini file.
-    '''
-    
-    # XXX not reusable across applications due to construction of own config object from app specific conf options, e.g. exception_handlers.unknown_gene
-    
-    def __init__(self, main_config, **kwargs):
-        super().__init__(**kwargs)
-        Configuration = namedtuple('Configuration', 'unknown_gene_handler'.split())
-        self._config = Configuration(
-            unknown_gene_handler=UnknownGeneHandler[main_config['exception_handlers']['unknown_gene']]
-        )
-        
-    @property
-    def configuration(self):
-        return self._config
-        
+import tempfile        
         
 DatabaseMixin = DatabaseMixin(Database)
 
-        
 class CacheMixin(DatabaseMixin):
     
     '''
@@ -78,7 +53,6 @@ class CacheMixin(DatabaseMixin):
     def cache(self):
         return self._cache
     
-    
 class TemporaryFilesMixin(Context):
     
     '''
@@ -96,7 +70,6 @@ class TemporaryFilesMixin(Context):
     def __init__(self, tmp_dir, **kwargs):
         super().__init__(**kwargs)
         tempfile.tempdir = str(pb.local.path(tmp_dir))
-    
     
 class OutputMixin(Context):
     

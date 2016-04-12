@@ -14,12 +14,12 @@
 # 
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Blue Genome.  If not, see <http://www.gnu.org/licenses/>.
-from sqlalchemy.sql.schema import MetaData
 
 '''
 Gene info reading
 '''
 
+from sqlalchemy.sql.schema import MetaData
 from plumbum.cmd import wget, gunzip
 from plumbum import local, FG
 from tempfile import TemporaryDirectory

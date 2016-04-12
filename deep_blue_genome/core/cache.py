@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Blue Genome.  If not, see <http://www.gnu.org/licenses/>.
 
+# TODO take a closer look, probably good as is
 
 from urllib.parse import urlparse
 from chicken_turtle_util.various import download_file

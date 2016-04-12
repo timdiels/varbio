@@ -19,7 +19,6 @@ import numpy as np
 import colorsys
 from numpy.linalg import norm
 
-
 def remove_duplicates(items):
     '''
     Removes duplicates in list, order is *not* preserved
@@ -29,7 +28,7 @@ def remove_duplicates(items):
     return list(set(items))
 
 
-     
+# TODO wont fix now, but later is good for CTU. Unused atm I think. up to get_distinct_colours
 # See https://en.wikipedia.org/wiki/YUV#HDTV_with_BT.601
 _yuv_to_rgb = np.matrix([
     [1, 0, 1.28033],
@@ -99,4 +98,20 @@ def get_distinct_colours_hsv(n):
     '''
     hsv_colours = [(x/n, 0.5, 0.5) for x in range(n)]
     return map(lambda x: colorsys.hsv_to_rgb(*x), hsv_colours)
+
+# TODO design, not sure whether part of API. Probably should be internal part of data prep
+def is_data_file(path):
+    '''
+    Is a regular data file or directory, e.g. a clustering.
+    
+    Parameters
+    ----------
+    path : plumbum.Path
+    
+    Returns
+    -------
+    bool
+    '''
+    return not path.name.startswith('.')
+    # XXX add filecmp.DEFAULT_IGNORES to things to ignore
     

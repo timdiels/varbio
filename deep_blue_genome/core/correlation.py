@@ -18,14 +18,12 @@
 '''
 Correlation functions such as Pearson R and functions to apply them
 '''
- 
+
 import numpy as np
 import pandas as pd
 
 # XXX don't assert for no NaNs here, do that in the alg. Do add func to remove variance and other cleaning which belongs in some core.prepare for data prep funcs
-# XXX docstrings
 
-# XXX would be nice to have an interface to wrap around e.g. pearson_r to say 'these indices is the subset, restore index afterwards'. Share this func modified with coexpnetviz.
 # XXX coexpnetviz should use this func. Fix coexpnetviz when done
 def get_correlations(matrix, subset, correlation_method):
     mask = matrix.index.isin(subset)

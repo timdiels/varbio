@@ -1,4 +1,4 @@
-# Runtime
+# List of required dependencies
 click
 numpy
 matplotlib
@@ -17,12 +17,6 @@ frozendict
 requests
 sqlalchemy
 pymysql
--e /home/limyreth/doc/eclipse_workspace/chicken_turtle_util
 
-# Testing
-pytest
-pytest-benchmark
-pytest-timeout
-pytest-xdist
-freezegun>0.3.5
-networkx
+-e /home/limyreth/doc/eclipse_workspace/chicken_turtle_util
+#chicken-turtle-util==1.1.0

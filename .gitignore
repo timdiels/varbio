@@ -1,3 +1,10 @@
+.coverage
+.settings
+docs/build
+docs/api
+build
+.tmontmp
+.testmondata
 *.orig
 __pycache__
 .pydevproject
@@ -10,3 +17,6 @@ last_test_runs
 .cproject
 dist
 .cache
+test/data
+cli.conf
+main.conf

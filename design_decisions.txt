@@ -1,3 +1,5 @@
+This doc is out of date (e.g. we use MySQL)
+
 # Frequently queried data
 
 Data can be stored locally in a file, locally in a database or remotely. We

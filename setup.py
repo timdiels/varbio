@@ -40,6 +40,16 @@ setup(
                        'Programming Language :: Python :: Implementation :: Stackless'],
     'description': 'Genome analysis platform',
     'entry_points': {'console_scripts': ['dbg = deep_blue_genome.main:main']},
+    'extras_require': {   'dev': ['sphinx', 'numpydoc', 'sphinx-rtd-theme'],
+                          'test': [   'pytest',
+                                      'pytest-env',
+                                      'pytest-xdist',
+                                      'pytest-cov',
+                                      'coverage-pth',
+                                      'pytest-benchmark',
+                                      'pytest-timeout',
+                                      'freezegun>0.3.5',
+                                      'networkx']},
     'install_requires': [   'click',
                             'numpy',
                             'matplotlib',
@@ -50,46 +60,70 @@ setup(
                             'bottleneck',
                             'plumbum',
                             'inflection',
-                            'more_itertools',
-                            'memory_profiler',
+                            'more-itertools',
+                            'memory-profiler',
                             'psutil',
                             'pyxdg',
                             'frozendict',
                             'requests',
                             'sqlalchemy',
                             'pymysql',
-                            'chicken_turtle_util',
-                            'pytest',
-                            'pytest-benchmark',
-                            'pytest-timeout',
-                            'pytest-xdist',
-                            'freezegun>0.3.5',
-                            'networkx'],
+                            'chicken-turtle-util'],
     'keywords': 'bioinformatics genome-analysis',
     'license': 'LGPL3',
-    'long_description': 'Required Python 3 libraries:\n'
+    'long_description': 'Deep Blue Genome Core (DBG Core) is ... TODO\n'
                         '\n'
-                        'Additional Python 3 libraries required for development:\n'
+                        'Features\n'
+                        '========\n'
                         '\n'
-                        '-  twine\n'
-                        '-  pypandoc\n',
-    'name': 'deep-blue-genome',
-    'package_data': {   'deep_blue_genome': [   'deep_blue_genome/data/coexpnetviz/coexpnetviz_style.xml',
-                                                'deep_blue_genome/data/coexpnetviz/README.txt']},
+                        'TODO feature overview\n'
+                        '\n'
+                        'Links\n'
+                        '=====\n'
+                        '\n'
+                        '-  `Documentation <http://pythonhosted.org/dbg_core/>`__\n'
+                        '-  `PyPI <https://pypi.python.org/pypi/dbg_core/>`__\n'
+                        '-  `GitLab <https://github.com/timdiels/dbg_core/>`__ TODO\n'
+                        '\n'
+                        'Project decisions\n'
+                        '=================\n'
+                        '\n'
+                        'TODO this belongs in a separate doc, link to it from links e.g. or\n'
+                        'rather in Developer doc\n'
+                        '\n'
+                        'We use the same decisions and docstring convention as used in `Chicken\n'
+                        'Turtle Util <https://github.com/timdiels/chicken_turtle_util/>`__.\n'
+                        '\n'
+                        'DBG database is a MySQL database. Though we use sqlalchemy, supporting\n'
+                        'other databases would require to check for MySQL specific SQL, any\n'
+                        'reliance on MySQL default configuration and DB limits.\n'
+                        '\n'
+                        'parse package understands various file formats, but does not use the\n'
+                        'database. This offers users some basics without requiring them to set up\n'
+                        'a database. For more advanced use, the parsed data is loaded in the\n'
+                        'database, then returned from the database in its structured form with\n'
+                        'all bells and whistles. The idea here is that advanced features require\n'
+                        'a database to work memory efficiently. For single-use data you would\n'
+                        "indeed have to add, use, then remove (as it's no longer needed) the data\n"
+                        'from the database.\n'
+                        '\n'
+                        "'Large' (>1M) blobs of data that are always fetched as a whole (e.g.\n"
+                        'gene expression data) are stored in regular binary files on the file\n'
+                        'system where the OS can cache them. This is more efficient (See\n'
+                        'http://research.microsoft.com/apps/pubs/default.aspx?id=64525), but\n'
+                        'comes at the cost of some added complexity when loading the data (you\n'
+                        'first have to get the path to the file from the database, then load the\n'
+                        'file).\n',
+    'name': 'deep-blue-genome-core',
+    'package_data': {'deep_blue_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml']},
+    'package_name': 'deep_blue_genome.core',
     'packages': [   'deep_blue_genome',
-                    'deep_blue_genome.scripts',
-                    'deep_blue_genome.coexpnetviz',
-                    'deep_blue_genome.data_preparation',
-                    'deep_blue_genome.test',
                     'deep_blue_genome.util',
-                    'deep_blue_genome.morph',
+                    'deep_blue_genome.data_preparation',
                     'deep_blue_genome.core',
-                    'deep_blue_genome.test.performance',
-                    'deep_blue_genome.test.unittests',
-                    'deep_blue_genome.test.unittests.util',
-                    'deep_blue_genome.test.unittests.core',
-                    'deep_blue_genome.core.database',
-                    'deep_blue_genome.core.reader'],
+                    'deep_blue_genome.core.tests',
+                    'deep_blue_genome.core.parse',
+                    'deep_blue_genome.core.database'],
     'url': 'https://bitbucket.org/deep_blue_genome/deep_blue_genome',
     'version': '0.0.0'}
 )

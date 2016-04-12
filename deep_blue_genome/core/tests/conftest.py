@@ -15,22 +15,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Blue Genome.  If not, see <http://www.gnu.org/licenses/>.
 
-from collections import namedtuple
+import pytest
 
-Network = namedtuple('Network', 'name baits gene_families correlations'.split())
-'''
-Network (aka a graph) result of CoExpNetViz
+# http://stackoverflow.com/a/30091579/1031434
+from signal import signal, SIGPIPE, SIG_DFL
+signal(SIGPIPE, SIG_DFL) # Ignore SIGPIPE
 
-Attributes
-----------
-name : str
-baits : pd.Series(bait : str, index=(unique numerical)
-    The baits provided, aka bait nodes.
-correlations : pd.DataFrame(columns=[family : str, family_gene : str, bait : str, correlation : float-like])
-    Sufficient correlations between family and bait nodes. `family_gene` denotes
-    the gene in the family that correlates with the bait. `family` is NaN for
-    genes which did not appear in `gene_families`.
-gene_families
-    Gene families of bait and family nodes. See `coexpnetviz` for its type
-'''
-        
+def pytest_runtest_setup(item):
+    marker = item.get_marker('skip_unless_current')
+    if marker and not item.get_marker('current'):
+        pytest.skip(marker.args[0])

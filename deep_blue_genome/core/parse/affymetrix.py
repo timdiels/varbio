@@ -1,6 +1,8 @@
 import pandas
 import os.path
 
+# TODO we'll need this, move it to `parse`
+
 '''
 All things related to Affymetrix expression matrix files
 '''
@@ -83,41 +85,41 @@ def to_expression_matrix(affy, probe_to_gene):
 
     return affy
 
-#def gup():
-#    experiment_name="$1"
-#
-#    # For the unmerged ones
-#    "$basedir/merge_data_files.py" "$@"
-#    mv merged_data $experiment_name
-#
-#    #
-#    file="$experiment_name"
-#    stats_file="${file}.stats"
-#    expr_file="${file}.expression_matrix"
-#
-#    write_stats():
-#        wc -l "$file" >> "$stats_file"
-#        # TODO switches to expr_file along the way
-#
-#    touch(stats_file)
-#
-#    affy = affymetrix.read(TODO) or read_parts(TODO, ...)
-#    probe_to_gene = probe_gene_map.read(TODO, TODO)
-#        conf.src_dir / 'rice/expression_matrices/affymetrix/probe_to_gene/probe_names gene_names'
-#    affymetrix.to_expression_matrix(affy, probe_to_gene)
-#
-#
-#    echo Quantile normalization
-#    "$basedir/quantile_normalise.py" "$expr_file"
-#
-#    echo 'Filter rows with all(values < 10) or sd<0.1'
-#    "$basedir/filter.py" '0.1' "$expr_file"
-#    wc -l "$expr_file" >> "$stats_file"
-#
-#    #echo 'Filter rows with sd < 25'
-#    #"$basedir/filter.py" 25 "$expr_file"
-#    #wc -l "$expr_file" >> "$stats_file"
-#    echo "NaN NA" >> "$stats_file"
-#
-#    #TODO output should go to `target`, no other file should be written
-#
+def gup():
+    experiment_name="$1"
+
+    # For the unmerged ones
+    "$basedir/merge_data_files.py" "$@"
+    mv merged_data $experiment_name
+
+    #
+    file="$experiment_name"
+    stats_file="${file}.stats"
+    expr_file="${file}.expression_matrix"
+
+    write_stats():
+        wc -l "$file" >> "$stats_file"
+        # TODO switches to expr_file along the way
+
+    touch(stats_file)
+
+    affy = affymetrix.read(TODO) or read_parts(TODO, ...)
+    probe_to_gene = probe_gene_map.read(TODO, TODO)
+        conf.src_dir / 'rice/expression_matrices/affymetrix/probe_to_gene/probe_names gene_names'
+    affymetrix.to_expression_matrix(affy, probe_to_gene)
+
+
+    echo Quantile normalization
+    "$basedir/quantile_normalise.py" "$expr_file"
+
+    echo 'Filter rows with all(values < 10) or sd<0.1'
+    "$basedir/filter.py" '0.1' "$expr_file"
+    wc -l "$expr_file" >> "$stats_file"
+
+    #echo 'Filter rows with sd < 25'
+    #"$basedir/filter.py" 25 "$expr_file"
+    #wc -l "$expr_file" >> "$stats_file"
+    echo "NaN NA" >> "$stats_file"
+
+    #TODO output should go to `target`, no other file should be written
+

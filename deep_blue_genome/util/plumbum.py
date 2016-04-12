@@ -31,9 +31,9 @@ def list_files(paths, filter_=None):
     
     Parameters
     ----------
-    paths : iterable of plumbum.Path
+    paths : iterable(plumbum.Path)
         Paths to files and directories. If a directory, it is searched recursively for more files.
-    filter_ : predicate(plumbum.Path) -> bool
+    filter_ : plumbum.Path -> bool
         Only search in and return paths for which filter_ returns True. E.g.
         when your predicate returns False for hidden files, we will not search
         in '.hg', nor return '.hg/nothiddenfile'.

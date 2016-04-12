@@ -1,0 +1,9 @@
+pytest
+pytest-env
+pytest-xdist
+pytest-cov
+coverage-pth
+pytest-benchmark
+pytest-timeout
+freezegun>0.3.5
+networkx
