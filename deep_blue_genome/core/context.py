@@ -53,24 +53,6 @@ class CacheMixin(DatabaseMixin):
     def cache(self):
         return self._cache
     
-class TemporaryFilesMixin(Context):
-    
-    '''
-    Temporary file support
-    '''
-    
-    _cli_options = [
-        cli.option(
-            '--tmp-dir',
-            type=click.Path(file_okay=False, writable=True, exists=True, resolve_path=True),
-            help='Directory to place temporary files in. Temporary files created by DBG are removed at the end of a run.'
-        )
-    ]
-    
-    def __init__(self, tmp_dir, **kwargs):
-        super().__init__(**kwargs)
-        tempfile.tempdir = str(pb.local.path(tmp_dir))
-    
 class OutputMixin(Context):
     
     '''
