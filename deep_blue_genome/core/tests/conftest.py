@@ -16,12 +16,23 @@
 # along with Deep Blue Genome.  If not, see <http://www.gnu.org/licenses/>.
 
 import pytest
+from configparser import ConfigParser
 
 # http://stackoverflow.com/a/30091579/1031434
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE, SIG_DFL) # Ignore SIGPIPE
 
-def pytest_runtest_setup(item):
+def pytest_runtest_setup(item): #TODO unused? Might be useful someday though
     marker = item.get_marker('skip_unless_current')
     if marker and not item.get_marker('current'):
         pytest.skip(marker.args[0])
+
+@pytest.fixture(scope='session')
+def cli_test_args(pytestconfig):
+    '''
+    Arguments to prepend to any DBG CLI invocation
+    '''
+    config = ConfigParser()
+    config.read([str(pytestconfig.rootdir / 'test.conf')])  # machine specific testing conf goes here
+    config = config['main']
+    return config['cli_args'].split()  # Note: offers no support for args with spaces

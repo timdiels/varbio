@@ -1,4 +1,4 @@
-# Copyright (C) 2015 VIB/BEG/UGent - Tim Diels <timdiels.m@gmail.com>
+# Copyright (C) 2015, 2016 VIB/BEG/UGent - Tim Diels <timdiels.m@gmail.com>
 # 
 # This file is part of Deep Blue Genome.
 # 
@@ -15,8 +15,21 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Blue Genome.  If not, see <http://www.gnu.org/licenses/>.
 
-'''
-Configuration options for handling some exceptions
-'''
+from enum import Enum
 
- 
+class Configuration(object):
+    
+    '''
+    Deep Blue Genome Core configuration
+    
+    Parameters
+    ----------
+    configuration : {section :: str => { option :: str => value :: str}}
+        Raw configuration
+    '''
+    
+    def __init__(self, config):
+        self.unknown_gene_handler = UnknownGeneHandler[config['exception_handlers']['unknown_gene']]
+
+# see example config file for an explanation of these
+UnknownGeneHandler = Enum('UnknownGeneHandler', 'add ignore fail')

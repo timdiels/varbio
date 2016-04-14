@@ -21,13 +21,48 @@ Mixins to build a Context class (or 'Application' class if you prefer)
 To create a context class: e.g. class MyContext(Mixin1, Mixin2, ...): pass
 '''
 
-from deep_blue_genome.core.exception_handlers import UnknownGeneHandler
+from chicken_turtle_util import cli
+from chicken_turtle_util.configuration import ConfigurationLoader
+from deep_blue_genome.core.configuration import Configuration
 from deep_blue_genome.core.cache import Cache
 from deep_blue_genome.core.database import Database
+from textwrap import dedent
 import plumbum as pb
-import tempfile        
+import click
+
+DatabaseMixin = cli.DatabaseMixin(Database)
+
+# ConfigurationMixin
+_loader = ConfigurationLoader('deep_blue_genome.core', 'deep_blue_genome', 'core')    
+
+ConfigurationMixin = cli.ConfigurationMixin(
+    lambda context, path: Configuration(_loader.load(path)), 
+    _loader.cli_help_message('Using core.conf, you can configure more advanced options such as how exceptional cases should be handled.')
+)
+
+ConfigurationMixin.__doc__ = dedent('''\
+    Like `chicken_turtle_util.cli.ConfigurationMixin`, but `context.configuration` is of type `deep_blue_genome.core.Configuration`
+    
+    Configuration is loaded from `core.conf` files using ConfigurationLoader.
+    ''')    
+
+#
+def AlgorithmMixin(version):
+    '''
+    Application context mixin, bundles mixins for a Deep Blue Genome based algorithm
         
-DatabaseMixin = DatabaseMixin(Database)
+    Parameters
+    ----------
+    version
+        See chicken_turtle_util.cli.BasicsMixin
+        
+    See also
+    --------
+    chicken_turtle_util.cli.Context: CLI application context
+    '''
+    class _AlgorithmMixin(ConfigurationMixin, DatabaseMixin, cli.BasicsMixin(version), cli.Context):
+        pass
+    return _AlgorithmMixin
 
 class CacheMixin(DatabaseMixin):
     

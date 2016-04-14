@@ -18,7 +18,7 @@
 # TODO take a closer look, probably good as is
 
 from urllib.parse import urlparse
-from chicken_turtle_util.various import download_file
+from chicken_turtle_util.http import download
 from deep_blue_genome.core.database.entities import CachedFile
 from datetime import datetime
 import plumbum as pb
@@ -119,7 +119,7 @@ class Cache(object):
         # Download and update record on success
         try:
             next_dir.mkdir()
-            record.path = str(download_file(url, next_dir))
+            record.path = str(download(url, next_dir))
             record.cached_at = datetime.now()
             record.expires_at = datetime.now() + expires_after
             self._session.commit()

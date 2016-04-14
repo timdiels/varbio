@@ -19,8 +19,8 @@
 import pandas as pd
 import plumbum as pb
 import csv
-from chicken_turtle_util.pandas import df_expand_iterable_values
-from chicken_turtle_util.algorithms import merge_overlapping_named_sets
+from chicken_turtle_util.data_frame import split_array_like
+from chicken_turtle_util import set as set_
 from itertools import chain
 from io import TextIOWrapper
 
@@ -154,11 +154,11 @@ def read_clustering_file(path, name_index=0, merge_overlapping=False, sanitise=T
     # Merge overlapping, maybe
     if merge_overlapping:
         groups = df.groupby('cluster_id')['item'].apply(lambda x: set(chain(*x)))
-        groups = merge_overlapping_named_sets(({name}, set_) for name, set_ in groups.items())
+        groups = merge_overlapping_named_sets(({name}, set_) for name, set_ in groups.items()) #TODO set_.merge_by_overlap + #TODO in DBG make a NamedSet(set) hidden in some module that has names property and merges its names with other `NamedSet`s when merging the set. Preferably find a way to call it metadata instead of names MetaSet or something
         df = pd.DataFrame(groups, columns=['cluster_id', 'item'])
     
     # Split lists
-    df = df_expand_iterable_values(df, ['item'])
+    df = split_array_like(df, ['item'])
     
     # Finish up
     df.drop_duplicates(inplace=True)
@@ -207,7 +207,7 @@ def read_gene_families_file(path, sanitise=True):
     with f:
         reader = csv.reader(f, delimiter="\t")
         df = pd.DataFrame(([row[0], row[1:]] for row in reader), columns='family gene'.split())
-    df = df_expand_iterable_values(df, ['gene'])
+    df = split_array_like(df, ['gene'])
     df['family'] = df['family'].str.lower()
     return df
 
@@ -264,7 +264,7 @@ def read_genes_file(path, sanitise=True):
 #     df = pd.read_csv(path, names=['item']).applymap(lambda x: x.lower().split())
 #     df.index.name = 'cluster_id'
 #     df.reset_index(inplace=True)
-#     df = df_expand_iterable_values(df, 'item')
+#     df = split_array_like(df, 'item')
 #     return df
 
 def read_gene_mapping_file(path, sanitise=True): 

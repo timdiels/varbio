@@ -22,16 +22,15 @@ from deep_blue_genome.core.database.entities import LastId, DBEntity, Gene, Gene
     GeneNameQueryItem, ExpressionMatrix, BaitsQueryItem,\
     Clustering, GeneExpressionMatrixTable, GeneMappingTable, GeneClusteringTable
 from deep_blue_genome.core.exceptions import TaskFailedException
-from deep_blue_genome.core.exception_handlers import UnknownGeneHandler
+from deep_blue_genome.core.configuration import UnknownGeneHandler
 from contextlib import contextmanager
 import logging
 import pandas as pd
 import numpy as np
-from chicken_turtle_util.pandas import df_count_null
 import re
 from collections import namedtuple
-from chicken_turtle_util.debug import print_sql_stmt
-from deep_blue_genome.core.reader.various import read_expression_matrix_file
+from chicken_turtle_util.sqlalchemy import pretty_sql
+from deep_blue_genome.core.parse.various import read_expression_matrix_file
 
 _logger = logging.getLogger('deep_blue_genome.core.Database')
 
@@ -374,7 +373,7 @@ class Database(object):
             genes = self._get_genes_by_name(query_id, names, session, map_=map_)
             
             # Handle unknown genes
-            count_missing = df_count_null(genes)
+            count_missing = genes.isnull().values.sum()
             if count_missing:
                 _logger.info('Input has up to {} genes not known to the database'.format(count_missing))    
                 if unknown_gene_handler == UnknownGeneHandler.ignore:
@@ -516,7 +515,7 @@ class Database(object):
 #                 .query(Gene)
 #                 # TODO load names and canonical_name http://docs.sqlalchemy.org/en/latest/orm/loading_relationships.html
 #             )
-#             print_sql_stmt(stmt)
+#             pretty_sql(stmt)
 #             stmt.all()
 #         # TODO test this:
 #         # When a Gene is loaded in the same session, it will be the same object. So loading additional stuff, should load it on the relevant objects. So no need for any assignments or returns.

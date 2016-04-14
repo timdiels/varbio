@@ -64,4 +64,8 @@ project = dict(
             'dbg = deep_blue_genome.main:main',
         ],
     },
+
+    pre_commit_no_ignore = [
+        'test.conf',
+    ],
 )

@@ -115,7 +115,8 @@ setup(
                         'first have to get the path to the file from the database, then load the\n'
                         'file).\n',
     'name': 'deep-blue-genome-core',
-    'package_data': {'deep_blue_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml']},
+    'package_data': {   'deep_blue_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml'],
+                        'deep_blue_genome.core': ['data/core.defaults.conf']},
     'package_name': 'deep_blue_genome.core',
     'packages': [   'deep_blue_genome',
                     'deep_blue_genome.util',
@@ -124,6 +125,7 @@ setup(
                     'deep_blue_genome.core.tests',
                     'deep_blue_genome.core.parse',
                     'deep_blue_genome.core.database'],
+    'pre_commit_no_ignore': ['test.conf'],
     'url': 'https://bitbucket.org/deep_blue_genome/deep_blue_genome',
     'version': '0.0.0'}
 )
