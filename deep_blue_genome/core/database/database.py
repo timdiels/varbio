@@ -30,7 +30,7 @@ import numpy as np
 import re
 from collections import namedtuple
 from chicken_turtle_util.sqlalchemy import pretty_sql
-from deep_blue_genome.core.parse.various import read_expression_matrix_file
+from deep_blue_genome.core.parsers import Parser
 
 _logger = logging.getLogger('deep_blue_genome.core.Database')
 
@@ -64,6 +64,10 @@ class Database(object):
     Notes
     -----
     Session objects should not be shared across threads, they're not thread safe.
+    
+    The database serves 2 main purposes: persistence and not having to store
+    everything in memory. As such, anything non-trivial in Deep Blue Genome
+    requires the database.
     '''
     
     def __init__(self, context, host, user, password, name): # TODO whether or not to add a session id other than "We are global, NULL, session" 
@@ -536,7 +540,7 @@ class Database(object):
         if not session:
             session = self._session
             
-        expression_matrix_ = read_expression_matrix_file(expression_matrix.path)
+        expression_matrix_ = Parser(self._context).parse_expression_matrix_file(expression_matrix.path)
             
         # Swap gene names for actual genes
         matrix_genes = self.get_genes_by_name(expression_matrix_.index.to_series(), map_=True)

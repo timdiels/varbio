@@ -48,5 +48,5 @@ def _init():
     logging.getLogger('deep_blue_genome').setLevel(logging.DEBUG)
     logging.getLogger('deep_blue_genome.core.Database').setLevel(logging.INFO)
     
-__root__ = None  # make linter happy
+__root__ = None  # make linter happy  #TODO unused? You know, __root__ might not even point to an actual file, could be inside an egg
 _init()

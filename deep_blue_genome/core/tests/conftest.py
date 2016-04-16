@@ -17,6 +17,7 @@
 
 import pytest
 from configparser import ConfigParser
+from chicken_turtle_util.test import temp_dir_cwd
 
 # http://stackoverflow.com/a/30091579/1031434
 from signal import signal, SIGPIPE, SIG_DFL

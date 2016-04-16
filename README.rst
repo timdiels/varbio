@@ -1,8 +1,19 @@
-Deep Blue Genome Core (DBG Core) is ... TODO
+Deep Blue Genome Core (DBG Core) is a bioinformatics library for writing
+bioinformatics algorithms.
 
 Features
 ========
 TODO feature overview
+
+parsers (deep_blue_genome.core.parse):
+- affymetrix expression matrices
+- other expression matrices
+- NCBI bulk data files: gene_info
+
+cleaning (deep_blue_genome.core.clean):
+- plain_text: fix malformed line-endings in plain text files, presence of nul-characters,
+  ...
+- remove low variance rows from expression matrix
 
 Links
 =====

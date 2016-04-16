@@ -71,12 +71,20 @@ setup(
                             'chicken-turtle-util'],
     'keywords': 'bioinformatics genome-analysis',
     'license': 'LGPL3',
-    'long_description': 'Deep Blue Genome Core (DBG Core) is ... TODO\n'
+    'long_description': 'Deep Blue Genome Core (DBG Core) is a bioinformatics library for writing\n'
+                        'bioinformatics algorithms.\n'
                         '\n'
                         'Features\n'
                         '========\n'
                         '\n'
                         'TODO feature overview\n'
+                        '\n'
+                        'parsers (deep\\_blue\\_genome.core.parse): - affymetrix expression\n'
+                        'matrices - other expression matrices - NCBI bulk data files: gene\\_info\n'
+                        '\n'
+                        'cleaning (deep\\_blue\\_genome.core.clean): - plain\\_text: fix malformed\n'
+                        'line-endings in plain text files, presence of nul-characters, ... -\n'
+                        'remove low variance rows from expression matrix\n'
                         '\n'
                         'Links\n'
                         '=====\n'
@@ -123,7 +131,6 @@ setup(
                     'deep_blue_genome.data_preparation',
                     'deep_blue_genome.core',
                     'deep_blue_genome.core.tests',
-                    'deep_blue_genome.core.parse',
                     'deep_blue_genome.core.database'],
     'pre_commit_no_ignore': ['test.conf'],
     'url': 'https://bitbucket.org/deep_blue_genome/deep_blue_genome',

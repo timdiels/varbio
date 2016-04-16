@@ -1,4 +1,4 @@
-# Copyright (C) 2015 VIB/BEG/UGent - Tim Diels <timdiels.m@gmail.com>
+# Copyright (C) 2016 VIB/BEG/UGent - Tim Diels <timdiels.m@gmail.com>
 # 
 # This file is part of Deep Blue Genome.
 # 
@@ -15,20 +15,33 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Blue Genome.  If not, see <http://www.gnu.org/licenses/>.
 
-from deep_blue_genome import __root__
+'''
+Cleaning of (file) input
+'''
 
-def get_data_file(path):
+import plumbum as pb
+import io
+
+_sed = pb.local['sed']
+_tr = pb.local['tr']
+    
+def plain_text(reader):
     '''
-    Get data path to file
+    Get sanitised contents of plain text file.
+    
+    - Remove null characters
+    - Fix newlines, drop empty lines
+    - Replace multiple tabs by single tab.
     
     Parameters
     ----------
-    path : str
-        path to data file relative to data dir
-    
+    reader : io.BufferedReader of file
+        Plain text file stream
+        
     Returns
     -------
-    plumbum.Path
-        Path to data file
+    io.BufferedReader
+        Stream of sanitised text
     '''
-    return __root__ / 'data' / path
+    cmd = (_sed['-r', '-e', r's/[\x0]//g', '-e', r's/(\t)+/\t/g'] < reader) | _tr['-s', r'\r', r'\n'] 
+    return io.TextIOWrapper(cmd.popen().stdout, encoding='UTF-8')
