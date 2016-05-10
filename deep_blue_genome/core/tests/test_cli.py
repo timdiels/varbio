@@ -20,8 +20,9 @@ Test deep_blue_genome.core.cli
 '''
 
 from deep_blue_genome.core.cli import AlgorithmMixin
-from deep_blue_genome.core import Database, Configuration
-from deep_blue_genome.core.configuration import UnknownGeneHandler
+from deep_blue_genome.core.database import Database
+from deep_blue_genome.core.configuration import Configuration
+from deep_blue_genome.core.configuration import UnknownGeneHandling
 from click.testing import CliRunner
     
 def test_algorithm_mixin(cli_test_args):
@@ -31,7 +32,7 @@ def test_algorithm_mixin(cli_test_args):
         assert isinstance(context, Context)
         assert isinstance(context.database, Database)
         assert isinstance(context.configuration, Configuration)
-        assert isinstance(context.configuration.unknown_gene_handler, UnknownGeneHandler)  # sample a config attribute to see it's really loaded
+        assert isinstance(context.configuration.unknown_gene_handling, UnknownGeneHandling)  # sample a config attribute to see it's really loaded
 
     # test it runs fine
     result = CliRunner().invoke(main, cli_test_args)

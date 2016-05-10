@@ -26,9 +26,11 @@ from chicken_turtle_util.configuration import ConfigurationLoader
 from deep_blue_genome.core.configuration import Configuration
 from deep_blue_genome.core.cache import Cache
 from deep_blue_genome.core.database import Database
+from pathlib import Path
 from textwrap import dedent
 import plumbum as pb
 import click
+import xdg
 
 DatabaseMixin = cli.DatabaseMixin(Database)
 
@@ -60,7 +62,7 @@ def AlgorithmMixin(version):
     --------
     chicken_turtle_util.cli.Context: CLI application context
     '''
-    class _AlgorithmMixin(ConfigurationMixin, DatabaseMixin, cli.BasicsMixin(version), cli.Context):
+    class _AlgorithmMixin(ConfigurationMixin, DatabaseMixin, cli.DataDirectoryMixin('deep_blue_genome'), cli.BasicsMixin(version), cli.Context):
         pass
     return _AlgorithmMixin
 
@@ -72,11 +74,11 @@ class CacheMixin(DatabaseMixin):
     Also throws DatabaseMixin in the mix.
     '''
     
-    _cli_options = [
+    _cli_options = [ #TODO is old styled, silently fails
         cli.option(
             '--cache-dir',
             type=click.Path(file_okay=False, writable=True, exists=True, resolve_path=True),
-            help='Directory to place cached data. Cached data is not essential, but may speed up subsequent runs.'
+            help='Directory to place cached data. Cached data is not essential, but may speed up subsequent runs considerably.'
         )
     ]
     
@@ -86,6 +88,5 @@ class CacheMixin(DatabaseMixin):
     
     @property
     def cache(self):
-        return self._cache
-
-    
+        return self._cache 
+        

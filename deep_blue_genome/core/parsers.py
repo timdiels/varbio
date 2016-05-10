@@ -57,7 +57,7 @@ class Parser(object):
         
         Returns
         -------
-        pandas.DataFrame({condition_name => [gene_expression :: float]}, index=('gene' => [str]))
+        pd.DataFrame({condition_name => [gene_expression :: float]}, index=pd.Index([str], name='gene'))
         
         Examples
         --------
@@ -79,7 +79,7 @@ class Parser(object):
     
     #TODO strictness should have us fail on duplicate genes
     # Note for old calls: set_.merge_by_overlap + #TODO in DBG make a NamedSet(set) hidden in some module that has names property and merges its names with other `NamedSet`s when merging the set. Preferably find a way to call it metadata instead of names MetaSet or something)
-    def parse_clustering(self, reader, name_index=0, merge_overlapping=False): #TODO had sanitise=True, now manual
+    def parse_clustering(self, reader, name_index=0): #TODO had sanitise=True, now manual
         '''
         Parse plain text formatted clustering
         

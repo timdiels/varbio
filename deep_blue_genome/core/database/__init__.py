@@ -1,2 +1,1 @@
-from .database import *
-from .entities import *
+from .database import Database

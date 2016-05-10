@@ -26,20 +26,6 @@ import pytest
 from textwrap import dedent
 import pandas as pd
 import io
-    
-@pytest.fixture
-def context(cli_test_args):
-    _context = []
-    
-    Context = AlgorithmMixin('1.0.0')
-    @Context.command()
-    def main(context):
-        _context.append(context)
-    
-    result = CliRunner().invoke(main, cli_test_args)
-    assert not result.exception, result.output  # sanity check
-    
-    return _context[0]
 
 @pytest.fixture
 def parser(context):

@@ -15,9 +15,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Blue Genome.  If not, see <http://www.gnu.org/licenses/>.
 
-import pytest
 from configparser import ConfigParser
 from chicken_turtle_util.test import temp_dir_cwd
+from deep_blue_genome.core.cli import AlgorithmMixin
+from click.testing import CliRunner
+from pathlib import Path
+import pytest
 
 # http://stackoverflow.com/a/30091579/1031434
 from signal import signal, SIGPIPE, SIG_DFL
@@ -37,3 +40,20 @@ def cli_test_args(pytestconfig):
     config.read([str(pytestconfig.rootdir / 'test.conf')])  # machine specific testing conf goes here
     config = config['main']
     return config['cli_args'].split()  # Note: offers no support for args with spaces
+
+@pytest.fixture
+def context(cli_test_args, temp_dir_cwd, mocker):
+    #TODO ignore system config files, i.e. provide your own fixed test configuration, e.g. patch it on top of the context
+    mocker.patch('xdg.BaseDirectory.xdg_data_home', str(Path('xdg_data_home').absolute()))
+    
+    _context = []
+    
+    Context = AlgorithmMixin('1.0.0')
+    @Context.command()
+    def main(context):
+        _context.append(context)
+    
+    result = CliRunner().invoke(main, cli_test_args)
+    assert not result.exception, result.output  # sanity check
+    
+    return _context[0]

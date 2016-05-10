@@ -52,57 +52,7 @@ class Context(ctx.CacheMixin, ctx.DatabaseMixin, ctx.TemporaryFilesMixin, ctx.Ou
 # /www/group/biocomp/extra/morph/rice/annotations
 # /www/group/biocomp/extra/morph/catharanthus_roseus/functional_annotations'''
 
-def add_expression_matrix(context, path):
-    db = context.database
-    with db.scoped_session() as session:
-        _logger.info('Adding expression matrix: {}'.format(path))
-        # Read file
-        exp_mat = read_expression_matrix_file(path)  # XXX could speed up by only loading index (=gene names)
-        
-        # Get genes from database
-        genes = pd.DataFrame(exp_mat.index)
-        genes = db.get_genes_by_name(genes, session)
-        
-        # Validate
-        if series_has_duplicates(genes):
-            raise TaskFailedException('Expression matrix has multiple gene expression rows for some gene')
-        
-        # Insert in database
-        genes = genes['gene'].tolist()
-        exp_mat = ExpressionMatrix(id=db.get_next_id(ExpressionMatrix), path=path, genes=genes)
-        session.add(exp_mat)
-        
-        # TODO write back without the rows with missing genes, that's what 'ignore' is about
-           
-# TODO think about thorough validation for each input here and in file reading and don't forget to make quick todo notes on new input in the future
-# TODO the funcs here will be reusable and should be thrown in somewhere else, something in core. We used to call it DataImporter, we won't now
-def add_clustering(context, path):
-    db = context.database
-    with db.scoped_session() as session:
-        _logger.info('Adding clustering: {}'.format(path))
-        clustering = read_clustering_file(path, name_index=1)  # XXX could speed up by only loading index (=gene names)
-        genes = db.get_genes_by_name(clustering[['item']], session)
-        clustering = Clustering(id=db.get_next_id(Clustering), path=path, genes=genes['item'].tolist())
-        # TODO write back without the rows with missing genes, that's what 'ignore' is about
-        # if truly data prep, you'd write back the clustering without the missing genes. You'd probably write it back with the gene ids instead actually, maybe. In that case we probably might as well put it in the database...
-        session.add(clustering)
-        
-def add_gene_mapping(context, path):
-    db = context.database
-    with db.scoped_session() as session:
-        # Read file
-        _logger.info('Adding gene mapping from: {}'.format(path))
-        mapping = read_gene_mapping_file(path)
-        
-        # Get genes from database
-        mapping = db.get_genes_by_name(mapping, session)
-        assert not df_has_null(mapping)  # TODO if unknowngenehandler = ignore, override it in call with fail; instead of asserting
-        
-        # Insert mappings
-        mapping = mapping.applymap(lambda x: x.id)
-        mapping.columns = ['left_id', 'right_id']
-        mapping.drop_duplicates(inplace=True)
-        session.execute(GeneMappingTable.insert(), mapping.to_dict('records'))
+
     
 @click.command()
 @ctx.cli_options(Context) #TODO we still have version on this? Add to cli_options if not

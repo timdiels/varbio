@@ -19,7 +19,6 @@
 Database entities (i.e. roughly equivalent to the tables of the database)
 '''
 
-from deep_blue_genome.core.database.dbms_info import mysql_innodb
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from inflection import underscore
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table
@@ -33,6 +32,9 @@ from datetime import datetime
 # help autocomplete IDE functions know these attributes exist. Their actual
 # value is filled in by sqlalchemy. Sqlalchemy does not require these statements.
 
+# max length (inclusive) of a key used in any index, expressed in chars
+_max_index_key_length_char = 255
+
 class DBEntity(object):
     @declared_attr
     def __tablename__(cls):
@@ -40,20 +42,10 @@ class DBEntity(object):
 
 DBEntity = declarative_base(cls=DBEntity)
 
-
-class LastId(DBEntity): #TODO rm
-    
-    '''
-    Contains last id used per table
-    '''
-    
-    table_name = Column(String(250), primary_key=True, autoincrement=False)
-    last_id =  Column(Integer)
-
 class CachedFile(DBEntity):
     
-    id =  Column(Integer, primary_key=True, autoincrement=False)
-    source_url = Column(String(min(URL_MAX_LENGTH, mysql_innodb.max_index_key_length_char)), unique=True, nullable=False)
+    id =  Column(Integer, primary_key=True)
+    source_url = Column(String(min(URL_MAX_LENGTH, _max_index_key_length_char)), unique=True, nullable=False)
     path = Column(String(PATH_MAX_LENGTH), nullable=False)  # absolute path to file in cache
     cached_at = Column(DateTime, nullable=False)
     expires_at = Column(DateTime, nullable=False)
@@ -83,25 +75,49 @@ class GeneName(DBEntity):
     def __repr__(self):
         return '<GeneName(id={!r}, name={!r})>'.format(self.id, self.name)
 
-
+class DataFile(DBEntity):
+    
+    '''
+    A data file in ``context.configuration.data_directory / data_files``
+    '''
+    
+    id =  Column(Integer, primary_key=True)
+    
+class GeneNameQuery(DBEntity):
+    id =  Column(Integer, primary_key=True)
+    
 class GeneNameQueryItem(DBEntity):
     
     '''Temporary data for get_genes_by_name query'''
     
-    query_id =  Column(Integer, primary_key=True, autoincrement=True)
-    row =  Column(Integer, primary_key=True)
-    column =  Column(Integer, primary_key=True)
+    query_id =  Column(Integer, ForeignKey('gene_name_query.id', ondelete='cascade'), primary_key=True)
+    row =  Column(Integer, primary_key=True, autoincrement=False)
+    column =  Column(Integer, primary_key=True, autoincrement=False)
     name = Column(String(250), nullable=False)
+
+class AddGeneMappingQuery(DBEntity):
+    id =  Column(Integer, primary_key=True)
+
+class AddGeneMappingQueryItem(DBEntity):
+     
+    '''Temporary data for add_gene_mapping'''
+     
+    query_id =  Column(Integer, ForeignKey('add_gene_mapping_query.id', ondelete='cascade'), primary_key=True)
+    source_id =  Column(Integer, ForeignKey('gene.id'), primary_key=True, autoincrement=False)
+    destination_id =  Column(Integer, ForeignKey('gene.id'), primary_key=True, autoincrement=False)
+    
+    def __repr__(self):
+        return 'AddGeneMappingQueryItem(query_id={}, source_id={}, destination_id={})'.format(self.query_id, self.source_id, self.destination_id)
     
 GeneMappingTable = Table('gene_mapping', DBEntity.metadata,
-    Column('left_id', Integer, ForeignKey('gene.id')),
-    Column('right_id', Integer, ForeignKey('gene.id')),
+    Column('source_id', Integer, ForeignKey('gene.id'), primary_key=True),
+    Column('destination_id', Integer, ForeignKey('gene.id'), primary_key=True),
 )
 '''
-Maps genes from one set (called the left-hand set) to the other (right-hand).
+Maps genes from one set (called the source set) to the other (destination set).
 
-A gene may appear on either side (left or right), not both. More formally,
-set(left_ids) and set(right_ids) must be disjoint.
+A gene may appear on either side (source or destination), but not both. I.e.,
+source_ids and destination_ids must be disjoint.
 '''
  
 class Gene(DBEntity):
@@ -110,7 +126,7 @@ class Gene(DBEntity):
     description = deferred(Column(String(1000), nullable=True))
     canonical_name_id =  Column(Integer, ForeignKey('gene_name.id'), nullable=True)
      
-    canonical_name = relationship('GeneName', foreign_keys=[canonical_name_id], post_update=True)  # The preferred name to assign to this gene
+    canonical_name = relationship('GeneName', foreign_keys=[canonical_name_id], post_update=True)  # The preferred name to assign to this gene. Each gene must have a canonical name.
     names = None # GeneName backref, all names
     expression_matrices = None  # ExpressionMatrix backref, all matrices of which the gene is part of
     clusterings = None  # Clustering backref, all clusterings of which the gene is part of
@@ -119,16 +135,16 @@ class Gene(DBEntity):
         "Gene",
         backref='mapped_from', 
         secondary=GeneMappingTable,
-        primaryjoin=id == GeneMappingTable.c.left_id,
-        secondaryjoin=id == GeneMappingTable.c.right_id
+        primaryjoin=id == GeneMappingTable.c.source_id,
+        secondaryjoin=id == GeneMappingTable.c.destination_id
     )
     mapped_from = None  # genes that map to this gene
      
     def __repr__(self):
-        return '<Gene(id={!r}, canonical_name={!r})>'.format(self.id, self.canonical_name)
+        return 'Gene(id={!r}, name={!r})'.format(self.id, self.canonical_name.name)
     
     def __str__(self):
-        return '<Gene {!s}>'.format(self.id)
+        return 'Gene({!r})'.format(self.canonical_name.name)
     
     def __lt__(self, other):
         if isinstance(other, Gene):
@@ -145,13 +161,14 @@ GeneExpressionMatrixTable = Table('gene_expression_matrix', DBEntity.metadata,
 
 class ExpressionMatrix(DBEntity):
      
-    id =  Column(Integer, primary_key=True, autoincrement=False)
-    path = Column(String(PATH_MAX_LENGTH), nullable=False)
+    id =  Column(Integer, primary_key=True)
+    data_file_id = Column(Integer, ForeignKey('data_file.id'), nullable=False)
      
     genes = relationship("Gene", backref='expression_matrices', secondary=GeneExpressionMatrixTable)  # Genes whose expression was measured in the expression matrix
+    data_file = relationship('DataFile')
      
     def __repr__(self):
-        return '<ExpressionMatrix(id={!r}, path={!r})>'.format(self.id, self.path)
+        return '<ExpressionMatrix(id={!r})>'.format(self.id, self.path)
     
     def __str__(self):
         return '<ExpressionMatrix {!s}>'.format(self.id)
@@ -170,14 +187,19 @@ GeneClusteringTable = Table('gene_clustering', DBEntity.metadata,
 
 
 class Clustering(DBEntity):
+    
+    'Gene clustering'
      
-    id =  Column(Integer, primary_key=True, autoincrement=False)
-    path = Column(String(PATH_MAX_LENGTH), nullable=False)
+    id =  Column(Integer, primary_key=True)
+    data_file_id = Column(Integer, ForeignKey('data_file.id'), nullable=False)
+    expression_matrix_id =  Column(Integer, ForeignKey('expression_matrix.id'), nullable=True)
      
     genes = relationship("Gene", backref='clusterings', secondary=GeneClusteringTable)  # Genes mentioned in the clustering
+    expression_matrix = relationship('ExpressionMatrix')  # The expression_matrix this clustering should be used with, else can be used with any expression matrix
+    data_file = relationship('DataFile')
      
     def __repr__(self):
-        return '<Clustering(id={!r}, path={!r})>'.format(self.id, self.path)
+        return '<Clustering(id={!r})>'.format(self.id, self.path)
     
     def __str__(self):
         return '<Clustering {!s}>'.format(self.id)
@@ -188,14 +210,16 @@ class Clustering(DBEntity):
         else:
             return False
     
+class GetByGenesQuery(DBEntity):
+    id =  Column(Integer, primary_key=True)
     
-class BaitsQueryItem(DBEntity):
+class GetByGenesQueryItem(DBEntity):
     
     '''Temporary storage for bait sets to query on'''
     
-    query_id =  Column(Integer, primary_key=True, autoincrement=True)
-    baits_id =  Column(Integer, primary_key=True, autoincrement=False)
-    bait_id =  Column(Integer, ForeignKey('gene.id'), primary_key=True, autoincrement=False)
+    query_id =  Column(Integer, ForeignKey('get_by_genes_query.id', ondelete='cascade'), primary_key=True)
+    gene_group_id =  Column(Integer, primary_key=True, autoincrement=False)
+    gene_id =  Column(Integer, ForeignKey('gene.id'), primary_key=True)
     
-    bait = relationship('Gene', foreign_keys=[bait_id])
+    gene = relationship('Gene', foreign_keys=[gene_id])
     

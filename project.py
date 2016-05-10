@@ -29,8 +29,6 @@ project = dict(
         License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
         Natural Language :: English
         Environment :: Console
-        Topic :: Scientific/Engineering :: Bio-Informatics
-        Topic :: Scientific/Engineering :: Artificial Intelligence
         Operating System :: POSIX
         Operating System :: POSIX :: AIX
         Operating System :: POSIX :: BSD
@@ -56,8 +54,14 @@ project = dict(
         Programming Language :: Python :: Implementation
         Programming Language :: Python :: Implementation :: CPython
         Programming Language :: Python :: Implementation :: Stackless
+        Topic :: Scientific/Engineering
+        Topic :: Scientific/Engineering :: Bio-Informatics
+        Topic :: Scientific/Engineering :: Artificial Intelligence
+        Topic :: Software Development
+        Topic :: Software Development :: Libraries
+        Topic :: Software Development :: Libraries :: Python Modules
     ''',
- 
+    
     # Auto generate entry points
     entry_points={
         'console_scripts': [

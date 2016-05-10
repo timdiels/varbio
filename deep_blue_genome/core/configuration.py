@@ -29,7 +29,7 @@ class Configuration(object):
     '''
     
     def __init__(self, config):
-        self.unknown_gene_handler = UnknownGeneHandler[config['exception_handling']['unknown_gene']]
+        self.unknown_gene_handling = UnknownGeneHandling[config['exception_handling']['unknown_gene']]
 
 # see example config file for an explanation of these
-UnknownGeneHandler = Enum('UnknownGeneHandler', 'add ignore fail')
+UnknownGeneHandling = Enum('UnknownGeneHandling', 'add ignore fail')
