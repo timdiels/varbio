@@ -24,6 +24,7 @@ from deep_blue_genome.core.database import Database
 from deep_blue_genome.core.configuration import Configuration
 from deep_blue_genome.core.configuration import UnknownGeneHandling
 from click.testing import CliRunner
+from pathlib import Path
     
 def test_algorithm_mixin(cli_test_args):
     Context = AlgorithmMixin('1.0.0')
@@ -33,6 +34,8 @@ def test_algorithm_mixin(cli_test_args):
         assert isinstance(context.database, Database)
         assert isinstance(context.configuration, Configuration)
         assert isinstance(context.configuration.unknown_gene_handling, UnknownGeneHandling)  # sample a config attribute to see it's really loaded
+        assert isinstance(context.data_directory, Path)
+        assert isinstance(context.cache_directory, Path)
 
     # test it runs fine
     result = CliRunner().invoke(main, cli_test_args)

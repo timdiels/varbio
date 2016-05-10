@@ -26,11 +26,7 @@ from chicken_turtle_util.configuration import ConfigurationLoader
 from deep_blue_genome.core.configuration import Configuration
 from deep_blue_genome.core.cache import Cache
 from deep_blue_genome.core.database import Database
-from pathlib import Path
 from textwrap import dedent
-import plumbum as pb
-import click
-import xdg
 
 DatabaseMixin = cli.DatabaseMixin(Database)
 
@@ -46,7 +42,11 @@ ConfigurationMixin.__doc__ = dedent('''\
     Like `chicken_turtle_util.cli.ConfigurationMixin`, but `context.configuration` is of type `deep_blue_genome.core.Configuration`
     
     Configuration is loaded from `core.conf` files using ConfigurationLoader.
-    ''')    
+    ''')
+
+#
+DataDirectoryMixin = cli.DataDirectoryMixin('deep_blue_genome')
+CacheDirectoryMixin = cli.CacheDirectoryMixin('deep_blue_genome')
 
 #
 def AlgorithmMixin(version):
@@ -62,29 +62,20 @@ def AlgorithmMixin(version):
     --------
     chicken_turtle_util.cli.Context: CLI application context
     '''
-    class _AlgorithmMixin(ConfigurationMixin, DatabaseMixin, cli.DataDirectoryMixin('deep_blue_genome'), cli.BasicsMixin(version), cli.Context):
+    class _AlgorithmMixin(ConfigurationMixin, DatabaseMixin, CacheDirectoryMixin, DataDirectoryMixin, cli.BasicsMixin(version), cli.Context):
         pass
     return _AlgorithmMixin
 
-class CacheMixin(DatabaseMixin):
+#TODO include in AlgorithmMixin and do properly
+class CacheMixin(DatabaseMixin, CacheDirectoryMixin):
     
     '''
     File cache support.
-    
-    Also throws DatabaseMixin in the mix.
     '''
     
-    _cli_options = [ #TODO is old styled, silently fails
-        cli.option(
-            '--cache-dir',
-            type=click.Path(file_okay=False, writable=True, exists=True, resolve_path=True),
-            help='Directory to place cached data. Cached data is not essential, but may speed up subsequent runs considerably.'
-        )
-    ]
-    
-    def __init__(self, cache_dir, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._cache = Cache(self.database, pb.local.path(cache_dir))
+        self._cache = Cache(self.database, self.cache_directory)
     
     @property
     def cache(self):
