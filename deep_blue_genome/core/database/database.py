@@ -23,6 +23,7 @@ from deep_blue_genome.core.database.entities import (
 )
 from deep_blue_genome.core.configuration import UnknownGeneHandling
 from chicken_turtle_util import data_frame as df_
+from chicken_turtle_util.sqlalchemy import pretty_sql
 import sqlalchemy as sa
 import sqlalchemy.sql as sql
 from sqlalchemy.orm import sessionmaker, aliased
@@ -30,7 +31,6 @@ from contextlib import contextmanager
 from collections import namedtuple
 import pandas as pd
 import logging
-import sqlparse
 import os
 
 _logger = logging.getLogger('deep_blue_genome.core.Database')
@@ -40,8 +40,8 @@ _ReturnTuple = namedtuple('_ReturnTuple', 'expression_matrices clusterings'.spli
 def _data_file_dir(context):
     return context.data_directory / 'data_files'
 
-def _print_sql(stmt): #TODO apply to CTU pretty_sql: use sqlparse.format(str(in), reindent=True, keyword_case='upper'). Or simply remove from CTU and put in cookbook.
-    print(sqlparse.format(str(stmt), reindent=True))
+def _print_sql(stmt):
+    print(pretty_sql(stmt))
 
 #TODO take a connection string, not host, user, .... Instead have your create_database in the context take host, ... and make a conn string out of it as is done here
 class Database(object):
