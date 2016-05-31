@@ -43,7 +43,7 @@ setup(
                        'Topic :: Software Development :: Libraries',
                        'Topic :: Software Development :: Libraries :: Python Modules'],
     'description': 'Genome analysis platform',
-    'entry_points': {'console_scripts': ['dbg = deep_blue_genome.main:main']},
+    'entry_points': {'console_scripts': ['dbg-run-job = deep_blue_genome.core.pipeline:job_runner']},
     'extras_require': {   'dev': ['sphinx', 'numpydoc', 'sphinx-rtd-theme'],
                           'test': [   'pytest',
                                       'pytest-env',
@@ -53,6 +53,8 @@ setup(
                                       'pytest-benchmark',
                                       'pytest-timeout',
                                       'pytest-mock',
+                                      'pytest-asyncio',
+                                      'pytest-capturelog',
                                       'freezegun>0.3.5',
                                       'networkx']},
     'install_requires': [   'click',
@@ -127,18 +129,26 @@ setup(
                         'http://research.microsoft.com/apps/pubs/default.aspx?id=64525), but\n'
                         'comes at the cost of some added complexity when loading the data (you\n'
                         'first have to get the path to the file from the database, then load the\n'
-                        'file).\n',
+                        'file).\n'
+                        '\n'
+                        'Pipeline\n'
+                        '--------\n'
+                        '\n'
+                        'We decided to use shell commands as the basis for jobs instead of e.g. a\n'
+                        'Python function that is pickled and sent to a server to be executed.\n'
+                        'This better matches DRMAA, is more flexible and more KISS. This way you\n'
+                        "could run scripts in different venv's, and run non-Python code directly.\n"
+                        'The DBG CLI utilities should make it easy enough to make scripts to run\n'
+                        'as jobs.\n',
     'name': 'deep-blue-genome-core',
     'package_data': {   'deep_blue_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml'],
                         'deep_blue_genome.core': ['data/core.defaults.conf']},
-    'package_name': 'deep_blue_genome.core',
     'packages': [   'deep_blue_genome',
-                    'deep_blue_genome.util',
                     'deep_blue_genome.data_preparation',
+                    'deep_blue_genome.util',
                     'deep_blue_genome.core',
-                    'deep_blue_genome.core.tests',
-                    'deep_blue_genome.core.database'],
-    'pre_commit_no_ignore': ['test.conf'],
+                    'deep_blue_genome.core.database',
+                    'deep_blue_genome.core.tests'],
     'url': 'https://bitbucket.org/deep_blue_genome/deep_blue_genome',
     'version': '0.0.0'}
 )

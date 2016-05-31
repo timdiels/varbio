@@ -26,8 +26,6 @@ from sqlalchemy.orm import relationship, deferred
 from chicken_turtle_util.various import URL_MAX_LENGTH, PATH_MAX_LENGTH
 from datetime import datetime
 
-# Note: we rely on the fact that mysql innodb's default collation is case-insensitive and the charset is utf8
-
 # Note: there are some `x = None` statements in class definitions, this is to
 # help autocomplete IDE functions know these attributes exist. Their actual
 # value is filled in by sqlalchemy. Sqlalchemy does not require these statements.
@@ -39,6 +37,14 @@ class DBEntity(object):
     @declared_attr
     def __tablename__(cls):
         return underscore(cls.__name__)
+    
+    @declared_attr
+    def __table_args__(cls):
+        return {
+            'mysql_engine': 'InnoDB',
+            'mysql_character_set': 'utf8',
+            'mysql_collate': 'utf8_general_ci'
+        }
 
 DBEntity = declarative_base(cls=DBEntity)
 
