@@ -19,7 +19,7 @@
 Exceptions used by `core`
 '''
 
-class TaskFailedException(Exception):
+class TaskFailedException(Exception): #TODO rename to *Error, not sure whether still using this, maybe rm
     
     '''
     Raised when the current task should fail due to some (hopefully) exceptional

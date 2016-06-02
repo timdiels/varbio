@@ -18,6 +18,7 @@ requests
 sqlalchemy
 pymysql
 sqlparse
+drmaa
 
 -e /home/limyreth/doc/eclipse_workspace/chicken_turtle_util
 #chicken-turtle-util==1.1.0

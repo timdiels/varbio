@@ -20,3 +20,4 @@ dist
 test/data
 core.conf
 test.conf
+py.test_midas

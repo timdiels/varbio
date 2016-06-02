@@ -229,3 +229,11 @@ class GetByGenesQueryItem(DBEntity):
     
     gene = relationship('Gene', foreign_keys=[gene_id])
     
+class Job(DBEntity):
+     
+    id =  Column(Integer, primary_key=True)
+    name = Column(String(250), unique=True, nullable=False)
+     
+    def __repr__(self):
+        return '<Job(name={!r})>'.format(self.name)
+    

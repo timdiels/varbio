@@ -43,7 +43,8 @@ setup(
                        'Topic :: Software Development :: Libraries',
                        'Topic :: Software Development :: Libraries :: Python Modules'],
     'description': 'Genome analysis platform',
-    'entry_points': {'console_scripts': ['dbg-run-job = deep_blue_genome.core.pipeline:job_runner']},
+    'entry_points': {   'console_scripts': [   'dg-tests-run-pipeline = '
+                                               'deep_blue_genome.core.tests.test_pipeline:dg_tests_run_pipeline']},
     'extras_require': {   'dev': ['sphinx', 'numpydoc', 'sphinx-rtd-theme'],
                           'test': [   'pytest',
                                       'pytest-env',
@@ -76,6 +77,7 @@ setup(
                             'sqlalchemy',
                             'pymysql',
                             'sqlparse',
+                            'drmaa',
                             'chicken-turtle-util'],
     'keywords': 'bioinformatics genome-analysis',
     'license': 'LGPL3',
@@ -93,6 +95,11 @@ setup(
                         'cleaning (deep\\_blue\\_genome.core.clean): - plain\\_text: fix malformed\n'
                         'line-endings in plain text files, presence of nul-characters, ... -\n'
                         'remove low variance rows from expression matrix\n'
+                        '\n'
+                        'pipelines (deep\\_blue\\_genome.core.pipeline): - define a pipeline of\n'
+                        'jobs with dependencies - run jobs concurrently locally or on a cluster\n'
+                        '(via DRMAA, e.g. Open Grid Scheduler) - generate a CLI to run your\n'
+                        'pipeline or run directly in code - interrupt and resume jobs later\n'
                         '\n'
                         'Links\n'
                         '=====\n'
@@ -137,9 +144,18 @@ setup(
                         'We decided to use shell commands as the basis for jobs instead of e.g. a\n'
                         'Python function that is pickled and sent to a server to be executed.\n'
                         'This better matches DRMAA, is more flexible and more KISS. This way you\n'
-                        "could run scripts in different venv's, and run non-Python code directly.\n"
+                        "can run scripts in different venv's, and run non-Python code directly.\n"
                         'The DBG CLI utilities should make it easy enough to make scripts to run\n'
-                        'as jobs.\n',
+                        'as jobs.\n'
+                        '\n'
+                        'Comparison to Celery: Celery allows running Python functions\n'
+                        'concurrently and using the output of one function as the input to a next\n'
+                        'function. DG pipeline allows executing executables concurrently and\n'
+                        'allows you to specify required resources such as the number of\n'
+                        'processors the job requires (via server\\_args to some DRMAAJobServers).\n'
+                        "DG pipeline's results are passed via the filesystem, each job gets its\n"
+                        'own working directory in which a job can write its output, or it can\n'
+                        'simply write to stdout and stderr.\n',
     'name': 'deep-blue-genome-core',
     'package_data': {   'deep_blue_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml'],
                         'deep_blue_genome.core': ['data/core.defaults.conf']},

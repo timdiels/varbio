@@ -26,6 +26,7 @@ from chicken_turtle_util.configuration import ConfigurationLoader
 from deep_blue_genome.core.configuration import Configuration
 from deep_blue_genome.core.cache import Cache
 from deep_blue_genome.core.database import Database
+from deep_blue_genome.core.pipeline import Jobs
 from textwrap import dedent
 
 DatabaseMixin = cli.DatabaseMixin(Database)
@@ -48,24 +49,6 @@ ConfigurationMixin.__doc__ = dedent('''\
 DataDirectoryMixin = cli.DataDirectoryMixin('deep_blue_genome')
 CacheDirectoryMixin = cli.CacheDirectoryMixin('deep_blue_genome')
 
-#
-def AlgorithmMixin(version):
-    '''
-    Application context mixin, bundles mixins for a Deep Blue Genome based algorithm
-        
-    Parameters
-    ----------
-    version
-        See chicken_turtle_util.cli.BasicsMixin
-        
-    See also
-    --------
-    chicken_turtle_util.cli.Context: CLI application context
-    '''
-    class _AlgorithmMixin(ConfigurationMixin, DatabaseMixin, CacheDirectoryMixin, DataDirectoryMixin, cli.BasicsMixin(version), cli.Context):
-        pass
-    return _AlgorithmMixin
-
 #TODO include in AlgorithmMixin and do properly
 class CacheMixin(DatabaseMixin, CacheDirectoryMixin):
     
@@ -80,4 +63,31 @@ class CacheMixin(DatabaseMixin, CacheDirectoryMixin):
     @property
     def cache(self):
         return self._cache 
+    
+class PipelineMixin(cli.Context):
+    
+    '''
+    Application context mixin, provides support for using
+    `deep_blue_genome.core.pipeline`
+    '''
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._jobs = Jobs()
+
+def AlgorithmMixin(version): #TODO rename to AlgorithmContext
+    '''
+    Application context mixin, bundles mixins for a Deep Blue Genome based algorithm
         
+    Parameters
+    ----------
+    version
+        See chicken_turtle_util.cli.BasicsMixin
+        
+    See also
+    --------
+    chicken_turtle_util.cli.Context: CLI application context
+    '''
+    class _AlgorithmMixin(PipelineMixin, ConfigurationMixin, DatabaseMixin, CacheDirectoryMixin, DataDirectoryMixin, cli.BasicsMixin(version), cli.Context):
+        pass
+    return _AlgorithmMixin

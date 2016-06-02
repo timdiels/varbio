@@ -66,10 +66,12 @@ project = dict(
     # Auto generate entry points
     entry_points={
         'console_scripts': [
-            'dbg = deep_blue_genome.main:main',
+            'dg-tests-run-pipeline = deep_blue_genome.core.tests.test_pipeline:dg_tests_run_pipeline',
         ],
     },
 
+    # Files not to ignore in pre commit checks, despite them not being tracked by
+    # git.
     pre_commit_no_ignore = [
         'test.conf',
     ],

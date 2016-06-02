@@ -32,20 +32,19 @@ def pytest_runtest_setup(item): #TODO unused? Might be useful someday though
         pytest.skip(marker.args[0])
 
 @pytest.fixture(scope='session')
-def cli_test_args(pytestconfig):
+def test_conf(pytestconfig):
+    config = ConfigParser()
+    config.read([str(pytestconfig.rootdir / 'test.conf')])  # machine specific testing conf goes here
+    return config['main']
+
+@pytest.fixture(scope='session')
+def cli_test_args(test_conf):
     '''
     Arguments to prepend to any DBG CLI invocation
     '''
-    config = ConfigParser()
-    config.read([str(pytestconfig.rootdir / 'test.conf')])  # machine specific testing conf goes here
-    config = config['main']
-    return config['cli_args'].split()  # Note: offers no support for args with spaces
+    return test_conf['cli_args'].split()  # Note: offers no support for args with spaces
 
-@pytest.fixture
-def context(cli_test_args, temp_dir_cwd, mocker):
-    #TODO ignore system config files, i.e. provide your own fixed test configuration, e.g. patch it on top of the context
-    mocker.patch('xdg.BaseDirectory.xdg_data_home', str(Path('xdg_data_home').absolute()))
-    
+def _create_context(cli_test_args):
     _context = []
     
     Context = AlgorithmMixin('1.0.0')
@@ -53,7 +52,24 @@ def context(cli_test_args, temp_dir_cwd, mocker):
     def main(context):
         _context.append(context)
     
-    result = CliRunner().invoke(main, cli_test_args)
-    assert not result.exception, result.output  # sanity check
+    CliRunner().invoke(main, cli_test_args, catch_exceptions=False)
     
     return _context[0]
+
+@pytest.fixture
+def context(cli_test_args, temp_dir_cwd, mocker):
+    #TODO ignore system config files, i.e. provide your own fixed test configuration, e.g. patch it on top of the context
+    mocker.patch('xdg.BaseDirectory.xdg_data_home', str(Path('xdg_data_home').absolute()))
+    mocker.patch('xdg.BaseDirectory.xdg_cache_home', str(Path('xdg_cache_home').absolute()))
+    return _create_context(cli_test_args)
+
+@pytest.fixture
+def context2(context, cli_test_args):
+    return _create_context(cli_test_args)
+
+@pytest.fixture
+def db(context):
+    db = context.database
+    db.clear()
+    db.create()
+    return db

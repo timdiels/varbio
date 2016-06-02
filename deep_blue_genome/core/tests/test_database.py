@@ -33,13 +33,6 @@ import sqlalchemy as sa
 from textwrap import dedent
 import pandas as pd
 
-@pytest.fixture
-def db(context):
-    db = context.database
-    db.clear()
-    db.create()
-    return db
-
 @pytest.yield_fixture
 def session(db):
     with db.scoped_session() as session:
