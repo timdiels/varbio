@@ -1,13 +1,13 @@
 project = dict(
-    name='deep-blue-genome-core',
-    package_name='deep_blue_genome.core',
-    human_friendly_name='Deep Blue Genome Core',
+    name='deep-genome-core',
+    package_name='deep_genome.core',
+    human_friendly_name='Deep Genome Core',
     description='Genome analysis platform',
     author='VIB/BEG/UGent',
     author_email='tidie@psb.vib-ugent.be',
     python_version=(3,5),
     readme_file='README.rst',
-    url='https://bitbucket.org/deep_blue_genome/deep_blue_genome', # project homepage.
+    url='https://bitbucket.org/deep_genome/deep_genome', # project homepage.
     download_url='https://example.com/TODO/{version}', # Template for url to download source archive from. You can refer to the current version with {version}. You can get one from github or gitlab for example.
     license='LGPL3',
 
@@ -66,7 +66,7 @@ project = dict(
     # Auto generate entry points
     entry_points={
         'console_scripts': [
-            'dg-tests-run-pipeline = deep_blue_genome.core.tests.test_pipeline:dg_tests_run_pipeline',
+            'dg-tests-run-pipeline = deep_genome.core.tests.test_pipeline:dg_tests_run_pipeline',
         ],
     },
 

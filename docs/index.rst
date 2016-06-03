@@ -1,4 +1,4 @@
-Welcome to Deep Blue Genome Core's documentation!
+Welcome to Deep Genome Core's documentation!
 ================================================================================================
 
 Contents:
@@ -6,7 +6,7 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-   api/deep_blue_genome
+   api/deep_genome
 
 
 Indices and tables

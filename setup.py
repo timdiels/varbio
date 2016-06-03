@@ -44,7 +44,7 @@ setup(
                        'Topic :: Software Development :: Libraries :: Python Modules'],
     'description': 'Genome analysis platform',
     'entry_points': {   'console_scripts': [   'dg-tests-run-pipeline = '
-                                               'deep_blue_genome.core.tests.test_pipeline:dg_tests_run_pipeline']},
+                                               'deep_genome.core.tests.test_pipeline:dg_tests_run_pipeline']},
     'extras_require': {   'dev': ['sphinx', 'numpydoc', 'sphinx-rtd-theme'],
                           'test': [   'pytest',
                                       'pytest-env',
@@ -81,7 +81,7 @@ setup(
                             'chicken-turtle-util'],
     'keywords': 'bioinformatics genome-analysis',
     'license': 'LGPL3',
-    'long_description': 'Deep Blue Genome Core (DBG Core) is a bioinformatics library for writing\n'
+    'long_description': 'Deep Genome Core (DG Core) is a bioinformatics library for writing\n'
                         'bioinformatics algorithms.\n'
                         '\n'
                         'Features\n'
@@ -89,24 +89,24 @@ setup(
                         '\n'
                         'TODO feature overview\n'
                         '\n'
-                        'parsers (deep\\_blue\\_genome.core.parse): - affymetrix expression\n'
-                        'matrices - other expression matrices - NCBI bulk data files: gene\\_info\n'
+                        'parsers (deep\\_genome.core.parse): - affymetrix expression matrices -\n'
+                        'other expression matrices - NCBI bulk data files: gene\\_info\n'
                         '\n'
-                        'cleaning (deep\\_blue\\_genome.core.clean): - plain\\_text: fix malformed\n'
+                        'cleaning (deep\\_genome.core.clean): - plain\\_text: fix malformed\n'
                         'line-endings in plain text files, presence of nul-characters, ... -\n'
                         'remove low variance rows from expression matrix\n'
                         '\n'
-                        'pipelines (deep\\_blue\\_genome.core.pipeline): - define a pipeline of\n'
-                        'jobs with dependencies - run jobs concurrently locally or on a cluster\n'
-                        '(via DRMAA, e.g. Open Grid Scheduler) - generate a CLI to run your\n'
-                        'pipeline or run directly in code - interrupt and resume jobs later\n'
+                        'pipelines (deep\\_genome.core.pipeline): - define a pipeline of jobs with\n'
+                        'dependencies - run jobs concurrently locally or on a cluster (via DRMAA,\n'
+                        'e.g. Open Grid Scheduler) - generate a CLI to run your pipeline or run\n'
+                        'directly in code - interrupt and resume jobs later\n'
                         '\n'
                         'Links\n'
                         '=====\n'
                         '\n'
-                        '-  `Documentation <http://pythonhosted.org/dbg_core/>`__\n'
-                        '-  `PyPI <https://pypi.python.org/pypi/dbg_core/>`__\n'
-                        '-  `GitLab <https://github.com/timdiels/dbg_core/>`__ TODO\n'
+                        '-  `Documentation <http://pythonhosted.org/dg_core/>`__\n'
+                        '-  `PyPI <https://pypi.python.org/pypi/dg_core/>`__\n'
+                        '-  `GitLab <https://github.com/timdiels/dg_core/>`__ TODO\n'
                         '\n'
                         'Project decisions\n'
                         '=================\n'
@@ -117,7 +117,7 @@ setup(
                         'We use the same decisions and docstring convention as used in `Chicken\n'
                         'Turtle Util <https://github.com/timdiels/chicken_turtle_util/>`__.\n'
                         '\n'
-                        'DBG database is a MySQL database. Though we use sqlalchemy, supporting\n'
+                        'DG database is a MySQL database. Though we use sqlalchemy, supporting\n'
                         'other databases would require to check for MySQL specific SQL, any\n'
                         'reliance on MySQL default configuration and DB limits.\n'
                         '\n'
@@ -145,7 +145,7 @@ setup(
                         'Python function that is pickled and sent to a server to be executed.\n'
                         'This better matches DRMAA, is more flexible and more KISS. This way you\n'
                         "can run scripts in different venv's, and run non-Python code directly.\n"
-                        'The DBG CLI utilities should make it easy enough to make scripts to run\n'
+                        'The DG CLI utilities should make it easy enough to make scripts to run\n'
                         'as jobs.\n'
                         '\n'
                         'Comparison to Celery: Celery allows running Python functions\n'
@@ -156,15 +156,15 @@ setup(
                         "DG pipeline's results are passed via the filesystem, each job gets its\n"
                         'own working directory in which a job can write its output, or it can\n'
                         'simply write to stdout and stderr.\n',
-    'name': 'deep-blue-genome-core',
-    'package_data': {   'deep_blue_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml'],
-                        'deep_blue_genome.core': ['data/core.defaults.conf']},
-    'packages': [   'deep_blue_genome',
-                    'deep_blue_genome.data_preparation',
-                    'deep_blue_genome.util',
-                    'deep_blue_genome.core',
-                    'deep_blue_genome.core.database',
-                    'deep_blue_genome.core.tests'],
-    'url': 'https://bitbucket.org/deep_blue_genome/deep_blue_genome',
+    'name': 'deep-genome-core',
+    'package_data': {   'deep_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml'],
+                        'deep_genome.core': ['data/core.defaults.conf']},
+    'packages': [   'deep_genome',
+                    'deep_genome.data_preparation',
+                    'deep_genome.util',
+                    'deep_genome.core',
+                    'deep_genome.core.database',
+                    'deep_genome.core.tests'],
+    'url': 'https://bitbucket.org/deep_genome/deep_genome',
     'version': '0.0.0'}
 )

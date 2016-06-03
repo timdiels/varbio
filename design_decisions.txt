@@ -30,7 +30,7 @@ refreshed every now and then during some nightly update batch run.
 
 ## Our use case
 
-- E.g. multiple MORPHs of DBG running on separate nodes, adding their results to
+- E.g. multiple MORPHs of DG running on separate nodes, adding their results to
   some table as they go along.  
 - E.g. running MORPH for website, with some temp
   data and read-only data that we've prepped before, result returned plainly to

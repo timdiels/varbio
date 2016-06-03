@@ -56,7 +56,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'Deep Blue Genome Core'
+project = 'Deep Genome Core'
 copyright = '2016, VIB/BEG/UGent'
 author = 'VIB/BEG/UGent'
 
@@ -65,7 +65,7 @@ author = 'VIB/BEG/UGent'
 # built documents.
 #
 # The full version, including alpha/beta/rc tags.
-from deep_blue_genome.core import __version__
+from deep_genome.core import __version__
 release = __version__
 # The short X.Y version.
 version = release
@@ -211,7 +211,7 @@ html_theme = 'sphinx_rtd_theme'
 #html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'deep-blue-genome-core_doc'
+htmlhelp_basename = 'deep-genome-core_doc'
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -233,7 +233,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'deep-blue-genome-core.tex', 'Deep Blue Genome Core Documentation',
+    (master_doc, 'deep-genome-core.tex', 'Deep Genome Core Documentation',
      'VIB/BEG/UGent', 'manual'),
 ]
 
@@ -263,7 +263,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'deep-blue-genome-core', 'Deep Blue Genome Core Documentation',
+    (master_doc, 'deep-genome-core', 'Deep Genome Core Documentation',
      [author], 1)
 ]
 
@@ -277,8 +277,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'deep-blue-genome-core', 'Deep Blue Genome Core Documentation',
-     author, 'deep-blue-genome-core', 'One line description of project.',
+    (master_doc, 'deep-genome-core', 'Deep Genome Core Documentation',
+     author, 'deep-genome-core', 'One line description of project.',
      'Miscellaneous'),
 ]
 
