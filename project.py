@@ -7,7 +7,7 @@ project = dict(
     author_email='tidie@psb.vib-ugent.be',
     python_version=(3,5),
     readme_file='README.rst',
-    url='https://bitbucket.org/deep_genome/deep_genome', # project homepage.
+    url='https://gitlab.psb.ugent.be/deep_genome/core', # project homepage.
     download_url='https://example.com/TODO/{version}', # Template for url to download source archive from. You can refer to the current version with {version}. You can get one from github or gitlab for example.
     license='LGPL3',
 
@@ -25,11 +25,11 @@ project = dict(
     # Note: you must add ancestors of any applicable classifier too
     classifiers='''
         Development Status :: 2 - Pre-Alpha
-        'Intended Audience :: Science/Research',
+        Intended Audience :: Developers
+        Intended Audience :: Science/Research
         License :: OSI Approved
         License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
         Natural Language :: English
-        Environment :: Console
         Operating System :: POSIX
         Operating System :: POSIX :: AIX
         Operating System :: POSIX :: BSD

@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
+#TODO we added tasks, which are like async tasks, but you avoid rerunning them and they have deps; but these are usually not so necessary.
 '''
 Utilities for building a pipeline
 
@@ -27,12 +28,12 @@ working directory (even when it was cancelled before, the next try will start
 from a fresh directory again).
 '''
 
-import networkx as nx
 import asyncio
 import logging
 import signal
 import os
-from chicken_turtle_util import cli, observable, path as path_
+import re
+from chicken_turtle_util import path as path_
 from chicken_turtle_util.exceptions import InvalidOperationError
 from deep_genome.core.database import entities
 from collections import defaultdict
@@ -84,25 +85,165 @@ async def _kill(pid, timeout=10):
             with suppress(psutil.NoSuchProcess):
                 process.kill()
 
-class JobFailedError(Exception):
+class TaskFailedError(Exception):
     pass
 
-class Jobs(object):
+class Tasks(object):
     
     '''
     Internal class.
     '''
     
     def __init__(self):
-        self._job_base_ids = defaultdict(lambda: -1)
+        self._task_base_ids = set()
     
-    def add(self, job, name):
-        self._job_base_ids[name] += 1
-        if self._job_base_ids[name] > 0:
-            name += '~' + str(self._job_base_ids[name])
+    def add(self, name):
+        if name in self._task_base_ids:
+            raise ValueError('A task already exists with this name: ' + name)
+        self._task_base_ids.add(name)
         return name
+
+class Task(object):
     
-class Job(object):
+    '''
+    A task with dependencies and a persisted completion state.
+    
+    Parameters
+    ----------
+    context
+    name : str
+        Unique task name, it has the same syntax as Python package names. The
+        name does not have to refer to actual packages. If using the same
+        database for multiple pipeline projects it is recommended to prefix it
+        with your project's package name to avoid clashes with the other
+        projects.
+    '''
+    
+    def __init__(self, context, name):
+        self._context = context
+        self._run_task = None  # when running, this contains the task that runs the job
+        
+        identifier = r'[_a-zA-Z][_a-zA-Z0-9]*'
+        pattern = r'{identifier}([.]{identifier})*'.format(identifier=identifier)
+        if name in ('.', '..') or not re.fullmatch(pattern, name):
+            raise ValueError('Invalid task name: ' + name)
+        self._name = self._context._tasks.add(name)
+        
+        # finished 
+        with self._context.database.scoped_session() as session:
+            self.__finished = session.sa_session.query(entities.Task).filter_by(name=self.name).one_or_none() is not None
+        
+    @property
+    def name(self):
+        '''
+        Get unique task name
+        
+        Syntax: like a package name.
+        '''
+        return self._name
+            
+    @property
+    def finished(self):
+        return self.__finished
+    
+    def run(self):
+        '''
+        Run task and any unfinished dependencies
+        
+        When a dependency fails, stubbornly waits until the other dependencies
+        have finished or failed.
+        
+        Returns
+        -------
+        asyncio.Task
+            task that runs the job. Task raises `TaskFailedError` when the job or
+            one of its dependencies fails to finish.
+        
+        Raises
+        ------
+        InvalidOperationError
+            When the job has already finished.
+        ''' #TODO aren't there cases where TaskFailedError is raised although it hasn' begun? E.g. failed dep? Maybe raise diff one for that. DependencyFailedError, e.g.
+        if self.finished:
+            raise InvalidOperationError('Cannot run a finished job')
+        if not self._run_task:
+            self._run_task = asyncio.ensure_future(self.__run())
+        return self._run_task
+    
+    async def __run(self):
+        try:
+            # Run dependencies
+            await self._finish_dependencies()
+            
+            # Run self
+            try:
+                logger.info("Task '{}': started".format(self.name))
+                await self._run()
+                self.__finished = True
+                with self._context.database.scoped_session() as session:
+                    session.sa_session.add(entities.Task(name=self.name))
+                logger.info("Task '{}': finished".format(self.name))
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                logger.info("Task '{}': failed".format(self.name))
+                raise TaskFailedError('Task failed') from ex
+        except asyncio.CancelledError:
+            logger.info("Task '{}': cancelled".format(self.name))
+            raise
+        finally:
+            self._run_task = None
+            
+    def cancel(self):
+        '''
+        Cancel job and any dependencies it started
+        '''
+        if self._run_task:
+            self._run_task.cancel()
+
+    async def _finish_dependencies(self):
+        '''
+        Run and wait on unfinished dependencies
+
+        See also
+        --------
+        _wait_unfinished_dependencies: helper to wait for unfinished dependencies
+        '''
+        raise NotImplementedError()
+    
+    async def _run(self):
+        '''
+        Run task itself
+        '''
+        raise NotImplementedError()
+        
+    async def _wait_unfinished_dependencies(self, dependencies):
+        '''
+        Helper to wait for unfinished dependencies
+        
+        Parameters
+        ----------
+        dependencies : iterable(Task)
+            Dependencies of which to run the unfinished one and await their completion.
+        '''
+        dependencies = [dependency for dependency in dependencies if not dependency.finished]
+        if dependencies:
+            results = await asyncio.gather(*(dependency.run() for dependency in dependencies), return_exceptions=True)
+            for i, result in enumerate(results):
+                if isinstance(result, asyncio.CancelledError):
+                    # Note: gather doesn't raise CancelledError when it is
+                    # cancelled, so we must assume that a cancelled child
+                    # means we were cancelled. Go back to using asyncio.wait
+                    # if that bothers you
+                    raise result
+                if isinstance(result, Exception):
+                    job = dependencies[i]
+                    raise TaskFailedError("Dependency '{}' failed".format(job.name)) from result
+    
+    def __repr__(self):
+        return 'Task(name={!r})'.format(self.name)
+    
+class Job(Task):
     
     '''
     A job with a command that can be submitted to a job server for execution
@@ -119,47 +260,24 @@ class Job(object):
     server : JobServer
         Server to submit job to for execution.
     name : str
-        Job name. Musn't contain any invalid file-name characters or '~'. If it
-        clashes with another job name, a suffix is added: ``~clash_count``.
-        Consider prefixing with the package name to avoid clashes. It should be
-        prefixed with the project's package name to avoid clashes with jobs in
-        other projects using the same DG database.
-    dependencies : iterable(Job)
-        Jobs that must be finished before this job can start
+        See ``help(deep_genome.core.pipeline.Task)``
+    dependencies : iterable(Task)
+        Tasks that must be finished before this job can start
     server_args : str
         Additional arguments specific to the job server. E.g. in DRMAAJobServer
         this corresponds to the 
         `native specification <http://gridscheduler.sourceforge.net/javadocs/org/ggf/drmaa/JobTemplate.html#setNativeSpecification(java.lang.String)>`_.
     '''
     
-    def __init__(self, command, server, name='unnamed', dependencies=(), server_args=None):
+    def __init__(self, command, server, name, dependencies=(), server_args=None):
+        super().__init__(server.context, name)
         command = [str(x) for x in command]
         self._executable = Path(str(pb.local[command[0]].executable))
         self._args = command[1:]
         
-        self._context = server.context  # server and job should have the same context, so we might as well get it off server's
         self._server = server
         self._server_args = server_args
-        self._run_task = None  # when running, this contains the task that runs the job
-        self._dependencies = observable.Set(dependencies)
-        self._dependencies.change_listeners.append(self._on_dependencies_changed)
-        
-        if name in ('.', '..') or any(char in name for char in '/\0~\'"'):
-            raise ValueError('Invalid job name: ' + name)
-        self._name = self._context._jobs.add(self, name)
-        
-        # finished 
-        with self._context.database.scoped_session() as session:
-            self._finished = session.sa_session.query(entities.Job).filter_by(name=self.name).one_or_none() is not None
-        
-    @property
-    def name(self):
-        '''
-        Get unique job name
-        
-        Contains no invalid file-name characters.
-        '''
-        return self._name
+        self._dependencies = set(dependencies)
     
     @property
     def executable(self):
@@ -201,109 +319,21 @@ class Job(object):
     @property
     def dependencies(self):
         '''
-        Jobs that must be finished before this one can start
+        Tasks that must be finished before this one can start
         
         Returns
         -------
-        {Job}
+        {Task}
             Direct dependencies of this job
         '''
         return self._dependencies
     
-    def _on_dependencies_changed(self, added, removed):
-        # check for circular dependencies (find cycle in dep graph)
-        cycles = list(nx.simple_cycles(self._dependency_graph))
-        if cycles:
-            added = {job.name for job in added}
-            cycles = [' -> '.join(job.name for job in cycle) for cycle in cycles]
-            raise ValueError('Circular dependencies caused by adding jobs {}. Cycles: {}'.format(added, cycles))
-        
-    @property
-    def _dependency_graph(self):
-        graph = nx.DiGraph()
-        graph.add_node(self)
-        to_visit = {self}
-        visited = set()
-        while to_visit:
-            job = to_visit.pop()
-            visited.add(job)
-            for dependency in job.dependencies:
-                graph.add_edge(job, dependency)
-                if dependency not in visited:
-                    to_visit.add(dependency)
-        return graph
-    
-    @property
-    def finished(self):
-        return self._finished
-    
-    def run(self):
-        '''
-        Run job and any unfinished dependencies
-        
-        When a dependency fails, stubbornly waits until the other dependencies
-        have finished or failed.
-        
-        Returns
-        -------
-        asyncio.Task
-            task that runs the job. Task raises `JobFailedError` when the job or
-            one of its dependencies fails to finish.
-        
-        Raises
-        ------
-        InvalidOperationError
-            When the job has already finished.
-        ''' #TODO aren't there cases where JobFailedError is raised although it hasn' begun? E.g. failed dep? Maybe raise diff one for that. DependencyFailedError, e.g.
-        if self.finished:
-            raise InvalidOperationError('Cannot run a finished job')
-        if not self._run_task:
-            self._run_task = asyncio.ensure_future(self._run())
-        return self._run_task
-        
+    async def _finish_dependencies(self):
+        await self._wait_unfinished_dependencies(self.dependencies)
+                
     async def _run(self):
-        try:
-            # Run dependencies
-            dependencies = [dependency for dependency in self.dependencies if not dependency.finished]
-            if dependencies:
-                results = await asyncio.gather(*(dependency.run() for dependency in dependencies), return_exceptions=True)
-                for i, result in enumerate(results):
-                    if isinstance(result, asyncio.CancelledError):
-                        # Note: gather doesn't raise CancelledError when it is
-                        # cancelled, so we must assume that a cancelled child
-                        # means we were cancelled. Go back to using asyncio.wait
-                        # if that bothers you
-                        raise result
-                    if isinstance(result, Exception):
-                        job = dependencies[i]
-                        raise JobFailedError("Dependency '{}' failed".format(job.name)) from result
-            
-            # Run self
-            try:
-                logger.info("Job '{}': submitting".format(self.name))
-                await self._server.run(self)
-                self._finished = True
-                with self._context.database.scoped_session() as session:
-                    session.sa_session.add(entities.Job(name=self.name))
-                logger.info("Job '{}': finished".format(self.name))
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                logger.info("Job '{}': failed".format(self.name))
-                raise JobFailedError('Job failed') from ex
-        except asyncio.CancelledError:
-            logger.info("Job '{}': cancelled".format(self.name))
-            raise
-        finally:
-            self._run_task = None
+        await self._server.run(self)
         
-    def cancel(self):
-        '''
-        Cancel job and any dependencies it started
-        '''
-        if self._run_task:
-            self._run_task.cancel()
-            
     def __repr__(self):
         return 'Job(name={!r})'.format(self.name)
         
@@ -365,7 +395,7 @@ class LocalJobServer(JobServer):
                     await _kill(process.pid)
                     raise
                 if return_code != 0:
-                    raise JobFailedError('Non-zero exit code: {}'.format(return_code))
+                    raise TaskFailedError('Non-zero exit code: {}'.format(return_code))
     
 class DRMAAJobServer(JobServer):
     
@@ -430,13 +460,13 @@ class DRMAAJobServer(JobServer):
         
         # Check result
         if result.wasAborted:
-            raise JobFailedError('Job was aborted before it even started running')
+            raise TaskFailedError('Job was aborted before it even started running')
         elif result.hasSignal:
-            raise JobFailedError('Job was killed with signal {}'.format(result.terminatedSignal))
+            raise TaskFailedError('Job was killed with signal {}'.format(result.terminatedSignal))
         elif not result.hasExited:
-            raise JobFailedError('Job did not exit normally')
+            raise TaskFailedError('Job did not exit normally')
         elif result.hasExited and result.exitStatus != 0:
-            raise JobFailedError('Job exited with non-zero exit code: {}'.format(result.exitStatus))
+            raise TaskFailedError('Job exited with non-zero exit code: {}'.format(result.exitStatus))
         logger.debug("Job {}'s resource usage was: {}".format(job.name, pformat(result.resourceUsage)))
         
     def dispose(self):

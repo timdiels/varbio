@@ -65,6 +65,10 @@ better matches DRMAA, is more flexible and more KISS.  This way you can run
 scripts in different venv's, and run non-Python code directly. The DG CLI
 utilities should make it easy enough to make scripts to run as jobs.
 
+We no longer add a suffix number to ambiguous task names. It is tricky to
+ensure the same task is reassigned the same suffix in different contexts (e.g.
+if the order in which ambiguous tasks are created is not deterministic).
+
 Comparison to Celery: Celery allows running Python functions concurrently and
 using the output of one function as the input to a next function. DG pipeline
 allows executing executables concurrently and allows you to specify required

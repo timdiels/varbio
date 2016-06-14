@@ -19,7 +19,7 @@
 Test deep_genome.core.pipeline
 '''
 
-from deep_genome.core.pipeline import LocalJobServer, DRMAAJobServer, pipeline_cli, JobFailedError, Job
+from deep_genome.core.pipeline import LocalJobServer, DRMAAJobServer, pipeline_cli, TaskFailedError, Job, Task
 from deep_genome.core.cli import AlgorithmMixin
 from chicken_turtle_util import path as path_
 from chicken_turtle_util.exceptions import InvalidOperationError
@@ -80,8 +80,6 @@ def assert_no_live_jobs(server):
 
 def _normalise_event(event):
     job, action = event
-    if action == 'submitted':
-        action = 'submitting'
     return (job.name, action)
 
 @contextmanager
@@ -110,7 +108,7 @@ def assert_execution_order(caplog, events):
     # assert
     events_seen = set()
     for line in lines:
-        match = re.search(r"Job '(.+)': (submitting|failed|finished|cancelled)", line)
+        match = re.search(r"Task '(.+)': (started|failed|finished|cancelled)", line)
         if match:
             event = (match.group(1), match.group(2))
             assert event not in events_seen, 'Event happens twice'
@@ -132,12 +130,33 @@ def ps_aux_contains(term):
             return True
     return False
 
+class TestTask(object):
+
+    @pytest.mark.parametrize('name', ('.', '..', "name'quot", 'name"dquot', 'ay/lmao', 'jobbu~1', ' ', '  ', '\t', ' leading.space', '\tleading.space', 'trailing.space ', 'trailing.space\t', '3no'))
+    def test_invalid_name(self, context, name):
+        '''
+        When insane name, raise
+        '''
+        with pytest.raises(ValueError) as ex:
+            Task(context, name)
+        assert 'name' in str(ex.value)
+        assert 'valid' in str(ex.value)
+        
+    @pytest.mark.parametrize('name', ('name', 'n1', "name.hi", 'name2.hi1', '_1', 'mix.max_._hi._1be'))
+    def test_valid_name(self, context, name):
+        '''
+        When insane name, raise
+        '''
+        Task(context, name)
+        
 class TestJob(object):
     
     def test_job_interface(self, local_job_server):
         # The interface for defining jobs
-        job1 = Job(['true'], server=local_job_server)
-        job2 = Job(['true'], server=local_job_server, dependencies={job1})
+        job1 = Job(['true'], local_job_server, 'job1')
+        assert job1.name == 'job1'
+        job2 = Job(['true'], server=local_job_server, name='job2', dependencies={job1})
+        assert job2.name == 'job2'
         
         # Can manipulate dependencies after job definition via a set interface
         assert job1.dependencies == set()
@@ -146,25 +165,6 @@ class TestJob(object):
         job1.dependencies.add(job2)
         assert job2.dependencies == set()
         assert job1.dependencies == {job2}
-        
-        # Circular dependencies are not allowed
-        with pytest.raises(ValueError) as ex:
-            job2.dependencies.add(job1)
-        assert 'Circular dependencies' in str(ex.value)
-        
-        # Job names are given a clash number suffix ensuring their name is unique within the context
-        assert job1.name == 'unnamed'
-        assert job2.name == 'unnamed~1'
-        
-    @pytest.mark.parametrize('name', ('.', '..', "name'quot", 'name"dquot', 'ay/lmao', 'jobbu~1'))
-    def test_invalid_name(self, local_job_server, name):
-        '''
-        When insane name, raise
-        '''
-        with pytest.raises(ValueError) as ex:
-            Job(['true'], server=local_job_server, name=name)
-        assert 'name' in str(ex.value)
-        assert 'valid' in str(ex.value)
     
 class TestJobServer(object):
     
@@ -177,7 +177,7 @@ class TestJobServer(object):
         '''
         When succesful job, call with correct context and report success
         '''
-        job1 = Job(sh('pwd; echo $$; echo stderr >&2; echo extra; touch file; mkdir dir'), server=server)
+        job1 = Job(sh('pwd; echo $$; echo stderr >&2; echo extra; touch file; mkdir dir'), server=server, name='job1')
         
         dir_ = server.get_directory(job1)
         if isinstance(server, LocalJobServer):
@@ -218,8 +218,8 @@ class TestJobServer(object):
         '''
         When job exits non-zero, raise
         '''
-        job1 = Job(sh('exit 1'), server)
-        with pytest.raises(JobFailedError):
+        job1 = Job(sh('exit 1'), server, 'job1')
+        with pytest.raises(TaskFailedError):
             await job1.run()
         
     @pytest.mark.asyncio
@@ -227,13 +227,13 @@ class TestJobServer(object):
         '''
         When running a job before its dependencies have finished, run its dependencies as well
         '''
-        job2 = Job(['true'], server)
-        job1 = Job(['true'], server=server, dependencies={job2})
+        job2 = Job(['true'], server, 'job2')
+        job1 = Job(['true'], server=server, name='job1', dependencies={job2})
         order = {
-            (job2, 'submitted') : (),
-            (job2, 'finished') : (job2, 'submitted'),
-            (job1, 'submitted') : (job2, 'finished'),
-            (job1, 'finished') : (job1, 'submitted')
+            (job2, 'started') : (),
+            (job2, 'finished') : (job2, 'started'),
+            (job1, 'started') : (job2, 'finished'),
+            (job1, 'finished') : (job1, 'started')
         }
         with assert_execution_order(caplog, order):
             await job1.run()
@@ -243,7 +243,7 @@ class TestJobServer(object):
         '''
         When running a job while it is already running, return the same future
         '''
-        job1 = Job(['true'], server)
+        job1 = Job(['true'], server, 'job1')
         future = job1.run()
         assert job1.run() == future  # return the same future
         
@@ -255,7 +255,7 @@ class TestJobServer(object):
         '''
         When trying to run a job that has finished, raise
         '''
-        job1 = Job(['true'], server)
+        job1 = Job(['true'], server, 'job1')
         await job1.run()
         with pytest.raises(InvalidOperationError) as ex:
             job1.run()
@@ -266,10 +266,10 @@ async def test_persistence(context, context2):
     '''
     When a job has finished, remember it across runs
     '''
-    job1 = Job(['true'], LocalJobServer(context))
+    job1 = Job(['true'], LocalJobServer(context), 'job1')
     await job1.run()
     
-    job1_ = Job(['true'], LocalJobServer(context2))
+    job1_ = Job(['true'], LocalJobServer(context2), 'job1')
     assert job1.name == job1_.name
     assert job1_.finished
         
@@ -327,16 +327,16 @@ class TestExecutionOrder(object):
         
         # assert
         order = {
-            (job2, 'submitted') : (),
-            (job3, 'submitted') : (),
-            (job4, 'submitted') : (),
-            (job2, 'finished') : {(job2, 'submitted'), (job3, 'submitted')},
-            (job3, 'finished') : {(job2, 'submitted'), (job3, 'submitted')},
-            (job5, 'submitted') : {(job2, 'finished'), (job3, 'finished')},
-            (job4, 'finished') : (job5, 'submitted'),
-            (job5, 'finished') : (job5, 'submitted'),
-            (job6, 'submitted') : {(job4, 'finished'), (job5, 'finished')},
-            (job6, 'finished') : (job6, 'submitted')
+            (job2, 'started') : (),
+            (job3, 'started') : (),
+            (job4, 'started') : (),
+            (job2, 'finished') : {(job2, 'started'), (job3, 'started')},
+            (job3, 'finished') : {(job2, 'started'), (job3, 'started')},
+            (job5, 'started') : {(job2, 'finished'), (job3, 'finished')},
+            (job4, 'finished') : (job5, 'started'),
+            (job5, 'finished') : (job5, 'started'),
+            (job6, 'started') : {(job4, 'finished'), (job5, 'finished')},
+            (job6, 'finished') : (job6, 'started')
         }
         with assert_execution_order(caplog, order):
             await job6.run()
@@ -361,26 +361,26 @@ class TestExecutionOrder(object):
         
         # assert
         order = {
-            (job1, 'submitted') : (),
-            (job2, 'submitted') : (),
-            (job2, 'failed') : (job2, 'submitted'),
-            (job1, 'finished') : {(job1, 'submitted'), (job2, 'submitted')},
-            (job3, 'submitted') : (job1, 'finished'),
-            (job3, 'finished') : (job3, 'submitted')
+            (job1, 'started') : (),
+            (job2, 'started') : (),
+            (job2, 'failed') : (job2, 'started'),
+            (job1, 'finished') : {(job1, 'started'), (job2, 'started')},
+            (job3, 'started') : (job1, 'finished'),
+            (job3, 'finished') : (job3, 'started')
         }
         with assert_execution_order(caplog, order):
-            with pytest.raises(JobFailedError) as ex:
+            with pytest.raises(TaskFailedError) as ex:
                 await job5.run()
             assert "Dependency '{}' failed".format(job4.name) in str(ex.value)
             
         # When job2 no longer fails, finish all the rest
         order = {
-            (job2, 'submitted') : (),
-            (job2, 'finished') : (job2, 'submitted'),
-            (job4, 'submitted') : (job2, 'finished'),
-            (job4, 'finished') : (job4, 'submitted'),
-            (job5, 'submitted') : (job4, 'finished'),
-            (job5, 'finished') : (job5, 'submitted')
+            (job2, 'started') : (),
+            (job2, 'finished') : (job2, 'started'),
+            (job4, 'started') : (job2, 'finished'),
+            (job4, 'finished') : (job4, 'started'),
+            (job5, 'started') : (job4, 'finished'),
+            (job5, 'finished') : (job5, 'started')
         }
         with assert_execution_order(caplog, order):
             await job5.run()
@@ -407,11 +407,11 @@ class TestExecutionOrder(object):
         
         # When call stop, stop
         order = {
-            (job1, 'submitted') : (),
-            (job1, 'finished') : (job1, 'submitted'),
-            (job2, 'submitted') : (job1, 'finished'),
-            (job2, 'cancelled') : (job2, 'submitted'),
-            (job3, 'cancelled') : (job2, 'submitted')
+            (job1, 'started') : (),
+            (job1, 'finished') : (job1, 'started'),
+            (job2, 'started') : (job1, 'finished'),
+            (job2, 'cancelled') : (job2, 'started'),
+            (job3, 'cancelled') : (job2, 'started')
         }
         with assert_execution_order(caplog, order):
             done, _ = event_loop.run_until_complete(asyncio.wait((job3.run(), canceller())))
@@ -433,14 +433,14 @@ class TestExecutionOrder(object):
         # When resume, pick up from last time until finish
         inhibitor2.unlink()  # this time allow job2 to finish
         order = {
-            (job2, 'submitted') : (),
-            (job2, 'finished') : (job2, 'submitted'),
-            (job3, 'submitted') : (job2, 'finished'),
-            (job3, 'finished') : (job3, 'submitted')
+            (job2, 'started') : (),
+            (job2, 'finished') : (job2, 'started'),
+            (job3, 'started') : (job2, 'finished'),
+            (job3, 'finished') : (job3, 'started')
         }
         with assert_execution_order(caplog, order):
             event_loop.run_until_complete(job3.run())
-
+          
 class TestDRMAAJobServer(object):
     
     '''
@@ -450,7 +450,7 @@ class TestDRMAAJobServer(object):
     @pytest.mark.asyncio
     async def test_out_of_band_cancel(self, drmaa_job_server, event_loop):
         '''
-        When somebody other process cancels our job, gracefully raise JobFailedError
+        When somebody other process cancels our job, gracefully raise TaskFailedError
         '''
         # Note: we don't actually kill from another process, but DG core will still have no idea, which is the point
         
@@ -461,7 +461,7 @@ class TestDRMAAJobServer(object):
         
         # Run job
         job1 = Job(['sleep', '99999999999'], drmaa_job_server, name='job1')
-        with pytest.raises(JobFailedError):
+        with pytest.raises(TaskFailedError):
             await job1.run()
 
 Context = AlgorithmMixin('1.0.0')
@@ -498,7 +498,7 @@ class TestPipelineCLI(object):
     def main(self, local_job_server, inhibitor1, inhibit_failure, event_loop):
         def create_jobs(context):
             assert isinstance(context, Context)
-            return Job(sh(wait_for_rm(inhibitor1) + '; [ -e {} ]'.format(inhibit_failure)), server=local_job_server)
+            return Job(sh(wait_for_rm(inhibitor1) + '; [ -e {} ]'.format(inhibit_failure)), server=local_job_server, name='main_job')
         return pipeline_cli(Context, create_jobs)
      
     def test_success(self, main, cli_test_args, inhibitor1):
@@ -530,7 +530,7 @@ class TestPipelineCLI(object):
         # wait for job to start
         while not ps_aux_contains(token):
             with suppress(asyncio.TimeoutError):
-                await asyncio.wait_for(process.wait(), timeout=.1)  # also wait for process.wait as it might have crashed
+                assert not await asyncio.wait_for(process.wait(), timeout=.1)  # and also check it's still running
         
         # sigterm and wait for termination
         process.terminate()
@@ -541,7 +541,7 @@ class TestPipelineCLI(object):
         
 # dg-tests-run-pipeline
 def create_jobs(context):
-    return Job(sh('echo {}; sleep 9999999'.format(dg_tests_run_pipeline_token)), server=LocalJobServer(context), name='dg-tests-run-pipeline main job')
+    return Job(sh('echo {}; sleep 9999999'.format(dg_tests_run_pipeline_token)), server=LocalJobServer(context), name='deep_genome.core.tests.test_pipeline.main_job')
 dg_tests_run_pipeline = pipeline_cli(Context, create_jobs)
 dg_tests_run_pipeline_token = 'jif98730rjf9guw80r93uldkfkieosljddakuiuei2oadklkf'
 

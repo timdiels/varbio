@@ -26,7 +26,7 @@ from chicken_turtle_util.configuration import ConfigurationLoader
 from deep_genome.core.configuration import Configuration
 from deep_genome.core.cache import Cache
 from deep_genome.core.database import Database
-from deep_genome.core.pipeline import Jobs
+from deep_genome.core.pipeline import Tasks
 from textwrap import dedent
 
 DatabaseMixin = cli.DatabaseMixin(Database)
@@ -73,7 +73,7 @@ class PipelineMixin(cli.Context):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._jobs = Jobs()
+        self._tasks = Tasks()
 
 def AlgorithmMixin(version): #TODO rename to AlgorithmContext
     '''

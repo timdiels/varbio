@@ -6,11 +6,11 @@ setup(
     **{   'author': 'VIB/BEG/UGent',
     'author_email': 'tidie@psb.vib-ugent.be',
     'classifiers': [   'Development Status :: 2 - Pre-Alpha',
-                       "'Intended Audience :: Science/Research',",
+                       'Intended Audience :: Developers',
+                       'Intended Audience :: Science/Research',
                        'License :: OSI Approved',
                        'License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)',
                        'Natural Language :: English',
-                       'Environment :: Console',
                        'Operating System :: POSIX',
                        'Operating System :: POSIX :: AIX',
                        'Operating System :: POSIX :: BSD',
@@ -148,6 +148,11 @@ setup(
                         'The DG CLI utilities should make it easy enough to make scripts to run\n'
                         'as jobs.\n'
                         '\n'
+                        'We no longer add a suffix number to ambiguous task names. It is tricky\n'
+                        'to ensure the same task is reassigned the same suffix in different\n'
+                        'contexts (e.g. if the order in which ambiguous tasks are created is not\n'
+                        'deterministic).\n'
+                        '\n'
                         'Comparison to Celery: Celery allows running Python functions\n'
                         'concurrently and using the output of one function as the input to a next\n'
                         'function. DG pipeline allows executing executables concurrently and\n'
@@ -165,6 +170,6 @@ setup(
                     'deep_genome.core',
                     'deep_genome.core.database',
                     'deep_genome.core.tests'],
-    'url': 'https://bitbucket.org/deep_genome/deep_genome',
+    'url': 'https://gitlab.psb.ugent.be/deep_genome/core',
     'version': '0.0.0'}
 )
