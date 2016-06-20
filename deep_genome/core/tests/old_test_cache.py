@@ -20,7 +20,7 @@ Test Cache
 '''
 
 import pytest
-import deep_genome.core.cli as ctx
+import deep_genome.core.context as ctx
 from deep_genome.test.util import get_config, get_data_file
 from datetime import timedelta, datetime
 import plumbum as pb

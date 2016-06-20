@@ -1,7 +1,6 @@
 .coverage
 .settings
 docs/build
-docs/api
 build
 .tmontmp
 .testmondata

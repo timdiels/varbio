@@ -17,7 +17,7 @@
 
 from configparser import ConfigParser
 from chicken_turtle_util.test import temp_dir_cwd
-from deep_genome.core.cli import AlgorithmMixin
+from deep_genome.core import AlgorithmContext
 from click.testing import CliRunner
 from pathlib import Path
 import pytest
@@ -47,7 +47,7 @@ def cli_test_args(test_conf):
 def _create_context(cli_test_args):
     _context = []
     
-    Context = AlgorithmMixin('1.0.0')
+    Context = AlgorithmContext('1.0.0')
     @Context.command()
     def main(context):
         _context.append(context)

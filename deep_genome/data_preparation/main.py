@@ -17,7 +17,7 @@
 
 import pandas as pd
 import click
-import deep_genome.core.cli as ctx
+import deep_genome.core.context as ctx
 from deep_genome.core.reader.various import read_expression_matrix_file,\
     read_clustering_file, read_gene_mapping_file
 from deep_genome.core.database.entities import ExpressionMatrix, Clustering,\

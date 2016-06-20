@@ -20,7 +20,7 @@ Test deep_genome.core.pipeline
 '''
 
 from deep_genome.core.pipeline import LocalJobServer, DRMAAJobServer, pipeline_cli, TaskFailedError, Job, Task
-from deep_genome.core.cli import AlgorithmMixin
+from deep_genome.core import AlgorithmContext
 from chicken_turtle_util import path as path_
 from chicken_turtle_util.exceptions import InvalidOperationError
 from pathlib import Path
@@ -464,7 +464,7 @@ class TestDRMAAJobServer(object):
         with pytest.raises(TaskFailedError):
             await job1.run()
 
-Context = AlgorithmMixin('1.0.0')
+Context = AlgorithmContext('1.0.0')
 
 class TestPipelineCLI(object):
     

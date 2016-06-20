@@ -26,6 +26,12 @@ Scheduler supports DRMAA). Each job represents a call to an executable with some
 arguments, to be run locally or on the cluster. Each job is given its own clean
 working directory (even when it was cancelled before, the next try will start
 from a fresh directory again).
+
+To run some Python code on the controller machine, use SimpleTask. When unable
+to define your dependencies up front, use Task. To run an executable (in a
+subprocess) on the controller machine, use a Job with a LocalJobServer. To run
+an executable on a cluster (with an DRMAA interface) use Job with a
+DRMAAJobServer. You should make no more than 1 instance of each type of job server.
 '''
 
 import asyncio
@@ -36,7 +42,6 @@ import re
 from chicken_turtle_util import path as path_
 from chicken_turtle_util.exceptions import InvalidOperationError
 from deep_genome.core.database import entities
-from collections import defaultdict
 from pathlib import Path
 import plumbum as pb
 from pprint import pformat
@@ -243,7 +248,40 @@ class Task(object):
     def __repr__(self):
         return 'Task(name={!r})'.format(self.name)
     
-class Job(Task):
+class SimpleTask(Task):
+    
+    '''
+    Task with, simply, a predefined list of dependencies
+    
+    Parameters
+    ----------
+    context
+    name : str
+        See ``help(deep_genome.core.pipeline.Task)``
+    dependencies : iterable(Task)
+        Tasks that must be finished before this job can start
+    '''
+    
+    def __init__(self, context, name, dependencies=()):
+        super().__init__(context, name)
+        self.__dependencies = set(dependencies)
+        
+    @property
+    def dependencies(self): #TODO use observable set to ensure no edits occur while this task has already begun or finished _finish_dependencies
+        '''
+        Tasks that must be finished before this one can start
+        
+        Returns
+        -------
+        {Task}
+            Direct dependencies of this job
+        '''
+        return self.__dependencies
+    
+    async def _finish_dependencies(self):
+        await self._wait_unfinished_dependencies(self.dependencies)
+    
+class Job(SimpleTask):
     
     '''
     A job with a command that can be submitted to a job server for execution
@@ -270,14 +308,13 @@ class Job(Task):
     '''
     
     def __init__(self, command, server, name, dependencies=(), server_args=None):
-        super().__init__(server.context, name)
+        super().__init__(server.context, name, dependencies)
         command = [str(x) for x in command]
         self._executable = Path(str(pb.local[command[0]].executable))
         self._args = command[1:]
         
         self._server = server
         self._server_args = server_args
-        self._dependencies = set(dependencies)
     
     @property
     def executable(self):
@@ -315,21 +352,6 @@ class Job(Task):
         pathlib.Path
         '''
         return self._server.get_directory(self) / 'stdout'
-        
-    @property
-    def dependencies(self):
-        '''
-        Tasks that must be finished before this one can start
-        
-        Returns
-        -------
-        {Task}
-            Direct dependencies of this job
-        '''
-        return self._dependencies
-    
-    async def _finish_dependencies(self):
-        await self._wait_unfinished_dependencies(self.dependencies)
                 
     async def _run(self):
         await self._server.run(self)
@@ -481,7 +503,7 @@ def pipeline_cli(Context, create_jobs):
     ----------
     Context 
         Application context class to use. Should be
-        deep_genome.core.cli.AlgorithmMixin or a subclass thereof.
+        deep_genome.core.context.AlgorithmMixin or a subclass thereof.
     create_jobs : (Context) -> Job
         callback that is called with an instance of the context you provided. It
         should return the final job that the pipeline should finish (it will run

@@ -19,9 +19,7 @@
 Test deep_genome.core.parsers
 '''
 
-from deep_genome.core.cli import AlgorithmMixin
 from deep_genome.core.parsers import Parser
-from click.testing import CliRunner
 import pytest
 from textwrap import dedent
 import pandas as pd
