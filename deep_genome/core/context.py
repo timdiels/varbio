@@ -23,7 +23,6 @@ from chicken_turtle_util import application as app
 from chicken_turtle_util.configuration import ConfigurationLoader
 from deep_genome.core.configuration import Configuration
 from deep_genome.core.database import Database
-from deep_genome.core.pipeline import Tasks
 
 _DatabaseMixin = app.DatabaseMixin(Database)
 
@@ -77,9 +76,22 @@ def AlgorithmContext(version, configurations={}):
         
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
-            self._tasks = Tasks()  # support for deep_genome.core.pipeline
+            self._tasks = {}
             
             self.__configuration = Configuration(_loader.load(self._configuration_paths.get('core')))
+        
+        @property
+        def tasks(self):
+            '''
+            All constructed tasks
+            
+            Read only (except for DG internals)
+            
+            Returns
+            -------
+            {name :: str => deep_genome.core.pipeline.Task}
+            '''
+            return self._tasks
             
         @property
         def configuration(self):

@@ -97,21 +97,6 @@ async def _async_noop():
 class TaskFailedError(Exception):
     pass
 
-class Tasks(object):
-    
-    '''
-    Internal class.
-    '''
-    
-    def __init__(self):
-        self._task_base_ids = set()
-    
-    def add(self, name):
-        if name in self._task_base_ids:
-            raise ValueError('A task already exists with this name: ' + name)
-        self._task_base_ids.add(name)
-        return name
-
 class Task(object):
     
     '''
@@ -149,7 +134,9 @@ class Task(object):
         pattern = r'{identifier}([.]{identifier})*'.format(identifier=identifier)
         if name in ('.', '..') or name != name.strip() or not re.fullmatch(pattern, name):
             raise ValueError('Invalid task name: ' + name)
-        self.__name = self.__context._tasks.add(name)
+        if name in context.tasks:
+            raise ValueError('A task already exists with this name: ' + name)
+        self.__name = name
         
         # finished 
         with self.__context.database.scoped_session() as session:
