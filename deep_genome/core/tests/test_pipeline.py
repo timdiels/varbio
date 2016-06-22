@@ -138,7 +138,7 @@ class TestTask(object):
         When insane name, raise
         '''
         with pytest.raises(ValueError) as ex:
-            Task(context, name)
+            Task(name, context)
         assert 'name' in str(ex.value)
         assert 'valid' in str(ex.value)
         
@@ -147,15 +147,15 @@ class TestTask(object):
         '''
         When insane name, raise
         '''
-        Task(context, name)
+        Task(name, context)
         
 class TestJob(object):
     
     def test_job_interface(self, local_job_server):
         # The interface for defining jobs
-        job1 = Job(['true'], local_job_server, 'job1')
+        job1 = Job('job1', local_job_server, ['true'])
         assert job1.name == 'job1'
-        job2 = Job(['true'], server=local_job_server, name='job2', dependencies={job1})
+        job2 = Job('job2', local_job_server, ['true'], dependencies={job1})
         assert job2.name == 'job2'
     
 class TestJobServer(object):
@@ -169,7 +169,7 @@ class TestJobServer(object):
         '''
         When succesful job, call with correct context and report success
         '''
-        job1 = Job(sh('pwd; echo $$; echo stderr >&2; echo extra; touch file; mkdir dir'), server=server, name='job1')
+        job1 = Job('job1', server, sh('pwd; echo $$; echo stderr >&2; echo extra; touch file; mkdir dir'))
         
         dir_ = server.get_directory(job1)
         if isinstance(server, LocalJobServer):
@@ -210,7 +210,7 @@ class TestJobServer(object):
         '''
         When job exits non-zero, raise
         '''
-        job1 = Job(sh('exit 1'), server, 'job1')
+        job1 = Job('job1', server, sh('exit 1'))
         with pytest.raises(TaskFailedError):
             await job1.run()
         
@@ -219,8 +219,8 @@ class TestJobServer(object):
         '''
         When running a job before its dependencies have finished, run its dependencies as well
         '''
-        job2 = Job(['true'], server, 'job2')
-        job1 = Job(['true'], server=server, name='job1', dependencies={job2})
+        job2 = Job('job2', server, ['true'])
+        job1 = Job('job1', server, ['true'], dependencies={job2})
         order = {
             (job2, 'started') : (),
             (job2, 'finished') : (job2, 'started'),
@@ -235,7 +235,7 @@ class TestJobServer(object):
         '''
         When running a job while it is already running, return the same future
         '''
-        job1 = Job(['true'], server, 'job1')
+        job1 = Job('job1', server, ['true'])
         future = job1.run()
         assert job1.run() == future  # return the same future
         
@@ -247,7 +247,7 @@ class TestJobServer(object):
         '''
         When trying to run a job that has finished, raise
         '''
-        job1 = Job(['true'], server, 'job1')
+        job1 = Job('job1', server, ['true'])
         await job1.run()
         with pytest.raises(InvalidOperationError) as ex:
             job1.run()
@@ -258,10 +258,10 @@ async def test_persistence(context, context2):
     '''
     When a job has finished, remember it across runs
     '''
-    job1 = Job(['true'], LocalJobServer(context), 'job1')
+    job1 = Job('job1', LocalJobServer(context), ['true'])
     await job1.run()
     
-    job1_ = Job(['true'], LocalJobServer(context2), 'job1')
+    job1_ = Job('job1', LocalJobServer(context2), ['true'])
     assert job1.name == job1_.name
     assert job1_.finished
         
@@ -273,7 +273,7 @@ class TestExecutionOrder(object):
     
     @pytest.fixture
     def fake_job(self, server):
-        return Job(['true'], server, name='fake')
+        return Job('fake', server, ['true'])
     
     def create_inhibitor(self, path):
         os.makedirs(str(path.parent), exist_ok=True)
@@ -311,11 +311,11 @@ class TestExecutionOrder(object):
         # job2 doesn't end before job3 starts
         # job3 doesn't end before job2 starts
         # job4 ends after job5 starts
-        job2 = Job(sh('rm {}; {}'.format(inhibitor1, wait_for_rm(inhibitor2))), server, name='job2')
-        job3 = Job(sh('rm {}; {}'.format(inhibitor2, wait_for_rm(inhibitor1))), server, name='job3')
-        job4 = Job(sh(wait_for_rm(inhibitor3)), server, name='job4')
-        job5 = Job(sh('rm {}'.format(inhibitor3)), server, dependencies={job2, job3}, name='job5')
-        job6 = Job(['true'], server, dependencies={job4, job5}, name='job6')
+        job2 = Job('job2', server, sh('rm {}; {}'.format(inhibitor1, wait_for_rm(inhibitor2))))
+        job3 = Job('job3', server, sh('rm {}; {}'.format(inhibitor2, wait_for_rm(inhibitor1))))
+        job4 = Job('job4', server, sh(wait_for_rm(inhibitor3)))
+        job5 = Job('job5', server, sh('rm {}'.format(inhibitor3)), dependencies={job2, job3})
+        job6 = Job('job6', server, ['true'], dependencies={job4, job5})
         
         # assert
         order = {
@@ -345,11 +345,11 @@ class TestExecutionOrder(object):
         # job2 -> job4 -> job5
         # job2 fails if run before job3 finishes
         # job1 does not finish before job2 nearly finishes 
-        job1 = Job(sh(wait_for_rm(inhibitor1)), server, name='job1')
-        job3 = Job(sh('touch done'), server, dependencies={job1}, name='job3')
-        job2 = Job(sh('[ -e "{}" ]; exists=$?; rm {}; exit $exists'.format(job3.directory / 'done', inhibitor1)), server, name='job2')
-        job4 = Job(['true'], server, name='job4', dependencies={job2})
-        job5 = Job(['true'], server, name='job5', dependencies={job3, job4})
+        job1 = Job('job1', server, sh(wait_for_rm(inhibitor1)))
+        job3 = Job('job3', server, sh('touch done'), dependencies={job1})
+        job2 = Job('job2', server, sh('[ -e "{}" ]; exists=$?; rm {}; exit $exists'.format(job3.directory / 'done', inhibitor1)))
+        job4 = Job('job4', server, ['true'], dependencies={job2})
+        job5 = Job('job5', server, ['true'], dependencies={job3, job4})
         
         # assert
         order = {
@@ -385,9 +385,9 @@ class TestExecutionOrder(object):
         # canceller waits for start of job2
         # job2 does not finish first run, but does finish second run
         token = 'magic32091373831920313903651230536829294432789637373'  # something likely unique to search for
-        job1 = Job(['true'], server, name='job1')
-        job2 = Job(sh('echo {}; rm {}; {} || true'.format(token, inhibitor1, wait_for_rm(inhibitor2))), server, name='job2', dependencies={job1})
-        job3 = Job(['true'], server, name='job3', dependencies={job2})
+        job1 = Job('job1', server, ['true'])
+        job2 = Job('job2', server, dependencies={job1}, command=sh('echo {}; rm {}; {} || true'.format(token, inhibitor1, wait_for_rm(inhibitor2))))
+        job3 = Job('job3', server, ['true'], dependencies={job2})
         
         async def canceller():
             while inhibitor1.exists():
@@ -452,7 +452,7 @@ class TestDRMAAJobServer(object):
         event_loop.call_later(3, kill_job)
         
         # Run job
-        job1 = Job(['sleep', '99999999999'], drmaa_job_server, name='job1')
+        job1 = Job('job1', drmaa_job_server, ['sleep', '99999999999'])
         with pytest.raises(TaskFailedError):
             await job1.run()
 
@@ -464,7 +464,7 @@ class TestPipelineCLI(object):
     
     @pytest.fixture
     def fake_job(self, local_job_server):
-        fake_job = Job(['true'], local_job_server, name='fake')
+        fake_job = Job('fake', local_job_server, ['true'])
         os.makedirs(str(fake_job.directory), exist_ok=True)
         return fake_job
     
@@ -490,7 +490,7 @@ class TestPipelineCLI(object):
     def main(self, local_job_server, inhibitor1, inhibit_failure, event_loop):
         def create_jobs(context):
             assert isinstance(context, Context)
-            return Job(sh(wait_for_rm(inhibitor1) + '; [ -e {} ]'.format(inhibit_failure)), server=local_job_server, name='main_job')
+            return Job('main_job', local_job_server, sh(wait_for_rm(inhibitor1) + '; [ -e {} ]'.format(inhibit_failure)))
         return pipeline_cli(Context, create_jobs)
      
     def test_success(self, main, cli_test_args, inhibitor1):
@@ -533,7 +533,7 @@ class TestPipelineCLI(object):
         
 # dg-tests-run-pipeline
 def create_jobs(context):
-    return Job(sh('echo {}; sleep 9999999'.format(dg_tests_run_pipeline_token)), server=LocalJobServer(context), name='deep_genome.core.tests.test_pipeline.main_job')
+    return Job('deep_genome.core.tests.test_pipeline.main_job', LocalJobServer(context), sh('echo {}; sleep 9999999'.format(dg_tests_run_pipeline_token)))
 dg_tests_run_pipeline = pipeline_cli(Context, create_jobs)
 dg_tests_run_pipeline_token = 'jif98730rjf9guw80r93uldkfkieosljddakuiuei2oadklkf'
 

@@ -17,8 +17,7 @@
 
 # TODO
 # Either way,
-# - rm SimpleTask. Job's dependencies need to be specified up front
-# - name first, server second
+# - pipeline: Task, Job: name first, server second
 # - name more lenient: need to be able to describe args passed into a func that creates the job. Do not want to revert to a counter!
 # - run() shouldn't raise when finished, be lenient
 # - rename: _run_dependencies() and _run_dependencies_(deps)
@@ -142,7 +141,7 @@ class Task(object):
         projects.
     '''
     
-    def __init__(self, context, name):
+    def __init__(self, name, context):
         self._context = context
         self._run_task = None  # when running, this contains the task that runs the job
         
@@ -292,8 +291,8 @@ class Job(Task):
         `native specification <http://gridscheduler.sourceforge.net/javadocs/org/ggf/drmaa/JobTemplate.html#setNativeSpecification(java.lang.String)>`_.
     '''
     
-    def __init__(self, command, server, name, dependencies=(), server_args=None):
-        super().__init__(server.context, name)
+    def __init__(self, name, server, command, dependencies=(), server_args=None):
+        super().__init__(name, server.context)
         command = [str(x) for x in command]
         self._dependencies = frozenset(dependencies)
         self._executable = Path(str(pb.local[command[0]].executable))
