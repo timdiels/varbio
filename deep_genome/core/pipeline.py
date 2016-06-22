@@ -15,7 +15,25 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
-#TODO we added tasks, which are like async tasks, but you avoid rerunning them and they have deps; but these are usually not so necessary.
+# TODO
+# Either way,
+# - rm SimpleTask. Job's dependencies need to be specified up front
+# - name first, server second
+# - name more lenient: need to be able to describe args passed into a func that creates the job. Do not want to revert to a counter!
+# - run() shouldn't raise when finished, be lenient
+# - rename: _run_dependencies() and _run_dependencies_(deps)
+# class MyTask(Task):
+#     
+#     def __init__(self):
+#         super().__init__(name, context)
+#         
+#     async def _run_deps(self):
+#         self._run_dependencies_(deps)
+#     
+#     async def _run(self):
+#         pass
+
+
 '''
 Utilities for building a pipeline
 
@@ -248,40 +266,7 @@ class Task(object):
     def __repr__(self):
         return 'Task(name={!r})'.format(self.name)
     
-class SimpleTask(Task):
-    
-    '''
-    Task with, simply, a predefined list of dependencies
-    
-    Parameters
-    ----------
-    context
-    name : str
-        See ``help(deep_genome.core.pipeline.Task)``
-    dependencies : iterable(Task)
-        Tasks that must be finished before this job can start
-    '''
-    
-    def __init__(self, context, name, dependencies=()):
-        super().__init__(context, name)
-        self.__dependencies = set(dependencies)
-        
-    @property
-    def dependencies(self): #TODO use observable set to ensure no edits occur while this task has already begun or finished _finish_dependencies
-        '''
-        Tasks that must be finished before this one can start
-        
-        Returns
-        -------
-        {Task}
-            Direct dependencies of this job
-        '''
-        return self.__dependencies
-    
-    async def _finish_dependencies(self):
-        await self._wait_unfinished_dependencies(self.dependencies)
-    
-class Job(SimpleTask):
+class Job(Task):
     
     '''
     A job with a command that can be submitted to a job server for execution
@@ -308,8 +293,9 @@ class Job(SimpleTask):
     '''
     
     def __init__(self, command, server, name, dependencies=(), server_args=None):
-        super().__init__(server.context, name, dependencies)
+        super().__init__(server.context, name)
         command = [str(x) for x in command]
+        self._dependencies = frozenset(dependencies)
         self._executable = Path(str(pb.local[command[0]].executable))
         self._args = command[1:]
         
@@ -352,6 +338,9 @@ class Job(SimpleTask):
         pathlib.Path
         '''
         return self._server.get_directory(self) / 'stdout'
+    
+    async def _finish_dependencies(self):
+        await self._wait_unfinished_dependencies(self._dependencies)
                 
     async def _run(self):
         await self._server.run(self)

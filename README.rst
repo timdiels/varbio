@@ -76,3 +76,9 @@ resources such as the number of processors the job requires (via server_args to
 some `DRMAAJobServer`\ s). DG pipeline's results are passed via the filesystem,
 each job gets its own working directory in which a job can write its output, or
 it can simply write to stdout and stderr.
+
+Job dependencies need to be specified up front, you usually need to refer to
+your dependency's job directory anyway, so this shouldn't be too much of a
+hassle. We'd like to keep a Job immutable in general, it's just simpler. If you
+did allow a mutable dependency set, do you allow removal? At least you would
+block changes as soon as the Job has been run (regardless of whether it completed).

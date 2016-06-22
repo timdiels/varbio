@@ -157,14 +157,6 @@ class TestJob(object):
         assert job1.name == 'job1'
         job2 = Job(['true'], server=local_job_server, name='job2', dependencies={job1})
         assert job2.name == 'job2'
-        
-        # Can manipulate dependencies after job definition via a set interface
-        assert job1.dependencies == set()
-        assert job2.dependencies == {job1}
-        job2.dependencies.clear()
-        job1.dependencies.add(job2)
-        assert job2.dependencies == set()
-        assert job1.dependencies == {job2}
     
 class TestJobServer(object):
     

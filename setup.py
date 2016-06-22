@@ -160,7 +160,14 @@ setup(
                         'processors the job requires (via server\\_args to some DRMAAJobServers).\n'
                         "DG pipeline's results are passed via the filesystem, each job gets its\n"
                         'own working directory in which a job can write its output, or it can\n'
-                        'simply write to stdout and stderr.\n',
+                        'simply write to stdout and stderr.\n'
+                        '\n'
+                        'Job dependencies need to be specified up front, you usually need to\n'
+                        "refer to your dependency's job directory anyway, so this shouldn't be\n"
+                        "too much of a hassle. We'd like to keep a Job immutable in general, it's\n"
+                        'just simpler. If you did allow a mutable dependency set, do you allow\n'
+                        'removal? At least you would block changes as soon as the Job has been\n'
+                        'run (regardless of whether it completed).\n',
     'name': 'deep-genome-core',
     'package_data': {   'deep_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml'],
                         'deep_genome.core': ['data/core.defaults.conf']},
