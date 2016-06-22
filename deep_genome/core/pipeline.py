@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
+# TODO swap order on (context, job_dir)
+# TOOD allow custom jobs dire on LocalJobServer but default to cache dir 
 '''
 Utilities for building a pipeline
 
@@ -140,19 +142,23 @@ class Task(object):
     '''
     
     def __init__(self, name, context):
-        self._context = context
-        self._run_task = None  # when running, this contains the task that runs the job
+        self.__context = context
+        self.__run_task = None  # when running, this contains the task that runs the job
         
         identifier = r'[_a-zA-Z][_a-zA-Z0-9( =,)]*'
         pattern = r'{identifier}([.]{identifier})*'.format(identifier=identifier)
         if name in ('.', '..') or name != name.strip() or not re.fullmatch(pattern, name):
             raise ValueError('Invalid task name: ' + name)
-        self._name = self._context._tasks.add(name)
+        self.__name = self.__context._tasks.add(name)
         
         # finished 
-        with self._context.database.scoped_session() as session:
+        with self.__context.database.scoped_session() as session:
             self.__finished = session.sa_session.query(entities.Task).filter_by(name=self.name).one_or_none() is not None
-        
+    
+    @property
+    def _context(self):
+        return self.__context
+            
     @property
     def name(self):
         '''
@@ -160,7 +166,7 @@ class Task(object):
         
         Syntax: like a package name.
         '''
-        return self._name
+        return self.__name
             
     @property
     def finished(self):
@@ -181,9 +187,9 @@ class Task(object):
         ''' # XXX aren't there cases where TaskFailedError is raised although it hasn' begun? E.g. failed dep? Maybe raise diff one for that. DependencyFailedError, e.g.
         if self.finished:
             return asyncio.ensure_future(_async_noop())
-        if not self._run_task:
-            self._run_task = asyncio.ensure_future(self.__run())
-        return self._run_task
+        if not self.__run_task:
+            self.__run_task = asyncio.ensure_future(self.__run())
+        return self.__run_task
     
     async def __run(self):
         try:
@@ -195,7 +201,7 @@ class Task(object):
                 logger.info("Task '{}': started".format(self.name))
                 await self._run()
                 self.__finished = True
-                with self._context.database.scoped_session() as session:
+                with self.__context.database.scoped_session() as session:
                     session.sa_session.add(entities.Task(name=self.name))
                 logger.info("Task '{}': finished".format(self.name))
             except asyncio.CancelledError:
@@ -207,14 +213,14 @@ class Task(object):
             logger.info("Task '{}': cancelled".format(self.name))
             raise
         finally:
-            self._run_task = None
+            self.__run_task = None
             
     def cancel(self):
         '''
         Cancel job and any dependencies it started
         '''
-        if self._run_task:
-            self._run_task.cancel()
+        if self.__run_task:
+            self.__run_task.cancel()
 
     async def _run_dependencies(self):
         '''

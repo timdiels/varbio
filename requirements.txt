@@ -15,10 +15,9 @@ pyxdg==0.25
 frozendict==0.5
 requests==2.9.1
 sqlalchemy==1.0.12
-pymysql==0.7.2
-sqlparse==0.1.19
 pytest==2.9.0
 pytest-env==0.6.0
+pymysql==0.7.2
 pytest-xdist==1.14
 pytest-cov==2.2.1
 coverage-pth==0.0.1
@@ -27,9 +26,10 @@ pytest-timeout==1.0.0
 pytest-mock==0.11.0
 pytest-asyncio==0.3.0
 pytest-capturelog==0.7
-freezegun==0.3.6
+sqlparse==0.1.19
 drmaa==0.7.6
 -e file:///home/limyreth/doc/eclipse_workspace/chicken_turtle_util
+freezegun==0.3.6
 Sphinx==1.4               # via sphinx-rtd-theme
 numpydoc==0.6.0
 sphinx-rtd-theme==0.1.9
