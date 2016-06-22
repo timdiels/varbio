@@ -142,7 +142,7 @@ class TestTask(object):
         assert 'name' in str(ex.value)
         assert 'valid' in str(ex.value)
         
-    @pytest.mark.parametrize('name', ('name', 'n1', "name.hi", 'name2.hi1', '_1', 'mix.max_._hi._1be'))
+    @pytest.mark.parametrize('name', ('name', 'n1', "name.hi", 'name2.hi1', '_1', 'mix.max_._hi._1be', 'mix.max_._hi(derp=1, _1=hi)._1be(derp=1, _1=hi)'))
     def test_valid_name(self, context, name):
         '''
         When insane name, raise

@@ -17,8 +17,7 @@
 
 # TODO
 # Either way,
-# - pipeline: Task, Job: name first, server second
-# - name more lenient: need to be able to describe args passed into a func that creates the job. Do not want to revert to a counter!
+# - pipeline.Task.name more lenient to allow naming a task uniquely without using a counter
 # - run() shouldn't raise when finished, be lenient
 # - rename: _run_dependencies() and _run_dependencies_(deps)
 # class MyTask(Task):
@@ -134,20 +133,33 @@ class Task(object):
     ----------
     context
     name : str
-        Unique task name, it has the same syntax as Python package names. The
-        name does not have to refer to actual packages. If using the same
-        database for multiple pipeline projects it is recommended to prefix it
-        with your project's package name to avoid clashes with the other
-        projects.
+        Unique task name. Valid names are like Python packages, but less strict,
+        see below. The name does not have to refer to actual packages.
+        
+        If using the same database for multiple pipeline projects it is
+        recommended to prefix it with your project's package name to avoid
+        clashes with the other projects. Avoid using counters to make names
+        unambiguous, one would then have to be careful the numbers are assigned
+        in the same order on the next run; instead, specify some args in the
+        name; e.g. ``f(x): return MyTask(name='base.name(x={})'.format(x)``.
+        
+        Names are like Python packages, but identifiers may also use the ``(
+        =,)`` characters. An identifier must start with a letter and may not
+        have trailing whitespace. Formally::
+            
+            identifier := [_a-zA-Z][_a-zA-Z0-9( =,)]*
+            name := {identifier}([.]{identifier})*
+            name not in ('.', '..')
+            name == name.strip()
     '''
     
     def __init__(self, name, context):
         self._context = context
         self._run_task = None  # when running, this contains the task that runs the job
         
-        identifier = r'[_a-zA-Z][_a-zA-Z0-9]*'
+        identifier = r'[_a-zA-Z][_a-zA-Z0-9( =,)]*'
         pattern = r'{identifier}([.]{identifier})*'.format(identifier=identifier)
-        if name in ('.', '..') or not re.fullmatch(pattern, name):
+        if name in ('.', '..') or name != name.strip() or not re.fullmatch(pattern, name):
             raise ValueError('Invalid task name: ' + name)
         self._name = self._context._tasks.add(name)
         
