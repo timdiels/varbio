@@ -243,15 +243,25 @@ class TestJobServer(object):
         await future
 
     @pytest.mark.asyncio
-    async def test_cannot_run_when_finished(self, server):
+    async def test_run_when_finished(self, server):
         '''
-        When trying to run a job that has finished, raise
+        When trying to run a job that has finished, return a noop task
         '''
         job1 = Job('job1', server, ['true'])
         await job1.run()
-        with pytest.raises(InvalidOperationError) as ex:
-            job1.run()
-        assert 'Cannot run a finished job' in str(ex.value)
+        assert job1.finished
+        task = job1.run()
+        print(task)
+#         assert task == _noop_task  # doesn't actually rerun, simply returns a noop
+        print('herpderp')
+        async def _async_noop():
+            pass
+        _noop_task = asyncio.ensure_future(_async_noop())
+        await _noop_task
+        print("HERP DERP")
+        await task
+        print('yay')
+        await job1.run()
         
 @pytest.mark.asyncio
 async def test_persistence(context, context2):

@@ -17,8 +17,7 @@
 
 # TODO
 # Either way,
-# - pipeline.Task.name more lenient to allow naming a task uniquely without using a counter
-# - run() shouldn't raise when finished, be lenient
+# - run() returns noop task when finished instead of raising
 # - rename: _run_dependencies() and _run_dependencies_(deps)
 # class MyTask(Task):
 #     
@@ -105,6 +104,9 @@ async def _kill(pid, timeout=10):
         for process in processes:
             with suppress(psutil.NoSuchProcess):
                 process.kill()
+                
+async def _async_noop():
+    pass
 
 class TaskFailedError(Exception):
     pass
@@ -192,14 +194,9 @@ class Task(object):
         asyncio.Task
             task that runs the job. Task raises `TaskFailedError` when the job or
             one of its dependencies fails to finish.
-        
-        Raises
-        ------
-        InvalidOperationError
-            When the job has already finished.
         ''' #TODO aren't there cases where TaskFailedError is raised although it hasn' begun? E.g. failed dep? Maybe raise diff one for that. DependencyFailedError, e.g.
         if self.finished:
-            raise InvalidOperationError('Cannot run a finished job')
+            return asyncio.ensure_future(_async_noop())
         if not self._run_task:
             self._run_task = asyncio.ensure_future(self.__run())
         return self._run_task
