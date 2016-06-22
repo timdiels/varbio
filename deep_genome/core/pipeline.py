@@ -15,22 +15,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
-# TODO
-# Either way,
-# - run() returns noop task when finished instead of raising
-# - rename: _run_dependencies() and _run_dependencies_(deps)
-# class MyTask(Task):
-#     
-#     def __init__(self):
-#         super().__init__(name, context)
-#         
-#     async def _run_deps(self):
-#         self._run_dependencies_(deps)
-#     
-#     async def _run(self):
-#         pass
-
-
 '''
 Utilities for building a pipeline
 
@@ -194,7 +178,7 @@ class Task(object):
         asyncio.Task
             task that runs the job. Task raises `TaskFailedError` when the job or
             one of its dependencies fails to finish.
-        ''' #TODO aren't there cases where TaskFailedError is raised although it hasn' begun? E.g. failed dep? Maybe raise diff one for that. DependencyFailedError, e.g.
+        ''' # XXX aren't there cases where TaskFailedError is raised although it hasn' begun? E.g. failed dep? Maybe raise diff one for that. DependencyFailedError, e.g.
         if self.finished:
             return asyncio.ensure_future(_async_noop())
         if not self._run_task:
@@ -204,7 +188,7 @@ class Task(object):
     async def __run(self):
         try:
             # Run dependencies
-            await self._finish_dependencies()
+            await self._run_dependencies()
             
             # Run self
             try:
@@ -232,7 +216,7 @@ class Task(object):
         if self._run_task:
             self._run_task.cancel()
 
-    async def _finish_dependencies(self):
+    async def _run_dependencies(self):
         '''
         Run and wait on unfinished dependencies
 
@@ -248,14 +232,14 @@ class Task(object):
         '''
         raise NotImplementedError()
         
-    async def _wait_unfinished_dependencies(self, dependencies):
+    async def _run_dependencies_(self, dependencies):
         '''
-        Helper to wait for unfinished dependencies
+        Helper to wait for dependencies
         
         Parameters
         ----------
         dependencies : iterable(Task)
-            Dependencies of which to run the unfinished one and await their completion.
+            Dependencies to run and await until finished
         '''
         dependencies = [dependency for dependency in dependencies if not dependency.finished]
         if dependencies:
@@ -347,8 +331,8 @@ class Job(Task):
         '''
         return self._server.get_directory(self) / 'stdout'
     
-    async def _finish_dependencies(self):
-        await self._wait_unfinished_dependencies(self._dependencies)
+    async def _run_dependencies(self):
+        await self._run_dependencies_(self._dependencies)
                 
     async def _run(self):
         await self._server.run(self)
