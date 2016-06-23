@@ -16,7 +16,20 @@
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
 # TODO swap order on (context, job_dir)
-# TOOD allow custom jobs dire on LocalJobServer but default to cache dir 
+# TOOD allow custom jobs dire on LocalJobServer but default to cache dir
+
+# TODO allow any chars in name, it is now a string id
+# - with characters that would be invalid as filename. It could also become too
+# long. Probably shouldn't use it as a dir name. Must add in database and use 
+# the db's task id as directory name. This will make it hell to debug though,
+# but I see no other way
+# - __str__ shouldn't show it, at least not fully. 
+# - __repr__ should show it as that's what a good repr does.
+
+#TODO not always wrapped in TaskFailedError. Why bother with TaskFailedError in the first place?
+#TODO logging: why not: started, waiting for, resumed, waiting for, ... A kind of thing you could see
+#TODO no deps at all on Job? Simply let the user handle it? E.g. in a task, call await for jobs, then continue etc? Very reasonable thing to do actually!
+
 '''
 Utilities for building a pipeline
 
