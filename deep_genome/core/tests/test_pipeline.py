@@ -112,29 +112,6 @@ def ps_aux_contains(term):
             return True
     return False
 
-class TestTaskBasics(object):
-    
-    '''
-    Test just the basics of Task
-    '''
-
-    @pytest.mark.parametrize('name', ('.', '..', "name'quot", 'name"dquot', 'ay/lmao', 'jobbu~1', ' ', '  ', '\t', ' leading.space', '\tleading.space', 'trailing.space ', 'trailing.space\t', '3no'))
-    def test_invalid_name(self, context, name):
-        '''
-        When insane name, raise
-        '''
-        with pytest.raises(ValueError) as ex:
-            Task(name, context)
-        assert 'name' in str(ex.value)
-        assert 'valid' in str(ex.value)
-        
-    @pytest.mark.parametrize('name', ('name', 'n1', "name.hi", 'name2.hi1', '_1', 'mix.max_._hi._1be', 'mix.max_._hi(derp=1, _1=hi)._1be(derp=1, _1=hi)'))
-    def test_valid_name(self, context, name):
-        '''
-        When insane name, raise
-        '''
-        Task(name, context)
-        
 def test_job_interface(local_job_server):
     # The interface for defining jobs
     job1 = Job('job1', local_job_server, ['true'])
@@ -318,9 +295,9 @@ async def test_job_success(server, context, test_conf):
     
     dir_ = server.get_directory(job1)
     if isinstance(server, LocalJobServer):
-        assert dir_ == context.cache_directory / 'jobs' / job1.name
+        assert dir_ == context.cache_directory / 'jobs' / str(job1.id)
     else:
-        assert dir_ == Path(test_conf['drmaa_jobs_directory']) / job1.name
+        assert dir_ == Path(test_conf['drmaa_jobs_directory']) / str(job1.id)
          
     assert job1.directory != server.get_directory(job1)
         

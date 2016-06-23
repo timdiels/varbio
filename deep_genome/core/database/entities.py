@@ -21,7 +21,7 @@ Database entities (i.e. roughly equivalent to the tables of the database)
 
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from inflection import underscore
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table, Boolean, Text
 from sqlalchemy.orm import relationship, deferred
 from chicken_turtle_util.various import URL_MAX_LENGTH, PATH_MAX_LENGTH
 from datetime import datetime
@@ -232,7 +232,8 @@ class GetByGenesQueryItem(DBEntity):
 class Task(DBEntity):
      
     id =  Column(Integer, primary_key=True)
-    name = Column(String(250), unique=True, nullable=False)
+    name = Column(Text, nullable=False)
+    finished = Column(Boolean, nullable=False) 
      
     def __repr__(self):
         return '<Task(name={!r})>'.format(self.name)

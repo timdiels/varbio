@@ -18,8 +18,6 @@
 # TODO swap order on (context, job_dir)
 # TOOD allow custom jobs dir on LocalJobServer but default to cache dir
 
-# 1. TODO not always wrapped in TaskFailedError. Why bother with TaskFailedError in the first place?
-
 # 2. TODO allow any chars in name, it is now a string id
 # - with characters that would be invalid as filename. It could also become too
 # long. Probably shouldn't use it as a dir name. Must add in database and use 
@@ -116,52 +114,54 @@ class Task(object):
     ----------
     context
     name : str
-        Unique task name. Valid names are like Python packages, but less strict,
-        see below. The name does not have to refer to actual packages.
+        Unique task name. May use any characters, even whitespace (and nul
+        characters), but it's recommended to keep it readable.
         
         If using the same database for multiple pipeline projects it is
-        recommended to prefix it with your project's package name to avoid
-        clashes with the other projects. Avoid using counters to make names
-        unambiguous, one would then have to be careful the numbers are assigned
-        in the same order on the next run; instead, specify some args in the
-        name; e.g. ``f(x): return MyTask(name='base.name(x={})'.format(x)``.
+        recommended to prefix all names with your project's package name to
+        avoid clashes with the other projects.
         
-        Names are like Python packages, but identifiers may also use the ``(
-        =,)`` characters. An identifier must start with a letter and may not
-        have trailing whitespace. Formally::
-            
-            identifier := [_a-zA-Z][_a-zA-Z0-9( =,)]*
-            name := {identifier}([.]{identifier})*
-            name not in ('.', '..')
-            name == name.strip()
+        Avoid using counters to make names unique, one would then have to be
+        careful the numbers are assigned in the same order on the next run. For
+        example, when creating similar tasks, use the creation arguments in the
+        name::
+        
+            def create_task(context, arg1, arg2):
+                name = 'my.package.MyTask(arg1={!r}, arg2={!r})'.format(arg1, arg2)
+                return MyTask(context, name, arg1, arg2)
     '''
     
     def __init__(self, name, context):
         self.__context = context
         self.__run_task = None  # when running, this contains the task that runs the job
         
-        identifier = r'[_a-zA-Z][_a-zA-Z0-9( =,)]*'
-        pattern = r'{identifier}([.]{identifier})*'.format(identifier=identifier)
-        if name in ('.', '..') or name != name.strip() or not re.fullmatch(pattern, name):
-            raise ValueError('Invalid task name: ' + name)
         if name in context.tasks:
             raise ValueError('A task already exists with this name: ' + name)
         self.__name = name
         
-        # finished 
+        # Load/create from database 
         with self.__context.database.scoped_session() as session:
-            self.__finished = session.sa_session.query(entities.Task).filter_by(name=self.name).one_or_none() is not None
+            sa_session = session.sa_session
+            task = sa_session.query(entities.Task).filter_by(name=self.name).one_or_none()
+            if not task:
+                task = entities.Task(name=name, finished=False)
+                sa_session.add(task)
+                sa_session.flush()
+            self.__id = task.id
+            self.__finished = task.finished
     
     @property
     def _context(self):
         return self.__context
+    
+    @property
+    def id(self):
+        return self.__id
             
     @property
     def name(self):
         '''
         Get unique task name
-        
-        Syntax: like a package name.
         '''
         return self.__name
             
@@ -194,7 +194,9 @@ class Task(object):
             await self._run()
             self.__finished = True
             with self.__context.database.scoped_session() as session:
-                session.sa_session.add(entities.Task(name=self.name))
+                task = session.sa_session.query(entities.Task).get(self.__id)
+                assert task
+                task.finished = True
             logger.info("Task finished: {}".format(self.name))
         except asyncio.CancelledError:
             logger.info("Task cancelled: {}".format(self.name))
@@ -218,8 +220,16 @@ class Task(object):
         '''
         raise NotImplementedError()
     
+    def __str__(self):
+        max_ = 100
+        if len(self.name) > max_:
+            name = self.name[:max_] + '...'
+        else:
+            name = self.name
+        return 'Task(id={}, name={!r})'.format(self.__id, name)
+    
     def __repr__(self):
-        return 'Task(name={!r})'.format(self.name)
+        return 'Task(id={!r})'.format(self.__id)
     
 class Job(Task):
     
@@ -342,7 +352,7 @@ class LocalJobServer(JobServer):
         super().__init__(context)
         
     def get_directory(self, job):
-        return self._context.cache_directory / 'jobs' / job.name
+        return self._context.cache_directory / 'jobs' / str(job.id)
         
     async def _run(self, job): # assuming a fresh job dir, run
         with job.stdout_file.open('w') as stdout:
@@ -389,7 +399,7 @@ class DRMAAJobServer(JobServer):
         self._session.initialize()
         
     def get_directory(self, job):
-        return self._jobs_directory / job.name
+        return self._jobs_directory / str(job.id)
     
     async def _run(self, job): # assuming a fresh job dir, run
         loop = asyncio.get_event_loop()
