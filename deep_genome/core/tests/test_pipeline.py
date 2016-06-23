@@ -19,7 +19,7 @@
 Test deep_genome.core.pipeline
 '''
 
-from deep_genome.core.pipeline import LocalJobServer, DRMAAJobServer, pipeline_cli, TaskFailedError, Job, Task
+from deep_genome.core.pipeline import LocalJobServer, DRMAAJobServer, pipeline_cli, Job, Task
 from deep_genome.core import AlgorithmContext
 from chicken_turtle_util import path as path_
 from chicken_turtle_util.exceptions import InvalidOperationError
@@ -257,7 +257,7 @@ class TestTasks(object):
         # When job exits non-zero, it raises
         task.action = 'fail'
         with assert_task_log(caplog, task, ['started', 'failed']):
-            with pytest.raises(TaskFailedError):
+            with pytest.raises(Exception):
                 await task.run()
         assert not task.finished
         
@@ -356,7 +356,7 @@ class TestDRMAAJobServer(object):
     @pytest.mark.asyncio
     async def test_cancel(self, drmaa_job_server, event_loop):
         '''
-        When cancel job through other interface (i.e. not DG pipeline), still gracefully raise TaskFailedError
+        When cancel job through other interface (i.e. not DG pipeline), still gracefully raise
         '''
         # Note: we don't actually kill from another process, but DG core will still have no idea, which is the point
         
@@ -367,7 +367,7 @@ class TestDRMAAJobServer(object):
         
         # Run job
         job1 = Job('job1', drmaa_job_server, ['sleep', '99999999999'])
-        with pytest.raises(TaskFailedError):
+        with pytest.raises(Exception):
             await job1.run()
 
 Context = AlgorithmContext('1.0.0')

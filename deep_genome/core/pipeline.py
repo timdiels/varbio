@@ -16,9 +16,11 @@
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
 # TODO swap order on (context, job_dir)
-# TOOD allow custom jobs dire on LocalJobServer but default to cache dir
+# TOOD allow custom jobs dir on LocalJobServer but default to cache dir
 
-# TODO allow any chars in name, it is now a string id
+# 1. TODO not always wrapped in TaskFailedError. Why bother with TaskFailedError in the first place?
+
+# 2. TODO allow any chars in name, it is now a string id
 # - with characters that would be invalid as filename. It could also become too
 # long. Probably shouldn't use it as a dir name. Must add in database and use 
 # the db's task id as directory name. This will make it hell to debug though,
@@ -26,10 +28,7 @@
 # - __str__ shouldn't show it, at least not fully. 
 # - __repr__ should show it as that's what a good repr does.
 
-# Remove concept of Job and Task dependencies, one can simply await from `Task`s instead
-#TODO not always wrapped in TaskFailedError. Why bother with TaskFailedError in the first place?
-#TODO logging: why not: started, waiting for, resumed, waiting for, ... A kind of thing you could see
-#TODO no deps at all on Job? Simply let the user handle it? E.g. in a task, call await for jobs, then continue etc? Very reasonable thing to do actually!
+# 3. TODO can now easily make a `@task('name') async def stuff():` decorator, though keep in mind the idiom we use it for
 
 '''
 Utilities for building a pipeline
@@ -106,9 +105,6 @@ async def _kill(pid, timeout=10):
                 process.kill()
                 
 async def _async_noop():
-    pass
-
-class TaskFailedError(Exception):
     pass
 
 class Task(object):
@@ -205,7 +201,7 @@ class Task(object):
             raise
         except Exception as ex:
             logger.info("Task failed: {}".format(self.name))
-            raise TaskFailedError('Task failed') from ex
+            raise
         finally:
             self.__run_task = None
             
@@ -221,29 +217,6 @@ class Task(object):
         Run task itself
         '''
         raise NotImplementedError()
-        
-    async def _run_dependencies_(self, dependencies):
-        '''
-        Helper to wait for dependencies
-        
-        Parameters
-        ----------
-        dependencies : iterable(Task)
-            Dependencies to run and await until finished
-        '''
-        dependencies = [dependency for dependency in dependencies if not dependency.finished]
-        if dependencies:
-            results = await asyncio.gather(*(dependency.run() for dependency in dependencies), return_exceptions=True)
-            for i, result in enumerate(results):
-                if isinstance(result, asyncio.CancelledError):
-                    # Note: gather doesn't raise CancelledError when it is
-                    # cancelled, so we must assume that a cancelled child
-                    # means we were cancelled. Go back to using asyncio.wait
-                    # if that bothers you
-                    raise result
-                if isinstance(result, Exception):
-                    job = dependencies[i]
-                    raise TaskFailedError("Dependency '{}' failed".format(job.name)) from result
     
     def __repr__(self):
         return 'Task(name={!r})'.format(self.name)
@@ -341,7 +314,7 @@ class JobServer(object):
     
     async def run(self, job):
         '''
-        Add job to queue and run it
+        Internal, use `Job.run` instead. Add job to queue and run it
         
         Parameters
         ----------
@@ -382,7 +355,7 @@ class LocalJobServer(JobServer):
                     await _kill(process.pid)
                     raise
                 if return_code != 0:
-                    raise TaskFailedError('Non-zero exit code: {}'.format(return_code))
+                    raise Exception('Non-zero exit code: {}'.format(return_code))
     
 class DRMAAJobServer(JobServer):
     
@@ -447,13 +420,13 @@ class DRMAAJobServer(JobServer):
         
         # Check result
         if result.wasAborted:
-            raise TaskFailedError('Job was aborted before it even started running')
+            raise Exception('Job was aborted before it even started running')
         elif result.hasSignal:
-            raise TaskFailedError('Job was killed with signal {}'.format(result.terminatedSignal))
+            raise Exception('Job was killed with signal {}'.format(result.terminatedSignal))
         elif not result.hasExited:
-            raise TaskFailedError('Job did not exit normally')
+            raise Exception('Job did not exit normally')
         elif result.hasExited and result.exitStatus != 0:
-            raise TaskFailedError('Job exited with non-zero exit code: {}'.format(result.exitStatus))
+            raise Exception('Job exited with non-zero exit code: {}'.format(result.exitStatus))
         logger.debug("Job {}'s resource usage was: {}".format(job.name, pformat(result.resourceUsage)))
         
     def dispose(self):
