@@ -153,21 +153,19 @@ setup(
                         'contexts (e.g. if the order in which ambiguous tasks are created is not\n'
                         'deterministic).\n'
                         '\n'
-                        'Comparison to Celery: Celery allows running Python functions\n'
-                        'concurrently and using the output of one function as the input to a next\n'
-                        'function. DG pipeline allows executing executables concurrently and\n'
-                        'allows you to specify required resources such as the number of\n'
-                        'processors the job requires (via server\\_args to some DRMAAJobServers).\n'
-                        "DG pipeline's results are passed via the filesystem, each job gets its\n"
-                        'own working directory in which a job can write its output, or it can\n'
-                        'simply write to stdout and stderr.\n'
+                        'Comparison to Celery: Celery allows running Python functions and using\n'
+                        'the output of one function as the input to a next function. It\n'
+                        'distributes computation to different nodes. DG pipeline allows executing\n'
+                        'Python code and executables concurrently and allows you to specify\n'
+                        'required resources such as the number of processors the job requires\n'
+                        "(via server\\_args to some DRMAAJobServers). DG pipeline's results are\n"
+                        'passed via the filesystem, each job gets its own working directory in\n'
+                        'which a job can write its output, or it can simply write to stdout and\n'
+                        'stderr. Python code can be run concurrently on a single node, but not\n'
+                        'distributed. Jobs can be distributed using a DRMAAJobServer.\n'
                         '\n'
-                        'Job dependencies need to be specified up front, you usually need to\n'
-                        "refer to your dependency's job directory anyway, so this shouldn't be\n"
-                        "too much of a hassle. We'd like to keep a Job immutable in general, it's\n"
-                        'just simpler. If you did allow a mutable dependency set, do you allow\n'
-                        'removal? At least you would block changes as soon as the Job has been\n'
-                        'run (regardless of whether it completed).\n',
+                        'Jobs and their output directories are immutable; this simplifies things\n'
+                        'without really getting in the way of ease of use.\n',
     'name': 'deep-genome-core',
     'package_data': {   'deep_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml'],
                         'deep_genome.core': ['data/core.defaults.conf']},

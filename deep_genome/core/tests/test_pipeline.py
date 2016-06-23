@@ -78,45 +78,27 @@ def assert_no_live_jobs(server):
             assert False, 'Test left jobs running'
     #else LocalJobServer: can't really check
 
-def _normalise_event(event):
-    job, action = event
-    return (job.name, action)
-
 @contextmanager
-def assert_execution_order(caplog, events):
+def assert_task_log(caplog, task, events):
     '''
-    Assert jobs run/finish in the given order
+    Assert log contains task log messages in given order
     '''
+    # collect log difference
     original_count = len(caplog.text().splitlines())
     with caplog.atLevel(logging.INFO, logger='deep_genome.core.pipeline'):
         yield
     lines = caplog.text().splitlines()[original_count:]
     
-    # normalise events dict
-    events_ = {}
-    for event, dependencies in events.items():
-        event = _normalise_event(event)
-        if not dependencies:
-            dependencies = set()
-        elif isinstance(dependencies, tuple):
-            dependencies = {dependencies}
-        dependencies = {_normalise_event(event) for event in dependencies}
-        events_[event] = dependencies
-    events = events_
-    del events_
-    
     # assert
-    events_seen = set()
+    events_seen = []
     for line in lines:
-        match = re.search(r"Task '(.+)': (started|failed|finished|cancelled)", line)
+        match = re.search(r"Task (started|failed|finished|cancelled): (.+)", line)
         if match:
-            event = (match.group(1), match.group(2))
+            assert match.group(2) == task.name  # event happened on wrong task
+            event = match.group(1)
             assert event not in events_seen, 'Event happens twice'
-            assert not events[event] - events_seen, 'Event happens before its dependencies'
-            events_seen.add(event)
-    missing_events = events.keys() - events_seen
-    if missing_events:
-        assert False, 'Events did not happen: ' + ', '.join(map(str, missing_events)) 
+            events_seen.append(event)
+    assert events_seen == events
 
 def sh(command):
     return ['sh', '-c', command]
@@ -130,7 +112,11 @@ def ps_aux_contains(term):
             return True
     return False
 
-class TestTask(object):
+class TestTaskBasics(object):
+    
+    '''
+    Test just the basics of Task
+    '''
 
     @pytest.mark.parametrize('name', ('.', '..', "name'quot", 'name"dquot', 'ay/lmao', 'jobbu~1', ' ', '  ', '\t', ' leading.space', '\tleading.space', 'trailing.space ', 'trailing.space\t', '3no'))
     def test_invalid_name(self, context, name):
@@ -149,299 +135,217 @@ class TestTask(object):
         '''
         Task(name, context)
         
-class TestJob(object):
+def test_job_interface(local_job_server):
+    # The interface for defining jobs
+    job1 = Job('job1', local_job_server, ['true'])
+    assert job1.name == 'job1'
     
-    def test_job_interface(self, local_job_server):
-        # The interface for defining jobs
-        job1 = Job('job1', local_job_server, ['true'])
-        assert job1.name == 'job1'
-        job2 = Job('job2', local_job_server, ['true'], dependencies={job1})
-        assert job2.name == 'job2'
-    
-class TestJobServer(object):
+class TestTasks(object):
     
     '''
-    Test Job in combination with each type of job server
+    Test more advanced properties of Task and its descendants
     '''
     
-    @pytest.mark.asyncio
-    async def test_succeed(self, server, context, test_conf):
-        '''
-        When succesful job, call with correct context and report success
-        '''
-        job1 = Job('job1', server, sh('pwd; echo $$; echo stderr >&2; echo extra; touch file; mkdir dir'))
+    class _Task(Task):
         
-        dir_ = server.get_directory(job1)
-        if isinstance(server, LocalJobServer):
-            assert dir_ == context.cache_directory / 'jobs' / job1.name
-        else:
-            assert dir_ == Path(test_conf['drmaa_jobs_directory']) / job1.name
-             
-        assert job1.directory != server.get_directory(job1)
+        def __init__(self, context):
+            super().__init__('task1', context)
+            self._action = 'succeed'
             
-        # Run
-        assert not job1.finished
-        await job1.run()
-        assert job1.finished
+        async def _run(self):
+            if self._action == 'succeed':
+                pass
+            elif self._action == 'fail':
+                raise Exception('fail')
+            elif self._action == 'forever':
+                await asyncio.sleep(9999999)
+            else:
+                assert False
         
-        # stdout gets dumped in stdout file
-        lines = path_.read(job1.stdout_file).splitlines()
-        job_cwd = lines[0]
-        job_pid = int(lines[1])
-        assert Path(job_cwd) == job1.directory
-        assert job_pid != os.getpid()  # Job ran in a separate process, such that it cannot affect the pipeline controller process
-        
-        # stderr gets dumped in stderr file
-        assert path_.read(job1.stderr_file) == 'stderr\n'
-
-        # created files in output subdir
-        assert (job1.directory / 'file').is_file()
-        assert (job1.directory / 'dir').is_dir()
-        
-        # job data dir and contents are read only
-        for dir_, _, files in os.walk(str(server.get_directory(job1))):
-            dir_ = Path(dir_)
-            assert (dir_.stat().st_mode & 0o777) == 0o500
-            for file in files:
-                assert ((dir_ / file).stat().st_mode & 0o777) == 0o400
-                
-    @pytest.mark.asyncio
-    async def test_fail(self, server):
-        '''
-        When job exits non-zero, raise
-        '''
-        job1 = Job('job1', server, sh('exit 1'))
-        with pytest.raises(TaskFailedError):
-            await job1.run()
-        
-    @pytest.mark.asyncio
-    async def test_run_before_finishing_dependencies(self, server, caplog):
-        '''
-        When running a job before its dependencies have finished, run its dependencies as well
-        '''
-        job2 = Job('job2', server, ['true'])
-        job1 = Job('job1', server, ['true'], dependencies={job2})
-        order = {
-            (job2, 'started') : (),
-            (job2, 'finished') : (job2, 'started'),
-            (job1, 'started') : (job2, 'finished'),
-            (job1, 'finished') : (job1, 'started')
-        }
-        with assert_execution_order(caplog, order):
-            await job1.run()
-    
-    @pytest.mark.asyncio    
-    async def test_run_while_running(self, server):
-        '''
-        When running a job while it is already running, return the same future
-        '''
-        job1 = Job('job1', server, ['true'])
-        future = job1.run()
-        assert job1.run() == future  # return the same future
-        
-        # cleanup: asyncio doesn't like unused futures
-        await future
-
-    @pytest.mark.asyncio
-    async def test_run_when_finished(self, server):
-        '''
-        When trying to run a job that has finished, return a noop task
-        '''
-        job1 = Job('job1', server, ['true'])
-        await job1.run()
-        assert job1.finished
-        task = job1.run()
-        print(task)
-#         assert task == _noop_task  # doesn't actually rerun, simply returns a noop
-        print('herpderp')
-        async def _async_noop():
+        @property
+        def action(self):
             pass
-        _noop_task = asyncio.ensure_future(_async_noop())
-        await _noop_task
-        print("HERP DERP")
-        await task
-        print('yay')
-        await job1.run()
         
-@pytest.mark.asyncio
-async def test_persistence(context, context2):
-    '''
-    When a job has finished, remember it across runs
-    '''
-    job1 = Job('job1', LocalJobServer(context), ['true'])
-    await job1.run()
-    
-    job1_ = Job('job1', LocalJobServer(context2), ['true'])
-    assert job1.name == job1_.name
-    assert job1_.finished
+        @action.setter
+        def action(self, action):
+            self._action = action
+            
+        def assert_not_running(self):
+            pass  # we trust asyncio on this one
         
-class TestExecutionOrder(object):
-    
-    '''
-    Test jobs run in the right order and with the right concurrency
-    '''
-    
+    class _Job(Job):
+        
+        def __init__(self, server, directory):
+            self._inhibitor = directory / 'inhibitor'
+            self._file = directory / 'fail'
+            self._token = 'jfpw39wuiurjw8w379jfosfus2e7edjf'
+            super().__init__(
+                'job1', 
+                server, 
+                [
+                    'sh', '-c',
+                    '{} ; echo {}; [ ! -e {} ]'
+                    .format(wait_for_rm(self._inhibitor), self._token, self._file)
+                ]
+            )
+            self.fail = 'succeed'
+            
+        @property
+        def action(self):
+            pass
+        
+        @action.setter
+        def action(self, action):
+            if action == 'fail':
+                self._file.touch()
+            elif action == 'succeed':
+                path_.remove(self._file)
+                path_.remove(self._inhibitor)
+            elif action == 'forever':
+                self._inhibitor.touch()
+            else:
+                assert False
+                
+        def assert_not_running(self):
+            if isinstance(self._server, LocalJobServer):
+                assert not ps_aux_contains(self._token)
+            else:
+                assert_no_live_jobs(self._server)
+            
     @pytest.fixture
     def fake_job(self, server):
-        return Job('fake', server, ['true'])
-    
-    def create_inhibitor(self, path):
-        os.makedirs(str(path.parent), exist_ok=True)
-        path.touch()
+        fake_job = Job('fake', server, ['true'])
+        os.makedirs(str(fake_job.directory), exist_ok=True)
+        return fake_job
         
     @pytest.fixture
-    def inhibitor1(self, server, fake_job):
-        path = fake_job.directory / 'inhibitor1'
-        self.create_inhibitor(path)
-        return path
+    def job(self, server, fake_job):
+        return self._Job(server, fake_job.directory)
     
     @pytest.fixture
-    def inhibitor2(self, server, fake_job):
-        path = fake_job.directory / 'inhibitor2'
-        self.create_inhibitor(path)
-        return path
+    def _task(self, context):
+        return self._Task(context)
     
-    @pytest.fixture
-    def inhibitor3(self, server, fake_job):
-        path = fake_job.directory / 'inhibitor3'
-        self.create_inhibitor(path)
-        return path
-
+    @pytest.fixture(params=('job', '_task'))
+    def task(self, request, job, _task):
+        return request.getfuncargvalue(request.param)
+    
     @pytest.mark.asyncio
-    async def test_success(self, server, caplog, inhibitor1, inhibitor2, inhibitor3):
-        '''
-        When no failing jobs, execute job tree from scratch in the right order and concurrently where possible
-        '''
-        # setup:
-        #
-        # job2 --> job5 -> job6
-        # job3 -/      /
-        # job4 -------/
-        #  
-        # job2 doesn't end before job3 starts
-        # job3 doesn't end before job2 starts
-        # job4 ends after job5 starts
-        job2 = Job('job2', server, sh('rm {}; {}'.format(inhibitor1, wait_for_rm(inhibitor2))))
-        job3 = Job('job3', server, sh('rm {}; {}'.format(inhibitor2, wait_for_rm(inhibitor1))))
-        job4 = Job('job4', server, sh(wait_for_rm(inhibitor3)))
-        job5 = Job('job5', server, sh('rm {}'.format(inhibitor3)), dependencies={job2, job3})
-        job6 = Job('job6', server, ['true'], dependencies={job4, job5})
+    async def test_succeed(self, task, caplog):
+        # Initially not finished.
+        assert not task.finished
         
-        # assert
-        order = {
-            (job2, 'started') : (),
-            (job3, 'started') : (),
-            (job4, 'started') : (),
-            (job2, 'finished') : {(job2, 'started'), (job3, 'started')},
-            (job3, 'finished') : {(job2, 'started'), (job3, 'started')},
-            (job5, 'started') : {(job2, 'finished'), (job3, 'finished')},
-            (job4, 'finished') : (job5, 'started'),
-            (job5, 'finished') : (job5, 'started'),
-            (job6, 'started') : {(job4, 'finished'), (job5, 'finished')},
-            (job6, 'finished') : (job6, 'started')
-        }
-        with assert_execution_order(caplog, order):
-            await job6.run()
+        # When not finished, multiple invocations of run() return the same
+        # asyncio.Task up til the task finishes, fails or is cancelled. It would
+        # be fine if it did still return it when finished, it's just not
+        # guaranteed.
+        assert task.run() == task.run()
+        
+        # When finish successfully, finished.
+        with assert_task_log(caplog, task, ['started', 'finished']):
+            await task.run()
+        assert task.finished
+        
+        # When trying to run when already finished, return a noop task
+        with assert_task_log(caplog, task, []):
+            await task.run()
+            await task.run()
+                
+    @pytest.mark.asyncio
+    async def test_fail(self, task, caplog):
+        # When task fails, it raises
+        # When job exits non-zero, it raises
+        task.action = 'fail'
+        with assert_task_log(caplog, task, ['started', 'failed']):
+            with pytest.raises(TaskFailedError):
+                await task.run()
+        assert not task.finished
+        
+        # When task recovers, it finishes fine
+        task.action = 'succeed'
+        with assert_task_log(caplog, task, ['started', 'finished']):
+            await task.run()
+        assert task.finished
         
     @pytest.mark.asyncio
-    async def test_fail(self, context, server, caplog, temp_dir_cwd, inhibitor1):
-        '''
-        Test job failure handling
-        
-        - When a job fails, continue running the job tree as far as possible without it.
-        - When resumed, continue with the failed jobs
-        '''
-        # job1 -> job3 \
-        # job2 -> job4 -> job5
-        # job2 fails if run before job3 finishes
-        # job1 does not finish before job2 nearly finishes 
-        job1 = Job('job1', server, sh(wait_for_rm(inhibitor1)))
-        job3 = Job('job3', server, sh('touch done'), dependencies={job1})
-        job2 = Job('job2', server, sh('[ -e "{}" ]; exists=$?; rm {}; exit $exists'.format(job3.directory / 'done', inhibitor1)))
-        job4 = Job('job4', server, ['true'], dependencies={job2})
-        job5 = Job('job5', server, ['true'], dependencies={job3, job4})
-        
-        # assert
-        order = {
-            (job1, 'started') : (),
-            (job2, 'started') : (),
-            (job2, 'failed') : (job2, 'started'),
-            (job1, 'finished') : {(job1, 'started'), (job2, 'started')},
-            (job3, 'started') : (job1, 'finished'),
-            (job3, 'finished') : (job3, 'started')
-        }
-        with assert_execution_order(caplog, order):
-            with pytest.raises(TaskFailedError) as ex:
-                await job5.run()
-            assert "Dependency '{}' failed".format(job4.name) in str(ex.value)
-            
-        # When job2 no longer fails, finish all the rest
-        order = {
-            (job2, 'started') : (),
-            (job2, 'finished') : (job2, 'started'),
-            (job4, 'started') : (job2, 'finished'),
-            (job4, 'finished') : (job4, 'started'),
-            (job5, 'started') : (job4, 'finished'),
-            (job5, 'finished') : (job5, 'started')
-        }
-        with assert_execution_order(caplog, order):
-            await job5.run()
-        
-    def test_cancel(self, context, server, caplog, event_loop, inhibitor1, inhibitor2):
-        '''
-        When stopped, the running jobs are stopped and the pipeline is resumed from the stopped jobs the next time
-        '''
-        # job1 -> job2 -> job3
-        # canceller waits for start of job2
-        # job2 does not finish first run, but does finish second run
-        token = 'magic32091373831920313903651230536829294432789637373'  # something likely unique to search for
-        job1 = Job('job1', server, ['true'])
-        job2 = Job('job2', server, dependencies={job1}, command=sh('echo {}; rm {}; {} || true'.format(token, inhibitor1, wait_for_rm(inhibitor2))))
-        job3 = Job('job3', server, ['true'], dependencies={job2})
-        
-        async def canceller():
-            while inhibitor1.exists():
-                await asyncio.sleep(1)
-            job3.cancel()
-        
-        # When calling cancel when not running, ignore call
-        job1.cancel()
-        
-        # When call stop, stop
-        order = {
-            (job1, 'started') : (),
-            (job1, 'finished') : (job1, 'started'),
-            (job2, 'started') : (job1, 'finished'),
-            (job2, 'cancelled') : (job2, 'started'),
-            (job3, 'cancelled') : (job2, 'started')
-        }
-        with assert_execution_order(caplog, order):
-            done, _ = event_loop.run_until_complete(asyncio.wait((job3.run(), canceller())))
+    async def test_cancel(self, task, caplog):
+        # When task cancelled, it raises asyncio.CancelledError
+        task.action = 'forever'
+        asyncio.get_event_loop().call_later(3, task.cancel)
+        with assert_task_log(caplog, task, ['started', 'cancelled']):
             with pytest.raises(asyncio.CancelledError):
-                for future in done:
-                    future.result()
-            assert job1.finished
-            assert not job2.finished # cancel should have hit during job2 execution and thus job2 should not have finished
-            
-            # check it is indeed no longer running
-            if isinstance(server, LocalJobServer):
-                assert not ps_aux_contains(token)
-            else:
-                assert_no_live_jobs(server)
+                await task.run()
+        assert not task.finished
         
-        # When calling stop when finished, ignore call
-        job1.cancel()
+        # Check it's not longer running
+        task.assert_not_running()
         
-        # When resume, pick up from last time until finish
-        inhibitor2.unlink()  # this time allow job2 to finish
-        order = {
-            (job2, 'started') : (),
-            (job2, 'finished') : (job2, 'started'),
-            (job3, 'started') : (job2, 'finished'),
-            (job3, 'finished') : (job3, 'started')
-        }
-        with assert_execution_order(caplog, order):
-            event_loop.run_until_complete(job3.run())
+        # When task rerun, it finishes fine
+        task.action = 'succeed'
+        with assert_task_log(caplog, task, ['started', 'finished']):
+            await task.run()
+        assert task.finished
+                    
+    @pytest.mark.asyncio
+    async def test_persistence_task(self, context, context2):
+        '''
+        When a task has finished, remember it across runs
+        '''
+        task = self._Task(context)
+        await task.run()
+        
+        task = self._Task(context2)
+        assert task.finished
+    
+    @pytest.mark.asyncio
+    async def test_persistence_job(self, context, context2):
+        '''
+        When a job has finished, remember it across runs
+        '''
+        job1 = Job('job1', LocalJobServer(context), ['true'])
+        await job1.run()
+        
+        job1_ = Job('job1', LocalJobServer(context2), ['true'])
+        assert job1_.finished
+        
+    
+@pytest.mark.asyncio
+async def test_job_success(server, context, test_conf):
+    '''
+    Test things specific to a job: the success case (nothing specific about the other cases)
+    '''
+    job1 = Job('job1', server, sh('pwd; echo $$; echo stderr >&2; echo extra; touch file; mkdir dir'))
+    
+    dir_ = server.get_directory(job1)
+    if isinstance(server, LocalJobServer):
+        assert dir_ == context.cache_directory / 'jobs' / job1.name
+    else:
+        assert dir_ == Path(test_conf['drmaa_jobs_directory']) / job1.name
+         
+    assert job1.directory != server.get_directory(job1)
+        
+    await job1.run()
+    
+    # stdout gets dumped in stdout file
+    lines = path_.read(job1.stdout_file).splitlines()
+    job_cwd = lines[0]
+    job_pid = int(lines[1])
+    assert Path(job_cwd) == job1.directory
+    assert job_pid != os.getpid()  # Job ran in a separate process, such that it cannot affect the pipeline controller process
+    
+    # stderr gets dumped in stderr file
+    assert path_.read(job1.stderr_file) == 'stderr\n'
+
+    # created files in output subdir
+    assert (job1.directory / 'file').is_file()
+    assert (job1.directory / 'dir').is_dir()
+    
+    # job data dir and contents are read only
+    for dir_, _, files in os.walk(str(server.get_directory(job1))):
+        dir_ = Path(dir_)
+        assert (dir_.stat().st_mode & 0o777) == 0o500
+        for file in files:
+            assert ((dir_ / file).stat().st_mode & 0o777) == 0o400
           
 class TestDRMAAJobServer(object):
     
@@ -450,9 +354,9 @@ class TestDRMAAJobServer(object):
     '''
     
     @pytest.mark.asyncio
-    async def test_out_of_band_cancel(self, drmaa_job_server, event_loop):
+    async def test_cancel(self, drmaa_job_server, event_loop):
         '''
-        When somebody other process cancels our job, gracefully raise TaskFailedError
+        When cancel job through other interface (i.e. not DG pipeline), still gracefully raise TaskFailedError
         '''
         # Note: we don't actually kill from another process, but DG core will still have no idea, which is the point
         

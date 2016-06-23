@@ -69,16 +69,16 @@ We no longer add a suffix number to ambiguous task names. It is tricky to
 ensure the same task is reassigned the same suffix in different contexts (e.g.
 if the order in which ambiguous tasks are created is not deterministic).
 
-Comparison to Celery: Celery allows running Python functions concurrently and
-using the output of one function as the input to a next function. DG pipeline
-allows executing executables concurrently and allows you to specify required
-resources such as the number of processors the job requires (via server_args to
-some `DRMAAJobServer`\ s). DG pipeline's results are passed via the filesystem,
-each job gets its own working directory in which a job can write its output, or
-it can simply write to stdout and stderr.
+Comparison to Celery: Celery allows running Python functions and using the
+output of one function as the input to a next function. It distributes
+computation to different nodes.  DG pipeline allows executing Python code and
+executables concurrently and allows you to specify required resources such as
+the number of processors the job requires (via server_args to some
+`DRMAAJobServer`\ s). DG pipeline's results are passed via the filesystem, each
+job gets its own working directory in which a job can write its output, or it
+can simply write to stdout and stderr. Python code can be run concurrently on a
+single node, but not distributed. Jobs can be distributed using a
+DRMAAJobServer.
 
-Job dependencies need to be specified up front, you usually need to refer to
-your dependency's job directory anyway, so this shouldn't be too much of a
-hassle. We'd like to keep a Job immutable in general, it's just simpler. If you
-did allow a mutable dependency set, do you allow removal? At least you would
-block changes as soon as the Job has been run (regardless of whether it completed).
+Jobs and their output directories are immutable; this simplifies things without
+really getting in the way of ease of use.

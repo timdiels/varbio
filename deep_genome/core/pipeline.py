@@ -26,6 +26,7 @@
 # - __str__ shouldn't show it, at least not fully. 
 # - __repr__ should show it as that's what a good repr does.
 
+# Remove concept of Job and Task dependencies, one can simply await from `Task`s instead
 #TODO not always wrapped in TaskFailedError. Why bother with TaskFailedError in the first place?
 #TODO logging: why not: started, waiting for, resumed, waiting for, ... A kind of thing you could see
 #TODO no deps at all on Job? Simply let the user handle it? E.g. in a task, call await for jobs, then continue etc? Very reasonable thing to do actually!
@@ -193,25 +194,18 @@ class Task(object):
     
     async def __run(self):
         try:
-            # Run dependencies
-            await self._run_dependencies()
-            
-            # Run self
-            try:
-                logger.info("Task '{}': started".format(self.name))
-                await self._run()
-                self.__finished = True
-                with self.__context.database.scoped_session() as session:
-                    session.sa_session.add(entities.Task(name=self.name))
-                logger.info("Task '{}': finished".format(self.name))
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                logger.info("Task '{}': failed".format(self.name))
-                raise TaskFailedError('Task failed') from ex
+            logger.info("Task started: {}".format(self.name))
+            await self._run()
+            self.__finished = True
+            with self.__context.database.scoped_session() as session:
+                session.sa_session.add(entities.Task(name=self.name))
+            logger.info("Task finished: {}".format(self.name))
         except asyncio.CancelledError:
-            logger.info("Task '{}': cancelled".format(self.name))
+            logger.info("Task cancelled: {}".format(self.name))
             raise
+        except Exception as ex:
+            logger.info("Task failed: {}".format(self.name))
+            raise TaskFailedError('Task failed') from ex
         finally:
             self.__run_task = None
             
@@ -222,16 +216,6 @@ class Task(object):
         if self.__run_task:
             self.__run_task.cancel()
 
-    async def _run_dependencies(self):
-        '''
-        Run and wait on unfinished dependencies
-
-        See also
-        --------
-        _wait_unfinished_dependencies: helper to wait for unfinished dependencies
-        '''
-        raise NotImplementedError()
-    
     async def _run(self):
         '''
         Run task itself
@@ -282,18 +266,15 @@ class Job(Task):
         Server to submit job to for execution.
     name : str
         See ``help(deep_genome.core.pipeline.Task)``
-    dependencies : iterable(Task)
-        Tasks that must be finished before this job can start
     server_args : str
         Additional arguments specific to the job server. E.g. in DRMAAJobServer
         this corresponds to the 
         `native specification <http://gridscheduler.sourceforge.net/javadocs/org/ggf/drmaa/JobTemplate.html#setNativeSpecification(java.lang.String)>`_.
     '''
     
-    def __init__(self, name, server, command, dependencies=(), server_args=None):
+    def __init__(self, name, server, command, server_args=None):
         super().__init__(name, server.context)
         command = [str(x) for x in command]
-        self._dependencies = frozenset(dependencies)
         self._executable = Path(str(pb.local[command[0]].executable))
         self._args = command[1:]
         
@@ -337,9 +318,6 @@ class Job(Task):
         '''
         return self._server.get_directory(self) / 'stdout'
     
-    async def _run_dependencies(self):
-        await self._run_dependencies_(self._dependencies)
-                
     async def _run(self):
         await self._server.run(self)
         
