@@ -55,7 +55,7 @@ def drmaa_job_server(context, test_conf):
     jobs_directory.mkdir()
     
     #
-    server = DRMAAJobServer(jobs_directory, context)
+    server = DRMAAJobServer(context, jobs_directory)
     yield server
     assert_no_live_jobs(server)
     server.dispose()

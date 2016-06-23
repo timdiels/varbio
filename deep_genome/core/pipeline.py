@@ -15,16 +15,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
-# TODO swap order on (context, job_dir)
+# TODO DRMAAJobServer: swap order of args: context <> job_dir
 # TOOD allow custom jobs dir on LocalJobServer but default to cache dir
-
-# 2. TODO allow any chars in name, it is now a string id
-# - with characters that would be invalid as filename. It could also become too
-# long. Probably shouldn't use it as a dir name. Must add in database and use 
-# the db's task id as directory name. This will make it hell to debug though,
-# but I see no other way
-# - __str__ shouldn't show it, at least not fully. 
-# - __repr__ should show it as that's what a good repr does.
 
 # 3. TODO can now easily make a `@task('name') async def stuff():` decorator, though keep in mind the idiom we use it for
 
@@ -386,7 +378,7 @@ class DRMAAJobServer(JobServer):
     
     _is_first = True
     
-    def __init__(self, jobs_directory, context):
+    def __init__(self, context, jobs_directory):
         if _drmaa_import_error:
             raise _drmaa_import_error
         super().__init__(context)
