@@ -76,22 +76,10 @@ def AlgorithmContext(version, configurations={}):
         
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
-            self._tasks = {}
+            self._persisted_coroutine_functions = {}
+            self._jobs = {}
             
             self.__configuration = Configuration(_loader.load(self._configuration_paths.get('core')))
-        
-        @property
-        def tasks(self):
-            '''
-            All constructed tasks
-            
-            Read only (except for DG internals)
-            
-            Returns
-            -------
-            {name :: str => deep_genome.core.pipeline.Task}
-            '''
-            return self._tasks
             
         @property
         def configuration(self):

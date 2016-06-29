@@ -66,7 +66,7 @@ project = dict(
     # Auto generate entry points
     entry_points={
         'console_scripts': [
-            'dg-tests-run-pipeline = deep_genome.core.tests.test_pipeline:dg_tests_run_pipeline',
+            'dg-tests-pipeline-cli-selfterm = deep_genome.core.tests.pipeline.test_various:selfterm_command',
         ],
     },
 

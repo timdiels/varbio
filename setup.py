@@ -43,8 +43,8 @@ setup(
                        'Topic :: Software Development :: Libraries',
                        'Topic :: Software Development :: Libraries :: Python Modules'],
     'description': 'Genome analysis platform',
-    'entry_points': {   'console_scripts': [   'dg-tests-run-pipeline = '
-                                               'deep_genome.core.tests.test_pipeline:dg_tests_run_pipeline']},
+    'entry_points': {   'console_scripts': [   'dg-tests-pipeline-cli-selfterm = '
+                                               'deep_genome.core.tests.pipeline.test_various:selfterm_command']},
     'extras_require': {   'dev': ['sphinx', 'numpydoc', 'sphinx-rtd-theme'],
                           'test': [   'pytest',
                                       'pytest-env',
@@ -174,7 +174,9 @@ setup(
                     'deep_genome.util',
                     'deep_genome.core',
                     'deep_genome.core.database',
-                    'deep_genome.core.tests'],
+                    'deep_genome.core.tests',
+                    'deep_genome.core.pipeline',
+                    'deep_genome.core.tests.pipeline'],
     'url': 'https://gitlab.psb.ugent.be/deep_genome/core',
     'version': '0.0.0'}
 )
