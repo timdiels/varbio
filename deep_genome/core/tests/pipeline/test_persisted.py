@@ -108,7 +108,7 @@ class TestContextFinding(object):
         await a.class_method(1, context, 3)
         await a.class_method(1, context=context, arg3=3)
         
-class TestIgnoreArgs(object):
+class TestExcludeArgs(object):
     
     @pytest.mark.asyncio
     async def test_regular_arg(self, context):
@@ -161,6 +161,14 @@ class TestIgnoreArgs(object):
         assert await f(2, 1, 3, context) == 5
         assert await f(0, 1, 1, context) == 5
         assert await f(0, 2, 1, context) == 1
+        
+@pytest.mark.asyncio
+async def test_call_repr(context):
+    @persisted(call_repr=True)
+    async def f(a, context, call_repr_):
+        return call_repr_
+    result = await f(1, context)
+    assert result == get_call_repr(f.__wrapped__, [1, context, None], exclude_args={'context', 'call_repr_'})
         
 class CoroutineMock(object):
     

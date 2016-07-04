@@ -26,7 +26,7 @@ import inspect
 
 logger = logging.getLogger(__name__)
 
-def persisted(name=None, exclude_args=()):
+def persisted(name=None, exclude_args=(), call_repr=False):
     '''
     Enable caching and persistence on coroutine functions of their awaited results
     
@@ -62,6 +62,9 @@ def persisted(name=None, exclude_args=()):
             await f(1, 1, context)  # runs f's body
             await f(2, 1, context)  # does not run as `a` is being ignored, instead returns cached result of above call
             await f(1, 2, context)  # runs as `b`, which is not ignored, differs
+    call_repr : bool
+        If True, pass along the `repr` of the call as a keyword argument
+        `call_repr_`, just like `chicken_turtle_util.inspect.call_repr` would.
     
     Returns
     -------
@@ -98,6 +101,10 @@ def persisted(name=None, exclude_args=()):
             assert await add(context, 2, 2) == 4  # Does execute add's body (on the first application run) as its arguments are different from what we have in cache
             assert await add(context, 1, 2) == 3  # Previous cache entries aren't forgotten, this returns the result in cache
     '''
+    exclude_args = set(exclude_args) | {'context'}
+    if call_repr:
+        exclude_args |= {'call_repr_'}
+    
     def decorator(f):
         # Note: can't check f with asyncio.iscoroutinefunction as it returns False for staticmethods for example
         if not asyncio.iscoroutinefunction(f):
@@ -114,6 +121,14 @@ def persisted(name=None, exclude_args=()):
             
         @wraps(f)
         async def coroutine_function(*args, **kwargs):
+            # get call_repr_ + add to kwargs if requested 
+            if call_repr:
+                kwargs['call_repr_'] = None
+            call_repr_ = get_call_repr(f, args, kwargs, name=name, exclude_args=exclude_args)
+            if call_repr:
+                kwargs['call_repr_'] = call_repr_
+                
+            # context
             try:
                 context = call_args(f, args, kwargs)['context']
             except KeyError:
@@ -127,12 +142,11 @@ def persisted(name=None, exclude_args=()):
                 raise ValueError('A persisted coroutine function already exists with this name: name={}, f={}'.format(function_name, existing))
             
             # Load/create from database
-            call_name = get_call_repr(f, args, kwargs, name=name, exclude_args=set(exclude_args) | {'context'})
             with context.database.scoped_session() as session:
                 sa_session = session.sa_session
-                call = sa_session.query(entities.CoroutineCall).filter_by(name=call_name).one_or_none()
+                call = sa_session.query(entities.CoroutineCall).filter_by(name=call_repr_).one_or_none()
                 if not call:
-                    call = entities.CoroutineCall(name=call_name, finished=False)
+                    call = entities.CoroutineCall(name=call_repr_, finished=False)
                     sa_session.add(call)
                     sa_session.flush()
                 id_ = call.id
@@ -142,7 +156,7 @@ def persisted(name=None, exclude_args=()):
             # Run if not finished and save result
             if not finished:
                 try:
-                    logger.info("Coroutine started: {}".format(call_name))
+                    logger.info("Coroutine started: {}".format(call_repr_))
                     return_value = await f(*args, **kwargs)
                     finished = True
                     with context.database.scoped_session() as session:
@@ -150,12 +164,12 @@ def persisted(name=None, exclude_args=()):
                         assert call
                         call.return_value = return_value
                         call.finished = True
-                    logger.info("Coroutine finished: {}".format(call_name))
+                    logger.info("Coroutine finished: {}".format(call_repr_))
                 except asyncio.CancelledError:
-                    logger.info("Coroutine cancelled: {}".format(call_name))
+                    logger.info("Coroutine cancelled: {}".format(call_repr_))
                     raise
                 except Exception:
-                    logger.info("Coroutine failed: {}".format(call_name))
+                    logger.info("Coroutine failed: {}".format(call_repr_))
                     raise
             
             return return_value
