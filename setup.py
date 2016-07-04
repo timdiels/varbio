@@ -170,13 +170,14 @@ setup(
     'package_data': {   'deep_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml'],
                         'deep_genome.core': ['data/core.defaults.conf']},
     'packages': [   'deep_genome',
-                    'deep_genome.data_preparation',
-                    'deep_genome.util',
                     'deep_genome.core',
                     'deep_genome.core.database',
                     'deep_genome.core.tests',
                     'deep_genome.core.pipeline',
-                    'deep_genome.core.tests.pipeline'],
+                    'deep_genome.core.todo',
+                    'deep_genome.core.tests.pipeline',
+                    'deep_genome.core.todo.data_preparation',
+                    'deep_genome.core.todo.util'],
     'url': 'https://gitlab.psb.ugent.be/deep_genome/core',
     'version': '0.0.0'}
 )

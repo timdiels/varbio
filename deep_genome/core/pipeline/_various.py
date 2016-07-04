@@ -19,6 +19,7 @@ import asyncio
 import traceback
 import sys
 import signal
+from chicken_turtle_util import inspect as inspect_
 
 def pipeline_cli(main, Context):
     
@@ -104,3 +105,12 @@ def pipeline_cli(main, Context):
         print()
         print('Pipeline: run completed')
     return _main
+
+def call_repr(*args, **kwargs):
+    '''
+    Like `chicken_turtle_util.inspect.call_repr`, except `exclude_args` always
+    includes 'context'.
+    '''
+    kwargs['exclude_args'] = set(kwargs.get('exclude_args', {})) | {'context'}
+    return inspect_.call_repr(*args, **kwargs)
+    

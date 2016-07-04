@@ -19,7 +19,7 @@
 Test deep_genome.core.pipeline._various
 '''
 
-from deep_genome.core.pipeline import pipeline_cli
+from deep_genome.core.pipeline import pipeline_cli, call_repr
 from deep_genome.core import AlgorithmContext
 import subprocess
 import asyncio
@@ -77,3 +77,9 @@ def selfterm_command():
     return pipeline_cli(selfterm, Context)
 selfterm_command = selfterm_command()
 
+def test_call_repr():
+    @call_repr(name='g', exclude_args={})
+    def f(context, call_repr_):
+        return call_repr_
+    assert f(1) == 'g()'
+    
