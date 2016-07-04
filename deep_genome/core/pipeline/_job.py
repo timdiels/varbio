@@ -218,13 +218,24 @@ class LocalJobServer(JobServer):
     
     '''
     Runs jobs locally
+    
+    Parameters
+    ----------
+    context
+    jobs_directory : pathlib.Path or None
+        Directory in which to create working directories for jobs. If ``None``,
+        a subdirectory of XDG_CACHE_DIR will be used.
     '''
     
-    def __init__(self, context):
+    def __init__(self, context, jobs_directory=None):
         super().__init__(context)
+        if jobs_directory:
+            self._jobs_directory = jobs_directory
+        else:
+            self._jobs_directory = self._context.cache_directory / 'jobs'
         
     def get_directory(self, job):
-        return self._context.cache_directory / 'jobs' / str(job.id)
+        return self._jobs_directory / str(job.id)
         
     async def _run(self, job): # assuming a fresh job dir, run
         with job.stdout_file.open('w') as stdout:
@@ -250,10 +261,10 @@ class DRMAAJobServer(JobServer):
     
     Parameters
     ----------
+    context
     jobs_directory : pathlib.Path
         Directory in which to create working directories for jobs. Should be
         accessible on both the local machine and the cluster workers.
-    context
     '''
     
     _session = None

@@ -253,6 +253,17 @@ class TestJob(object):
             assert (dir_.stat().st_mode & 0o777) == 0o500
             for file in files:
                 assert ((dir_ / file).stat().st_mode & 0o777) == 0o400
+                
+class TestLocalJobServer(object):
+    
+    '''
+    Tests specific to LocalJobServer
+    '''
+    
+    def test_custom_jobs_directory(self, context):
+        server = LocalJobServer(context, Path('jobs'))
+        job1 = Job('job1', server, ['true'])
+        assert server.get_directory(job1) == Path('jobs') / str(job1.id)
           
 class TestDRMAAJobServer(object):
         
