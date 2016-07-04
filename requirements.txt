@@ -1,14 +1,4 @@
-pytest==2.9.0
-pytest-env==0.6.0
-pytest-xdist==1.14
-pytest-cov==2.2.1
-coverage-pth==0.0.1
-pytest-benchmark==3.0.0
-pytest-timeout==1.0.0
-pytest-mock==0.11.0
-pytest-asyncio==0.3.0
-pytest-capturelog==0.7
-freezegun==0.3.6
+Sphinx==1.4               # via sphinx-rtd-theme
 click==6.3
 numpy==1.10.4
 matplotlib==1.5.1
@@ -23,17 +13,27 @@ more-itertools==2.2
 memory-profiler==0.41
 psutil==4.1.0
 pyxdg==0.25
+pytest==2.9.0
+pytest-env==0.6.0
+pytest-xdist==1.14
+pytest-cov==2.2.1
+coverage-pth==0.0.1
+pytest-benchmark==3.0.0
+pytest-timeout==1.0.0
+pytest-mock==0.11.0
+pytest-asyncio==0.3.0
 frozendict==0.5
 requests==2.9.1
 sqlalchemy==1.0.12
 pymysql==0.7.2
+pytest-capturelog==0.7
 sqlparse==0.1.19
+numpydoc==0.6.0
+sphinx-rtd-theme==0.1.9
+freezegun==0.3.6
 drmaa==0.7.6
 -e file:///home/limyreth/doc/eclipse_workspace/chicken_turtle_util
 networkx==1.11
-Sphinx==1.4               # via sphinx-rtd-theme
-numpydoc==0.6.0
-sphinx-rtd-theme==0.1.9
 alabaster==0.7.7          # via sphinx
 apipkg==1.4               # via execnet
 babel==2.3.3              # via sphinx
