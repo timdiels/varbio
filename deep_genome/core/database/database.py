@@ -42,6 +42,31 @@ def _data_file_dir(context):
 
 def _print_sql(stmt):
     print(pretty_sql(stmt))
+    
+# Verdict:
+# 1. just add it to our database, add to our scheme and such. Extend that Gene entity, though maybe go more weak reffed: e.g. IdType(id, name), GeneId(Gene, IdType, value:str), Gene(id, description, ...)
+# - useful things in BioPython and BioSQL. We should know it and stay up to date with it. Set a schedule to learn it.
+# - no apparent easy way to load gene2refseq, ... in BioSQL and BioPython in bulk. But before making your own, ask on relevant IRC or mailing list.
+#   If none, understand the data provided on the FTP, that will be the structure of our entities.
+
+# 0. Is there a Bio SQL example database to browse?
+# 1. Read the Bio SQL schema (downloads), maybe combine with BioPython doc if you think it's related. Get an idea of what goes in it.
+#    Bio.BioSQL only supports Seq, SeqRecord data
+#    Maybe other Bio.* do still use Bio SQL?
+#    Bio SQL schema however supports: taxonomy, ontology, bioentries in biodatabases along with features (e.g. a seqref id?)
+# 2. What do? How integrate, if at all?
+#TODO consider using and extending the BioSQL database scheme instead of making
+#our own. Making a sqlalchemy interface on top of it may be useful though, or
+#generally providing a less raw interface (if it is raw). Consider adding
+#directly to BioPython though.
+# "Bringing bulk operations and concurrency to (some of) BioPython for higher throughput.
+
+#TODO BioPython has Bio.Affy, Bio.KEGG, Bio.Pathway, Bio.UniProt, ...
+
+# TODO Nice to have: I could write something to automatically generate namespaced copies of tables (taking into account foreign keys as well)
+#   gene_name_table = GeneName.__table__.tometadata(meta_data, name='tmp_gene_name')
+#   gene_name_table.c.name.unique = False
+# TODO if using ORM on those classes, you can use the ORM syntax, even though you wouldn't want to do any bulk on them via ORM, ever
 
 #TODO take a connection string, not host, user, .... Instead have your create_database in the context take host, ... and make a conn string out of it as is done here
 class Database(object):
@@ -162,7 +187,24 @@ class Session(object):
         return self._session
     
     @contextmanager
-    def _query(self, Query):
+    def query(self, Query): #TODO document #TODO test
+        '''
+        Examples
+        --------
+        class SomeQuery(DBEntity):
+            id = Column(Integer, primary_key=True)
+            
+        class SomeQueryItem(DBEntity):
+            query_id =  Column(Integer, ForeignKey('some_query.id', ondelete='cascade'), primary_key=True)
+            id =  Column(Integer, primary_key=True)
+            # ... actual query data fields
+        
+        def some_query(session):
+            with session.query(SomeQuery) as query:
+                # insert items using query.id as value for query_id
+                # do stuff with query items
+            # query entry and its items are removed when with statement ends
+        '''
         query = Query()
         raised = False
         try:
@@ -316,7 +358,7 @@ class Session(object):
         
         _logger.debug('Querying up to {} genes by name'.format(names.size))
         
-        with self._query(GeneNameQuery) as query:
+        with self.query(GeneNameQuery) as query:
             # Insert gene group for query
             if isinstance(names, pd.Series):
                 items = names.to_frame()
@@ -430,7 +472,7 @@ class Session(object):
             the expression matrix. Note that groups with no matches, won't
             appear at all; there are no NA values in the returned data frames.
         '''
-        with self._query(GetByGenesQuery) as query:
+        with self.query(GetByGenesQuery) as query:
             gene_groups = gene_groups.copy()
             gene_groups['query_id'] = query.id
             gene_groups['gene'] = gene_groups['gene'].apply(lambda x: x.id)
@@ -623,7 +665,7 @@ class Session(object):
             one mapping and the destination side of another (or the same)
             mapping.
         '''
-        with self._query(AddGeneMappingQuery) as query:
+        with self.query(AddGeneMappingQuery) as query:
             # Get genes from database
             mapping = self.get_genes_by_name(mapping, _map=False).applymap(list)
             mapping = df_.split_array_like(mapping)
