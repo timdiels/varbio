@@ -4,7 +4,7 @@
 from setuptools import setup
 setup(
     **{   'author': 'VIB/BEG/UGent',
-    'author_email': 'tidie@psb.vib-ugent.be',
+    'author_email': 'timdiels.m@gmail.com',
     'classifiers': [   'Development Status :: 2 - Pre-Alpha',
                        'Intended Audience :: Developers',
                        'Intended Audience :: Science/Research',
@@ -175,6 +175,7 @@ setup(
                     'deep_genome.core.tests',
                     'deep_genome.core.pipeline',
                     'deep_genome.core.todo',
+                    'deep_genome.core.database.importers',
                     'deep_genome.core.tests.pipeline',
                     'deep_genome.core.todo.data_preparation',
                     'deep_genome.core.todo.util'],
