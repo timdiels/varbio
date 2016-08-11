@@ -15,10 +15,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
-'''
-Importers for importing data into database
-'''
-
 from deep_genome.core.database.entities import ExpressionMatrix
 from deep_genome.core.parsers import Parser
 from deep_genome.core import clean
@@ -328,47 +324,3 @@ class FileImporter(object):
 #     echo "NaN NA" >> "$stats_file"
 # 
 #     #TODO output should go to `target`, no other file should be written
-
-# XXX if still unused after data prep all done, remove it; it probably belongs in importer, not parse
-# from chicken_turtle_util.list import is_sorted
-# import numpy as np
-# class NCBIParser(object):
-#     
-#     def __init__(self, context):
-#         self._context = context
-#         
-#     # TODO test, consider rename usecols (impossible to remember due to no underscore)
-#     def gene_info_chunked(self, reader, chunk_size, usecols=None):
-#         '''
-#         Parse NCBI gene info file contents
-#         
-#         Parameters
-#         ----------
-#         reader : io.BufferedReader
-#             Text reader whose content contains NCBI gene info
-#         chunk_size : int
-#             Chunk size in bytes
-#         usecols : array-like
-#             Return a subset of the columns. Results in much faster parsing time and
-#             lower memory usage.
-#         
-#         Yields
-#         -------
-#         pandas.DataFrame
-#             A chunk of gene info as data frame with gene ids as index, a header line and NaN for empty fields
-#             
-#         Examples
-#         --------
-#         Format example: `ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_info.gz` after unpacking. 
-#         '''
-#         column_names = np.array('tax_id gene_id symbol locus_tag synonyms db_xrefs chromosome map_location description type_of_gene symbol_from_nomenclature_authority full_name_from_nomenclature_authority nomenclature_status other_designations modification_date'.split())
-#         assert is_sorted(usecols), 'Order in usecols is ignored in Pandas'
-#         if usecols:
-#             column_names = column_names[usecols]
-#             if 1 not in usecols:
-#                 usecols.insert(0, 1)
-#                 index_col = 0
-#             elif 0 not in usecols:
-#                 index_col = 0
-#         rows_per_chunk = int(chunk_size / 113.79378692106279)  # = size / average characters per row 
-#         return pandas.read_table(reader, index_col=index_col, header=None, names=column_names, skiprows=1, engine='python', na_values=['-','NEWENTRY'], usecols=usecols, chunksize=rows_per_chunk)
