@@ -353,6 +353,9 @@ class Session(object):
         All Session methods expect and return mapped genes when
         expecting/returning a `Gene` instead of a `str`.
         '''
+        if names.empty:
+            return names
+        
         if not unknown_gene_handling:
             unknown_gene_handling = self._context.configuration.unknown_gene_handling
         
@@ -472,6 +475,19 @@ class Session(object):
             the expression matrix. Note that groups with no matches, won't
             appear at all; there are no NA values in the returned data frames.
         '''
+        if gene_groups.empty:
+            if expression_matrices:
+                expression_matrices = pd.DataFrame(columns=('group_id', 'gene', 'expression_matrix'))
+            else:
+                expression_matrices = None
+            if clusterings:
+                clusterings = pd.DataFrame(columns=('group_id', 'gene', 'clustering'))
+            else:
+                clusterings = None
+            return _ReturnTuple(
+                expression_matrices=expression_matrices, 
+                clusterings=clusterings
+            )
         with self.query(GetByGenesQuery) as query:
             gene_groups = gene_groups.copy()
             gene_groups['query_id'] = query.id
@@ -529,7 +545,7 @@ class Session(object):
         
         Parameters
         ----------
-        expression_matrix : pd.DataFrame({condition_name => [gene_expression :: float]}, index=pd.Index([str]))
+        expression_matrix : pd.DataFrame({condition_name => [gene_expression :: float]}, index=pd.Index([gene_symbol :: str]))
             Expression matrix to add
             
         Returns
@@ -543,6 +559,7 @@ class Session(object):
             When a gene appears multiple times with different expression values.
             Or when a gene is unknown and unknown_gene_handling = fail 
         '''
+        #TODO allow empty matrix? Please no
         # Get `Gene`s
         expression_matrix = expression_matrix.copy()
         expression_matrix['_Session__index'] = self.get_genes_by_name(expression_matrix.index.to_series()).apply(list)
@@ -607,6 +624,7 @@ class Session(object):
         .entities.Clustering
             Added clustering
         '''
+        #TODO should not allow empty clustering?
         # Get genes
         clustering = clustering.copy()
         clustering['gene'] = self.get_genes_by_name(clustering['gene']).apply(list)
@@ -665,6 +683,9 @@ class Session(object):
             one mapping and the destination side of another (or the same)
             mapping.
         '''
+        if mapping.empty:
+            return
+        
         with self.query(AddGeneMappingQuery) as query:
             # Get genes from database
             mapping = self.get_genes_by_name(mapping, _map=False).applymap(list)

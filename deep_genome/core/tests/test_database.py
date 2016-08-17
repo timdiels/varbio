@@ -511,5 +511,7 @@ class TestGetByGenes(object):
 '''
 TODO
 
+Add a case to everything testing empty inputs. Hint: we already implemented the response in most cases
+
 when rows are dropped, things are ignored, log warnings naming the ignored genes
 '''
