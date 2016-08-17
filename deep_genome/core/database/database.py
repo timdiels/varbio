@@ -15,13 +15,24 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
+'''
+Database access
+
+Whenever null is mentioned, this refers to any value `x` for which
+``pandas.isnull(x)``
+'''
+
 from deep_genome.core.database.entities import (
     DBEntity, Gene, GeneName,
     GeneNameQueryItem, ExpressionMatrix, GetByGenesQuery, GetByGenesQueryItem,
     Clustering, GeneNameQuery, DataFile, GeneMappingTable,
-    AddGeneMappingQuery, AddGeneMappingQueryItem
+    AddGeneMappingQuery, AddGeneMappingQueryItem,
+    AddGeneFamiliesQuery, AddGeneFamiliesQueryItem,
+    GeneGeneFamilyTable, GeneFamily, Scope,
+    GetGeneFamiliesByGeneQuery, GetGeneFamiliesByGeneQueryItem
 )
 from deep_genome.core.configuration import UnknownGeneHandling
+from deep_genome.core.exceptions import DatabaseIntegrityError
 from chicken_turtle_util import data_frame as df_
 from chicken_turtle_util.sqlalchemy import pretty_sql
 import sqlalchemy as sa
@@ -43,6 +54,10 @@ def _data_file_dir(context):
 def _print_sql(stmt):
     print(pretty_sql(stmt))
     
+# TODO not allowing new gene mappings later on may prove too limiting one day
+# (where in a different scope a gene mapping is added, you can no longer have
+# one pre-compiled set of mappings)
+
 # Verdict:
 # 1. just add it to our database, add to our scheme and such. Extend that Gene entity, though maybe go more weak reffed: e.g. IdType(id, name), GeneId(Gene, IdType, value:str), Gene(id, description, ...)
 # - useful things in BioPython and BioSQL. We should know it and stay up to date with it. Set a schedule to learn it.
@@ -69,6 +84,7 @@ def _print_sql(stmt):
 # TODO if using ORM on those classes, you can use the ORM syntax, even though you wouldn't want to do any bulk on them via ORM, ever
 
 #TODO take a connection string, not host, user, .... Instead have your create_database in the context take host, ... and make a conn string out of it as is done here
+
 class Database(object):
     
     '''
@@ -77,7 +93,8 @@ class Database(object):
     All string comparisons in the database are case-insensitive, strings are
     stored with case though.
     
-    Gene mappings must be added before any entities containing genes are added.
+    All gene mappings must be added before any entities containing genes are
+    added.
     
     Parameters
     ----------
@@ -118,7 +135,7 @@ class Database(object):
         self._engine.dispose()
         
     @contextmanager
-    def scoped_session(self):
+    def scoped_session(self, reading_scopes={'global'}, writing_scope='global'):
         '''
         Create a session context manager
         
@@ -126,8 +143,30 @@ class Database(object):
         the session is closed.
         
         Provides a `deep_genome.core.database.Session`.
+        
+        All data (TODO currently only gene families) is scoped. The most common
+        use case is to share a single database with multiple algorithms or
+        multiple runs of an algorithm, each wanting to add some temporary data
+        that should not be seen by other runs. E.g. you can load all gene info
+        into a 'global' scope used by all algorithm runs, then add one set of
+        expression matrices in 'algorithmX run 1' scope and a different set in
+        'algorithmX run 2' scope. The algorithm that fills 'global' scope with
+        the gene info would use ``reading_scopes={'global'}, writing_scope='global'``,
+        while algorithm run 1 would use ``reading_scopes={'global', 'algorithmX run 1'},
+        writing_scope='algorithmX run 1'``.
+        
+        Parameters
+        ----------
+        reading_scopes : {scope_name :: str}
+            Only select data from given scopes. If a scope does not exist, it is created.
+        writing_scope : scope_name :: str
+            Only insert/update/delete data in given scope. If a scope does not
+            exist, it is created. Must be a member of `reading_scopes`.
         '''
-        session = Session(self._context, self._create_session())
+        # Note: if a single writing scope is insufficient:
+        # - consider adding {scoped entity => scope_id} to allow a different writing scope per entity type.
+        # - If that isn't enough either, add a writing_scope param to each method to allow overriding the session-wide one, also allow setting None as session-wide as to make the writing_scope param required on each method
+        session = Session(self._context, self._create_session(), reading_scopes, writing_scope)
         try:
             yield session
             session.sa_session.commit()
@@ -177,10 +216,30 @@ class Session(object):
     pd.DataFrame or pd.Series.
     '''
     
-    def __init__(self, context, session):
+    # Design note: when adding, allow the use of gene symbols (i.e. str); when
+    # getting, require Gene instances
+    
+    def __init__(self, context, session, reading_scopes, writing_scope):
+        if writing_scope not in reading_scopes:
+            raise ValueError('`writing_scope` must be a member of `reading_scopes`')
         self._context = context
         self._session = session
         
+        # Get scopes (and add missing ones)
+        self._reading_scopes = self._session.query(Scope).filter(Scope.name.in_(reading_scopes)).all()
+        missing_scopes = reading_scopes - {x.name for x in self._reading_scopes}
+        if missing_scopes:
+            for name in missing_scopes:
+                scope = Scope(name=name)
+                self._reading_scopes.append(scope)
+                self._session.add(scope)
+            self._session.commit()
+        self._writing_scope = next(x for x in self._reading_scopes if x.name == writing_scope)
+        
+    @property
+    def _reading_scope_ids(self):
+        return (x.id for x in self._reading_scopes)
+    
     @property
     def sa_session(self):
         '''Get underlying sqlalchemy (SA) Session'''
@@ -758,3 +817,168 @@ class Session(object):
             )
             self._session.execute(stmt)
         
+    def add_gene_families(self, gene_families):
+        '''
+        Add gene families
+        
+        Parameters
+        ----------
+        gene_families : pd.DataFrame({'family' => [str], 'gene' => [str]})
+            Gene families as data frame with columns:
+            
+            family
+                Unique family name or id
+            gene
+                Gene symbol of gene present in the family
+                
+            Families musn't overlap (no gene is a member of multiple families).
+            
+        Raises
+        ------
+        ValueError
+            If a gene was not found and handling is set to 'fail'; or if adding
+            the families would cause overlapping or duplicate families (in the
+            same scope) in the database.
+        '''
+        if gene_families.empty:
+            return
+            
+        gene_families = gene_families.copy()
+        
+        def assert_overlap(mapped):
+            duplicates = gene_families[gene_families['gene'].duplicated(keep=False)].copy()
+            if not duplicates.empty:
+                if mapped:
+                    duplicates['gene'] = duplicates['gene'].apply(lambda x: x.canonical_name.name)
+                    postfix = ' after gene mapping'
+                else:
+                    postfix = ''
+                duplicates.sort_values(list(duplicates.columns), inplace=True)
+                raise ValueError('gene_families contains overlap{}:\n{}'.format(postfix, duplicates.to_string(index=False)))
+        
+        # Check for overlap (this is merely for user friendliness, the next check below would catch any overlap as well)
+        assert_overlap(mapped=False)
+        
+        # Get genes
+        gene_families['gene'] = self.get_genes_by_name(gene_families['gene'])
+        gene_families['gene'] = gene_families['gene'].apply(list)
+        gene_families = df_.split_array_like(gene_families, 'gene')
+        
+        # Check for overlap again (source genes can map to the same destination gene)
+        assert_overlap(mapped=True)
+        
+        with self.query(AddGeneFamiliesQuery) as query:
+            # Insert into query table
+            gene_families['gene'] = gene_families['gene'].apply(lambda x: x.id)
+            gene_families.rename(columns={'family': 'family_name', 'gene': 'gene_id'}, inplace=True)
+            gene_families['query_id'] = query.id
+            self._session.bulk_insert_mappings(AddGeneFamiliesQueryItem, gene_families.to_dict('record'))
+            
+            # Check for any already existing families
+            stmt = (
+                self._session
+                .query(AddGeneFamiliesQueryItem.family_name)
+                .filter_by(query_id=query.id)
+                .join(GeneFamily, AddGeneFamiliesQueryItem.family_name == GeneFamily.name)
+                .filter(GeneFamily.scope_id.in_([x.id for x in self._reading_scopes]))
+            )
+            duplicate_families = stmt.all()
+            if duplicate_families:
+                raise ValueError('The following families already exist: {}'.format(', '.join(x for x, in duplicate_families)))
+            
+            # Check for overlap with other families
+            stmt = (
+                self._session
+                .query(AddGeneFamiliesQueryItem.gene_id)
+                .filter_by(query_id=query.id)
+                .join(Gene, Gene.id == AddGeneFamiliesQueryItem.gene_id)
+                .join(GeneFamily, Gene.gene_families)
+                .filter(GeneFamily.scope_id.in_([x.id for x in self._reading_scopes]))
+                .with_entities(AddGeneFamiliesQueryItem.family_name, GeneFamily, Gene)
+            )
+            overlap = pd.DataFrame(iter(stmt), columns=('input_family', 'database_family', 'gene'))
+            if not overlap.empty:
+                raise ValueError('gene_families overlaps with families in database:\n{}'.format(overlap.to_string(index=False)))
+            
+            # Insert the input into GeneFamily
+            sub_stmt = (
+                self._session
+                .query(AddGeneFamiliesQueryItem.family_name, sql.expression.literal(self._writing_scope.id))
+                .filter_by(query_id=query.id)
+                .distinct()
+            )
+            stmt = GeneFamily.__table__.insert().from_select(['name', 'scope_id'], sub_stmt)
+            self._session.execute(stmt)
+            
+            # Insert the input into GeneGeneFamilyTable
+            sub_stmt = (
+                self._session
+                .query(AddGeneFamiliesQueryItem)
+                .filter_by(query_id=query.id)
+                .join(GeneFamily, AddGeneFamiliesQueryItem.family_name == GeneFamily.name)
+                .filter_by(scope_id=self._writing_scope.id)
+                .with_entities(AddGeneFamiliesQueryItem.gene_id, GeneFamily.id)
+            )
+            stmt = GeneGeneFamilyTable.insert().from_select(['gene_id', 'gene_family_id'], sub_stmt)
+            self._session.execute(stmt)
+        
+        #TODO what if 2 concurrent transactions add to gene fams? E.g. add fams1
+        #to tmp, add fams2 to tmp, check fams1 does not overlap, check fams2
+        #does not overlap, add fams1, add fams2. But, if fams1 overlaps with
+        #fams2, we now have overlap in the database!
+        #TODO similar cases elsewhere in database
+        
+    def get_gene_families_by_gene(self, genes):
+        '''
+        Get gene families of genes.
+        
+        Parameters
+        ----------
+        genes : pd.Series([Gene])
+            Genes of which to get the gene family.
+            
+        Returns
+        -------
+        pd.DataFrame(dict(gene=[Gene], family=[GeneFamily or null]), index=genes.index)
+            The 'gene' column contains all input `genes`. If a gene has no
+            family, its 'family' column value is null.
+            
+        Raises
+        ------
+        DatabaseIntegrityError
+            if a gene turns out to have multiple families. This can happen when
+            using multiple reading scopes.
+        '''
+        if genes.empty:
+            return pd.DataFrame(columns=('gene', 'family'))
+        
+        with self.query(GetGeneFamiliesByGeneQuery) as query:
+            # Insert into query table
+            items = genes.apply(lambda x: x.id).to_frame('gene_id')
+            items['query_id'] = query.id
+            self._session.bulk_insert_mappings(GetGeneFamiliesByGeneQueryItem, items.to_dict('record'))
+            
+            # Get
+            stmt = (
+                self._session
+                .query(GetGeneFamiliesByGeneQueryItem)
+                .filter_by(query_id=query.id)
+                .order_by(GetGeneFamiliesByGeneQueryItem.id)
+                .join(Gene, GetGeneFamiliesByGeneQueryItem.gene_id == Gene.id)
+                .join(GeneGeneFamilyTable, Gene.id == GeneGeneFamilyTable.c.gene_id)
+                .join(GeneFamily, GeneFamily.id == GeneGeneFamilyTable.c.gene_family_id)
+                .filter(GeneFamily.scope_id.in_(self._reading_scope_ids))
+                .with_entities(Gene, GeneFamily)
+            )
+            df = pd.DataFrame(iter(stmt), columns=('gene', 'family'))
+            
+            # Check data integrity of result (scoping can cause uniqueness/overlap violations)
+            duplicates = df[df['gene'].duplicated(keep=False)].copy()
+            if not duplicates.empty:
+                duplicates.sort_values(list(duplicates.columns), inplace=True)
+                raise DatabaseIntegrityError('Encountered overlapping families:\n{}'.format(duplicates.to_string(index=False)))
+            
+            # Join with `genes`
+            df = genes.to_frame('gene').join(df.set_index('gene')['family'], on='gene')
+            
+            return df

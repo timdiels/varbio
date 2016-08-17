@@ -29,6 +29,15 @@ class TaskFailedException(Exception): #TODO rename to *Error, not sure whether s
     MORPH run; importing a gene expression matrix.
     '''
         
-        
+class DatabaseIntegrityError(Exception):
+    
+    '''
+    When database integrity has been violated (and ValueError wasn't
+    appropriate)
+    
+    This may occur when combining 2 integer scopes. E.g. 2 scopes containing the
+    same gene family is fine as long as they don't end up in the same
+    reading_scopes.
+    '''
         
         

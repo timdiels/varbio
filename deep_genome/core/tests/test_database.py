@@ -21,10 +21,11 @@ Test deep_genome.core.database
 
 from deep_genome.core.database.entities import (
     Gene, GeneNameQueryItem, GeneNameQuery, ExpressionMatrix,
-    Clustering, GeneMappingTable
+    Clustering, GeneMappingTable, GeneFamily
 )
 from deep_genome.core.database.importers import FileImporter
 from deep_genome.core.configuration import UnknownGeneHandling
+from deep_genome.core.exceptions import DatabaseIntegrityError
 from more_itertools import first
 from chicken_turtle_util import path as path_, data_frame as df_, series as series_
 from pathlib import Path
@@ -86,6 +87,15 @@ class TestScopedSession(object):
         
         with db.scoped_session() as session:
             assert session.sa_session.query(Gene).filter_by(description=description).first() is None  # previous session rolled back
+            
+    def test_write_is_read_scope(self, db):
+        '''
+        When write scope not listed in read scopes, raise ValueError
+        '''
+        with pytest.raises(ValueError) as ex:
+            with db.scoped_session(reading_scopes={'global'}, writing_scope='other') as session:
+                pass
+        assert "`writing_scope` must be a member of `reading_scopes`" in str(ex.value)
             
 class TestGetGenesByName(object):
     
@@ -303,6 +313,7 @@ class TestGeneMapping(object):
     
     @pytest.fixture
     def original(self):
+        # Note: this also asserts that multiple source genes may map to the same gene
         return pd.DataFrame({'source': ['geneA1', 'geneA1', 'geneA2', 'geneA3', 'geneA3'], 'destination': ['geneB1', 'geneB2', 'geneB3', 'geneB4', 'geneB2']})
     
     def test_handling_add(self, original, session):
@@ -376,6 +387,292 @@ class TestGeneMapping(object):
         assert len(actual) == 1
         assert first(actual).canonical_name.name == 'geneB'
         assert session.sa_session.execute(sa.sql.select([sa.func.count()]).select_from(GeneMappingTable)).scalar() == 1
+        
+class TestGeneFamilies(object):
+    
+    '''
+    Test Session.add_gene_families and Session.get_gene_families_by_gene with mappings present
+    '''
+    
+    def assert_get_equals(self, actual, expected):
+        expected = pd.DataFrame(expected, columns=['gene', 'family'])
+        actual['family'] = actual['family'].apply(lambda x: x.name if pd.notnull(x) else None)
+        actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
+        assert df_.equals(actual, expected)
+        
+    def assert_rows(self, session, expected):
+        assert {family.name : {x.canonical_name.name for x in family.genes} for family in session.sa_session.query(GeneFamily)} == expected
+    
+    def test_handling_add(self, session):
+        '''
+        When unknown_gene_handling=add, add adds all families
+        
+        + test get_gene_families_by_gene, happy days scenario
+        '''
+        session.add_gene_families(pd.DataFrame(
+            [
+                ['fam1', 'gene1'],
+                ['fam1', 'gene2'],
+                ['fam2', 'gene3'],
+            ],
+            columns=['family', 'gene']
+        ))
+        genes = session.get_genes_by_name(pd.Series(['gene1', 'gene2', 'gene2', 'gene3']))
+        genes = series_.split(genes)
+        actual = session.get_gene_families_by_gene(genes)
+        self.assert_get_equals(actual, [
+            ['gene1', 'fam1'],
+            ['gene2', 'fam1'],
+            ['gene2', 'fam1'],
+            ['gene3', 'fam2'],
+        ])
+    
+    def test_handling_ignore(self, session, mocker, context):
+        '''
+        When unknown_gene_handling=ignore, add drops unknown genes from families
+        '''
+        session.get_genes_by_name(pd.Series(['gene1', 'gene3']))  # add some genes
+        mocker.patch.object(context.configuration, 'unknown_gene_handling', UnknownGeneHandling.ignore)
+        
+        session.add_gene_families(pd.DataFrame(
+            [
+                ['fam1', 'gene1'],
+                ['fam1', 'gene2'],
+                ['fam2', 'gene3'],
+                ['fam3', 'gene4'],
+            ],
+            columns=['family', 'gene']
+        ))
+        self.assert_rows(session, {
+            'fam1': {'gene1'},
+            'fam2': {'gene3'},
+        })
+        
+    def test_handling_fail(self, session, context, mocker):
+        '''
+        When unknown_gene_handling=fail and family with unknown genes, add raises ValueError
+        '''
+        session.get_genes_by_name(pd.Series(['gene1', 'gene3']))  # add some genes
+        mocker.patch.object(context.configuration, 'unknown_gene_handling', UnknownGeneHandling.fail)
+        with pytest.raises(ValueError):
+            session.add_gene_families(pd.DataFrame(
+                [
+                    ['fam1', 'gene1'],
+                    ['fam1', 'gene2'],
+                    ['fam2', 'gene3'],
+                ],
+                columns=['family', 'gene']
+            ))
+            
+    def test_add_empty(self, session):
+        '''
+        When add_gene_families is given an empty DataFrame, do nothing
+        '''
+        session.add_gene_families(pd.DataFrame(columns=['family', 'gene']))
+        self.assert_rows(session, {})
+        
+    def test_add_existing(self, db):
+        '''
+        When adding a family that already exists (in the reading scope), raise ValueError
+        
+        When in a different scope, just add
+        '''
+        with db.scoped_session() as session:
+            session.add_gene_families(pd.DataFrame(
+                [
+                    ['fam1', 'gene1'],
+                ],
+                columns=['family', 'gene']
+            ))
+            with pytest.raises(ValueError) as ex:
+                session.add_gene_families(pd.DataFrame(
+                    [
+                        ['fam1', 'gene1'],
+                    ],
+                    columns=['family', 'gene']
+                ))
+            assert "The following families already exist: fam1" in str(ex.value)
+            
+        # no problem if it exists outside the current scopes
+        with db.scoped_session(reading_scopes={'other'}, writing_scope='other') as session:
+            session.add_gene_families(pd.DataFrame(
+                [
+                    ['fam1', 'gene1'],
+                ],
+                columns=['family', 'gene']
+            ))
+        
+    def test_add_overlapping(self, db): #TODO one overlap due to gene mapping mapping 2 genes to the same destination gene
+        '''
+        When families overlap (in the reading scope), raise ValueError
+        
+        When in a different scope, just add
+        '''
+        # Note: a config option for alternative handling could later be added:
+        # ignore overlapping families (add neither) and warn
+        
+        with db.scoped_session() as session:
+            # overlap within data frame
+            with pytest.raises(ValueError) as ex:
+                session.add_gene_families(pd.DataFrame(
+                    [
+                        ['fam1', 'gene1'],
+                        ['fam1', 'gene2'],
+                        ['fam2', 'gene2']
+                    ],
+                    columns=['family', 'gene']
+                ))
+            assert (
+                dedent('''\
+                    gene_families contains overlap:
+                    family   gene
+                     fam1  gene2
+                     fam2  gene2'''
+                ) in str(ex.value)
+            )
+            self.assert_rows(session, {})
+            
+            # overlap between data frame and database
+            session.add_gene_families(pd.DataFrame(
+                [
+                    ['fam1', 'gene1'],
+                    ['fam1', 'gene2'],
+                ],
+                columns=['family', 'gene']
+            ))
+            with pytest.raises(ValueError) as ex:
+                session.add_gene_families(pd.DataFrame(
+                    [
+                        ['fam2', 'gene2']
+                    ],
+                    columns=['family', 'gene']
+                ))
+            assert (
+                dedent('''\
+                    gene_families overlaps with families in database:
+                    input_family                      database_family           gene
+                           fam2  GeneFamily('fam1', Scope('global'))  Gene('gene2')'''
+                ) in str(ex.value)
+            )
+            self.assert_rows(session, {'fam1': {'gene1', 'gene2'}})
+            
+        # no problem if overlapping with something outside current scopes
+        with db.scoped_session(reading_scopes={'other'}, writing_scope='other') as session:
+            session.add_gene_families(pd.DataFrame(
+                [
+                    ['fam2', 'gene2']
+                ],
+                columns=['family', 'gene']
+            ))
+        
+    def test_scoping(self, db):
+        '''
+        Read/write from the right scopes
+        '''
+        with db.scoped_session(reading_scopes={'global', 'other'}, writing_scope='global') as session:
+            session.add_gene_families(pd.DataFrame(
+                [
+                    ['fam1', 'gene1']
+                ],
+                columns=['family', 'gene']
+            ))
+            
+            genes = session.get_genes_by_name(pd.Series(['gene1']))
+            genes = series_.split(genes)
+            actual = session.get_gene_families_by_gene(genes)
+            self.assert_get_equals(actual, [['gene1', 'fam1']])
+            
+        with db.scoped_session(reading_scopes={'other'}, writing_scope='other') as session:
+            genes = session.get_genes_by_name(pd.Series(['gene1']))
+            genes = series_.split(genes)
+            actual = session.get_gene_families_by_gene(genes)
+            self.assert_get_equals(actual, [['gene1', None]])
+        
+    def test_get_overlapping(self, db):
+        '''
+        When multiple families are returned for 1 gene, raise DatabaseIntegrityError
+        '''
+        # Note: an alternative handling in this case is to return None+warn for
+        # said gene. This alternative would be settable via a separate config
+        # option
+        
+        with db.scoped_session() as session:
+            session.add_gene_families(pd.DataFrame(
+                [
+                    ['fam1', 'gene1'],
+                    ['fam1', 'gene2'],
+                    ['famIrrelevant', 'gene3']
+                ],
+                columns=['family', 'gene']
+            ))
+            
+        with db.scoped_session(reading_scopes={'other'}, writing_scope='other') as session:
+            session.add_gene_families(pd.DataFrame(
+                [
+                    ['fam2', 'gene2']
+                ],
+                columns=['family', 'gene']
+            ))
+            
+        with db.scoped_session(reading_scopes={'global', 'other'}) as session:
+            with pytest.raises(DatabaseIntegrityError) as ex:
+                genes = session.get_genes_by_name(pd.Series(['gene2', 'gene3']))
+                genes = series_.split(genes)
+                session.get_gene_families_by_gene(genes)
+            assert (
+                dedent('''\
+                    Encountered overlapping families:
+                    gene                               family
+                    Gene('gene2')  GeneFamily('fam1', Scope('global'))
+                    Gene('gene2')   GeneFamily('fam2', Scope('other'))'''
+                ) in str(ex.value)
+            )
+            
+    def test_get_duplicate(self, db):
+        '''
+        When getting family of gene whose family exists in multiple of the reading scopes, raise DatabaseIntegrityError
+        '''
+        # Note: an alternative handling in this case is to return None+warn for
+        # said gene. This alternative would be settable via a separate config
+        # option
+        
+        with db.scoped_session() as session:
+            session.add_gene_families(pd.DataFrame(
+                [
+                    ['fam1', 'gene2'],
+                    ['famIrrelevant', 'gene3']
+                ],
+                columns=['family', 'gene']
+            ))
+            
+        with db.scoped_session(reading_scopes={'other'}, writing_scope='other') as session:
+            session.add_gene_families(pd.DataFrame(
+                [
+                    ['fam1', 'gene2']
+                ],
+                columns=['family', 'gene']
+            ))
+            
+        with db.scoped_session(reading_scopes={'global', 'other'}) as session:
+            with pytest.raises(DatabaseIntegrityError) as ex:
+                genes = session.get_genes_by_name(pd.Series(['gene2', 'gene3']))
+                genes = series_.split(genes)
+                session.get_gene_families_by_gene(genes)
+            assert (
+                dedent('''\
+                    Encountered overlapping families:
+                    gene                               family
+                    Gene('gene2')  GeneFamily('fam1', Scope('global'))
+                    Gene('gene2')   GeneFamily('fam1', Scope('other'))'''
+                ) in str(ex.value)
+            )
+        
+    def test_get_empty(self, session):
+        '''
+        When `genes` of get_gene_families_by_gene is empty, return empty
+        '''
+        actual = session.get_gene_families_by_gene(pd.Series())
+        self.assert_get_equals(actual, [])
         
 class TestFileImporter(object):
     
@@ -457,6 +754,42 @@ class TestFileImporter(object):
             actual = session.get_genes_by_name(pd.Series(['geneA1', 'geneB1', 'geneA2', 'geneA3', 'geneC1']))
             actual = actual.apply(lambda x: {y.canonical_name.name for y in x}).tolist()
             assert actual == [{'geneB1', 'geneB2'}, {'geneB1'}, {'geneB3'}, {'geneB4', 'geneB2'}, {'geneC1'}]
+        
+    def test_import_gene_families(self, db, importer, temp_dir_cwd):
+        '''
+        Test FileImporter.import_gene_families
+        '''
+        path = Path('file')
+        path_.write(path, dedent('''\
+            item1\t\tCluster1
+            \0item2\tCLUSTER1
+            item3\tcluster2\titem4
+            ''') + '\r\n\r\r'
+        )
+        
+        importer.import_gene_families(path, name_index=1)
+        
+        with db.scoped_session() as session:
+            genes = series_.split(session.get_genes_by_name(pd.Series(['item1', 'item2', 'item3', 'item4'])))
+            actual = session.get_gene_families_by_gene(genes)
+            
+            # Assert consistent case
+            actual['family'] = actual['family'].apply(lambda x: x.name)
+            assert (actual['family'] == 'Cluster1').sum() == 2 or (actual['family'] == 'CLUSTER1').sum() == 2
+            
+            # Assert the rest
+            actual['family'] = actual['family'].str.lower()
+            actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
+            expected = pd.DataFrame(
+                [
+                    ['item1', 'cluster1'],
+                    ['item2', 'cluster1'],
+                    ['item3', 'cluster2'],
+                    ['item4', 'cluster2'],
+                ],
+                columns=('gene', 'family')
+            )
+            assert df_.equals(actual, expected)
 
 class TestGetByGenes(object):
     
@@ -515,3 +848,4 @@ Add a case to everything testing empty inputs. Hint: we already implemented the 
 
 when rows are dropped, things are ignored, log warnings naming the ignored genes
 '''
+#TODO later: add scope to other data and test scoping on them as well
