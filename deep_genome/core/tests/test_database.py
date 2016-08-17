@@ -26,7 +26,7 @@ from deep_genome.core.database.entities import (
 from deep_genome.core.database.importers import FileImporter
 from deep_genome.core.configuration import UnknownGeneHandling
 from more_itertools import first
-from chicken_turtle_util import path as path_, data_frame as df_
+from chicken_turtle_util import path as path_, data_frame as df_, series as series_
 from pathlib import Path
 import pytest
 import sqlalchemy as sa
@@ -42,33 +42,6 @@ def session(db):
         assert session.sa_session.query(GeneNameQuery).count() == 0
         assert session.sa_session.query(GeneNameQueryItem).count() == 0
         
-def assert_df_equals_exactly(df1, df2):
-    assert df1.equals(df2)
-    assert df1.index.name == df2.index.name
-    assert df1.columns.name == df2.columns.name
-    
-def assert_df_equals(df1, df2, ignore_order=(), ignore_index=False): #TODO make a df_.equals -> bool, with lots of options to configure what matters and what doesn't, e.g. same_order/ignore_order
-    if 1 in ignore_order:
-        df1 = df1.reindex(columns=df1.columns.sort_values())
-        df2 = df2.reindex(columns=df2.columns.sort_values())
-    assert df1.columns.equals(df2.columns)
-    assert df1.columns.name == df2.columns.name
-    
-    if 0 in ignore_order:
-        df1.sort_values(by=df1.columns.tolist(), inplace=True)
-        df2.sort_values(by=df2.columns.tolist(), inplace=True)
-    
-    if ignore_index:
-        df1.reset_index(drop=True, inplace=True)
-        df2.reset_index(drop=True, inplace=True)
-    else:
-        assert df1.index.equals(df2.index)
-        assert df1.index.name == df2.index.name
-        
-    print(df1)
-    print(df2)
-    assert df1.equals(df2)
-
 def test_clear_and_create(context):
     db = context.database
     db.clear()  # initial db state could be anything, so clear it
@@ -127,10 +100,10 @@ class TestGetGenesByName(object):
         assert index1.name == index2.name
         
     def assert_(self, original, passed_in, actual):
-        assert_df_equals_exactly(passed_in, original)  # musn't change what's passed in
+        assert df_.equals(passed_in, original)  # musn't change what's passed in
         assert (actual.applymap(lambda x: len(x)).values == 1).all()
         actual = actual.applymap(lambda x: first(x).canonical_name.name)
-        assert_df_equals_exactly(actual, original)
+        assert df_.equals(actual, original)
     
     @pytest.fixture(params=(True, False))
     def map_(self, request):  # The value of _map shouldn't matter when there are no mappings in database
@@ -223,11 +196,11 @@ class TestExpressionMatrix(object):
         '''
         passed_in = original.copy()
         expression_matrix = session.add_expression_matrix(passed_in)
-        assert_df_equals_exactly(original, passed_in) # input unchanged
+        assert df_.equals(original, passed_in) # input unchanged
         
         actual = session.get_expression_matrix_data(expression_matrix)
         actual.index = actual.index.to_series().apply(lambda x: x.canonical_name.name)
-        assert_df_equals_exactly(actual, expected)
+        assert df_.equals(actual, expected)
         
     params = (
         (expression_matrix_df, expression_matrix_df.drop('gene2')),
@@ -243,11 +216,11 @@ class TestExpressionMatrix(object):
         
         passed_in = original.copy()
         expression_matrix = session.add_expression_matrix(passed_in)
-        assert_df_equals_exactly(original, passed_in) # input unchanged
+        assert df_.equals(original, passed_in) # input unchanged
         
         actual = session.get_expression_matrix_data(expression_matrix)
         actual.index = actual.index.to_series().apply(lambda x: x.canonical_name.name)
-        assert_df_equals_exactly(actual, expected)
+        assert df_.equals(actual, expected)
         
     def test_handling_fail(self, context, mocker, session):
         '''
@@ -292,7 +265,7 @@ class TestClustering(object):
         
         passed_in = original.copy()
         clustering = session.add_clustering(passed_in)
-        assert_df_equals_exactly(original, passed_in) # input unchanged
+        assert df_.equals(original, passed_in) # input unchanged
         
         actual = session.get_clustering_data(clustering)
         self.assert_equals(actual, expected)
@@ -308,7 +281,7 @@ class TestClustering(object):
           
         passed_in = original.copy()
         clustering = session.add_clustering(passed_in)
-        assert_df_equals_exactly(original, passed_in) # input unchanged
+        assert df_.equals(original, passed_in) # input unchanged
         
         actual = session.get_clustering_data(clustering)
         self.assert_equals(actual, expected)
@@ -338,7 +311,7 @@ class TestGeneMapping(object):
         '''
         passed_in = original.copy()
         session.add_gene_mapping(passed_in)
-        assert_df_equals_exactly(original, passed_in)
+        assert df_.equals(original, passed_in)
         
         actual = session.get_genes_by_name(pd.Series(['geneA1', 'geneB1', 'geneA2', 'geneA3', 'geneC1']))
         actual = actual.apply(lambda x: {y.canonical_name.name for y in x}).tolist()
@@ -353,7 +326,7 @@ class TestGeneMapping(object):
         
         passed_in = original.copy()
         session.add_gene_mapping(passed_in)
-        assert_df_equals_exactly(original, passed_in)
+        assert df_.equals(original, passed_in)
         
         actual = session.get_genes_by_name(pd.Series(['geneA1', 'geneB1', 'geneA2', 'geneA3', 'geneC1']))
         actual = actual.apply(lambda x: {y.canonical_name.name for y in x}).tolist()
@@ -434,7 +407,7 @@ class TestFileImporter(object):
             actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
             expected = pd.DataFrame({'gene': ['gene1', 'gene2'], 'condition1': [1.1, 3.3], 'condition2': [2.2, 4.4]})
             expected = expected.reindex(columns=('gene', 'condition1', 'condition2'))
-            assert_df_equals_exactly(actual, expected)
+            assert df_.equals(actual, expected)
         
     def test_import_clustering(self, db, importer, temp_dir_cwd):
         '''
@@ -526,14 +499,14 @@ class TestGetByGenes(object):
         
         actual = result.expression_matrices
         actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
-        assert_df_equals(actual, expected, ignore_order=(0,1), ignore_index=True)
+        assert df_.equals(actual, expected, ignore_order={0,1}, ignore_index=True)
         
         # assert clusterings
         expected.drop('expression_matrix', axis=1, inplace=True)
         expected['clustering'] = [clustering1]*3 + [clustering2]*2 + [clustering1]*2
         actual = result.clusterings
         actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
-        assert_df_equals(actual, expected, ignore_order=(0,1), ignore_index=True)
+        assert df_.equals(actual, expected, ignore_order={0,1}, ignore_index=True)
 
 '''
 TODO
