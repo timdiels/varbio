@@ -410,7 +410,7 @@ class TestFileImporter(object):
     def importer(self, context):
         return FileImporter(context)
     
-    def test_import_expression_matrix(self, session, importer, temp_dir_cwd):
+    def test_import_expression_matrix(self, db, importer, temp_dir_cwd):
         '''
         Test FileImporter.import_expression_matrix and Database.get_expression_matrix_data
         '''
@@ -424,17 +424,19 @@ class TestFileImporter(object):
         
         id_ = importer.import_expression_matrix(path)
         assert id_ >= 0
-        expression_matrix = session.sa_session.query(ExpressionMatrix).get(id_)
         
-        actual = session.get_expression_matrix_data(expression_matrix)
-        actual.reset_index(inplace=True)
-        print(actual)
-        actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
-        expected = pd.DataFrame({'gene': ['gene1', 'gene2'], 'condition1': [1.1, 3.3], 'condition2': [2.2, 4.4]})
-        expected = expected.reindex(columns=('gene', 'condition1', 'condition2'))
-        assert_df_equals_exactly(actual, expected)
+        with db.scoped_session() as session:  # Note: starting the session after import guarantees seeing the import's effects
+            expression_matrix = session.sa_session.query(ExpressionMatrix).get(id_)
+            
+            actual = session.get_expression_matrix_data(expression_matrix)
+            actual.reset_index(inplace=True)
+            print(actual)
+            actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
+            expected = pd.DataFrame({'gene': ['gene1', 'gene2'], 'condition1': [1.1, 3.3], 'condition2': [2.2, 4.4]})
+            expected = expected.reindex(columns=('gene', 'condition1', 'condition2'))
+            assert_df_equals_exactly(actual, expected)
         
-    def test_import_clustering(self, session, importer, temp_dir_cwd):
+    def test_import_clustering(self, db, importer, temp_dir_cwd):
         '''
         Test FileImporter.import_clustering and Database.get_clustering_data
         '''
@@ -448,21 +450,23 @@ class TestFileImporter(object):
         
         id_ = importer.import_clustering(path, name_index=1)
         assert id_ >= 0
-        clustering = session.sa_session.query(Clustering).get(id_)
         
-        actual = session.get_clustering_data(clustering)
-        cluster_ids = actual['cluster_id'].tolist()
-        assert ('Cluster1' in cluster_ids) ^ ('CLUSTER1' in cluster_ids)
+        with db.scoped_session() as session:
+            clustering = session.sa_session.query(Clustering).get(id_)
+            
+            actual = session.get_clustering_data(clustering)
+            cluster_ids = actual['cluster_id'].tolist()
+            assert ('Cluster1' in cluster_ids) ^ ('CLUSTER1' in cluster_ids)
+            
+            actual['cluster_id'] = actual['cluster_id'].str.lower()
+            actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
+            actual.sort_values(by=actual.columns.tolist(), inplace=True)
+            actual.reset_index(drop=True, inplace=True)
+            actual = actual.reindex(columns=('cluster_id', 'gene'))
+            expected = pd.DataFrame({'cluster_id': ['cluster1', 'cluster1', 'cluster2', 'cluster2'], 'gene': ['item1', 'item2', 'item3', 'item4']})
+            assert actual.equals(expected)
         
-        actual['cluster_id'] = actual['cluster_id'].str.lower()
-        actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
-        actual.sort_values(by=actual.columns.tolist(), inplace=True)
-        actual.reset_index(drop=True, inplace=True)
-        actual = actual.reindex(columns=('cluster_id', 'gene'))
-        expected = pd.DataFrame({'cluster_id': ['cluster1', 'cluster1', 'cluster2', 'cluster2'], 'gene': ['item1', 'item2', 'item3', 'item4']})
-        assert actual.equals(expected)
-        
-    def test_import_gene_mapping(self, session, importer, temp_dir_cwd):
+    def test_import_gene_mapping(self, db, importer, temp_dir_cwd):
         '''
         Test FileImporter.import_gene_mapping, Database.get_genes_by_name(_map=True)
         '''
@@ -476,9 +480,10 @@ class TestFileImporter(object):
         
         importer.import_gene_mapping(path)
         
-        actual = session.get_genes_by_name(pd.Series(['geneA1', 'geneB1', 'geneA2', 'geneA3', 'geneC1']))
-        actual = actual.apply(lambda x: {y.canonical_name.name for y in x}).tolist()
-        assert actual == [{'geneB1', 'geneB2'}, {'geneB1'}, {'geneB3'}, {'geneB4', 'geneB2'}, {'geneC1'}]
+        with db.scoped_session() as session:
+            actual = session.get_genes_by_name(pd.Series(['geneA1', 'geneB1', 'geneA2', 'geneA3', 'geneC1']))
+            actual = actual.apply(lambda x: {y.canonical_name.name for y in x}).tolist()
+            assert actual == [{'geneB1', 'geneB2'}, {'geneB1'}, {'geneB3'}, {'geneB4', 'geneB2'}, {'geneC1'}]
 
 class TestGetByGenes(object):
     
