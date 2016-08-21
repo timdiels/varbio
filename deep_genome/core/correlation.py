@@ -16,83 +16,114 @@
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-Correlation functions such as Pearson R and functions to apply them
+Vectorised correlation statistics and correlation matrices
+
+Efficient implementations for Pearson's r. A slow generic implementation for
+other correlation statistics.
 '''
+
+# TODO manual inspect mutual_information for correctness
+# - is it exactly what we want in bioinformatics? 
+# - is it used correctly?
+
+# TODO efficient mutual_information
+#
+# - add to above " and mutual information" once
+# - actually implement a more efficient version below
+# - remove the mention of slowness in the docstring of its _df func
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import mutual_info_score
 
-# XXX don't assert for no NaNs here, do that in the alg. Do add func to remove variance and other cleaning which belongs in some core.prepare for data prep funcs
-
-# XXX coexpnetviz should use this func. Fix coexpnetviz when done
-def get_correlations(matrix, subset, correlation_method):
-    mask = matrix.index.isin(subset)
-    correlations = correlation_method(matrix.values, np.flatnonzero(mask))
-    correlations = pd.DataFrame(correlations, index=matrix.index, columns=matrix.index[mask])
-    return correlations
-
-# XXX something to grab random subset of index, then of column, then a func to make corrs easily by (matrix, subset, subset2) where by default subset is everything of matrix. Input is DataFrame and df[compatible] because keeping it simple. Better yet might be (matrix, columns, rows=None) and require an actual index for columns,rows.
-# XXX coexpnetviz should take random 800 as rows, random 800 from same set as columns. Unless coexpr doesn't compare to the same, which I think it doesn't, then should pick random first set and random second set that is disjoint with the first. Or do allow from the same but remove any self comparisons. That removal should be done by the caller though...
-def get_correlations_sample(matrix, correlation_method, sample_size=800): #XXX doesn't return a dataframe, so can't compare it to get_correlations. Either return a DF (in which case you can indeed forward to get_correlations which is pretty nice) or ...
+def generic(correlation_function, data, indices):
     '''
-    Randomly select rows from matrix as subset and returns as if
-    `get_correlations(matrix, subset, correlation_method)` was called.
+    Get correlation of each row in a 2d array compared to a subset thereof
+    
+    This function is less efficient than those specialised to a specific
+    correlation function. See the 'See also' section for whether a specialised
+    alternative is available for your correlation function.
     
     Parameters
     ----------
-    matrix : numpy 2d-array of float
-    correlation_method
-    
+    correlation_function : ((x :: array-like(dtype=float)), (y :: array-like(dtype=float)) -> float
+        Function that returns a correlation statistic when given 2 numpy array-
+        like's.
+    data : np.array(dtype=float, dimensions=2)
+        Data for which to calculate correlations
+    indices
+        Indices to derive the subset `data[indices]` to compare against. You
+        may use any form of numpy indexing.
+        
     Returns
     -------
-    np.array(dtype=float, shape=(len(data), len(subset)))
-        Correlations. Position (i,j) contains correlation between row i and j'th
-        subset row.
-    '''
-    data = matrix.values
-    sample = np.random.choice(len(data), sample_size)
-    sample = data[sample]
-    sample = correlation_method(sample, np.arange(len(sample)))
-    return sample
+    correlation_matrix : np.array(dtype=float, shape=(len(data), len(indices)))
+        2D array containing all correlations. ``correlation_matrix[i,j]``
+        contains ``correlation_function(data[i], data[indices][j]``.
     
-def pearson_r(data, subset):
+    See also
+    --------
+    pearson : Get Pearson's r of each row in a 2d array compared to a subset thereof
     '''
-    Pearson r-values between rows of `data` and rows of its subset ``data[subset]``.
-    
+    # TODO: optimise: can be sped up (turn into metric specific linalg, or keep generic and use np ~enumerate). For vectorising mutual info further, see https://github.com/scikit-learn/scikit-learn/blob/c957249/sklearn/metrics/cluster/supervised.py#L507
+    if not data.size or not len(indices):
+        return np.empty((data.shape[0], len(indices)))
+    return np.array([np.apply_along_axis(correlation_function, 1, data, data[item]) for item in indices]).T
+
+# Note: GSL's pearson also returns .999...98 instead of 1 when comparing (1,2,3) to itself
+def pearson(data, indices):
+    '''
+    Get Pearson's r of each row in a 2d array compared to a subset thereof
+      
     Parameters
     ----------
-    data : 2d array of float
-    subset : array of int
-        Indices to subset of rows in `data` 
-    
+    data : np.array(dtype=float, dimensions=2)
+        Data for which to calculate correlations
+    indices
+        Indices to derive the subset `data[indices]` to compare against. You
+        may use any form of numpy indexing.
+          
     Returns
     -------
-    np.array(dtype=float, shape=(len(data), len(subset)))
-        Correlations. Position (i,j) contains correlation between row i and j'th
-        subset row.
+    correlation_matrix : np.array(dtype=float, shape=(len(data), len(indices)))
+        2D array containing all correlations. ``correlation_matrix[i,j]``
+        contains the correlation between ``data[i]`` and ``data[indices][j]``.
+          
+    Notes
+    -----
+    The current implementation is a vectorised form of `gsl_stats_correlation`
+    from the GNU Scientific Library. Unlike GSL's implementation,
+    correlations are clipped to [-1, 1].
+      
+    Pearson's r is also, perhaps more commonly, known as the product-moment
+    correlation coefficient.
     '''
-    # This is a vectorised form of gsl_stats_correlation's algorithm.
+    if not data.size or not len(indices):
+        return np.empty((data.shape[0], len(indices)))
+  
     matrix = data
     mean = matrix[:,0].copy()
     delta = np.empty(matrix.shape[0])
     sum_sq = np.zeros(matrix.shape[0])  # sum of squares
-    sum_cross = np.zeros((matrix.shape[0], len(subset)))
- 
+    sum_cross = np.zeros((matrix.shape[0], len(indices)))
+    
     for i in range(1,matrix.shape[1]):
         ratio = i / (i+1)
         delta = matrix[:,i] - mean
         sum_sq += (delta**2) * ratio;
-        sum_cross += np.outer(delta, delta[subset]) * ratio;
+        sum_cross += np.outer(delta, delta[indices]) * ratio;
         mean += delta / (i+1);
-  
+     
     sum_sq = np.sqrt(sum_sq)
-    correlations = sum_cross / np.outer(sum_sq, sum_sq[subset]);
+    correlations = sum_cross / np.outer(sum_sq, sum_sq[indices]);
+    np.clip(correlations, -1, 1, correlations)
     return correlations
 
+def mutual_information(data, indices): #TODO docstring + mention it's slow implementation
+    return generic(mutual_info_score, data, indices)
+
+#TODO when implementing, be careful of numerical error (walk through numpy and read up on numerical analysis)
 # def mutual_information(data, subset, metric):
-#     '''
-#     TODO
-#     '''
 #     # A more vectorised version of https://github.com/scikit-learn/scikit-learn/blob/c957249/sklearn/metrics/cluster/supervised.py#L507
 #     if contingency is None:
 #         labels_true, labels_pred = check_clusterings(labels_true, labels_pred)
@@ -114,25 +145,37 @@ def pearson_r(data, subset):
 #           + contingency_nm * log_outer)
 #     return mi.sum()
 
-def similarity_matrix(data, subset, metric):
+def generic_df(vectorised_correlation_function, data, subset):
     '''
-    Get similarity between rows of `data` and rows of its subset ``data[subset]``.
+    Get correlation of each row in a DataFrame compared to a subset thereof
     
     Parameters
     ----------
-    data : 2d array of float
-    subset : array of int
-        Indices to subset of rows in `data`
-    metric : function((x: array-like), (y: array-like)) -> float
-        Similarity metric to use.
-    
+    vectorised_correlation_function : (data :: np.array(dimensions=2), indices) -> correlation_matrix :: np.array
+        Function for creating a correlation matrix. See the returns section of
+        `generic` for full details on the desired type.
+    data : pd.DataFrame([[float]])
+        Data for which to calculate correlations
+    subset
+        Subset of `data` to compare against. Additionally, ``subset.index``
+        must be a subset of ``data.index``.
+        
     Returns
     -------
-    array(dtype=float, shape=(len(data), len(subset)))
-        Similarity 2d array. Position (i,j) contains similarity between row i and j'th
-        subset row.
+    correlation_matrix : pd.DataFrame([[float]], index=data.index, columns=subset.index)
+        Data frame with all correlations. ``correlation_matrix.iloc[i,j]``
+        contains the correlation between ``data.iloc[i]`` and
+        ``subset.iloc[j]``.
     '''
-    # Note: can be sped up (turn into metric specific linalg, or keep generic and use np ~enumerate). For vectorising mutual info further, see https://github.com/scikit-learn/scikit-learn/blob/c957249/sklearn/metrics/cluster/supervised.py#L507
-    return np.array([np.apply_along_axis(metric, 1, data, data[item]) for item in subset]).T         
-    # TODO test this by providing a pearson-r as metric func, then compare that to our pearson_r
+    if not data.index.is_unique:
+        raise ValueError('``data.index`` must be unique')
+    correlations = vectorised_correlation_function(data.values, subset.index.map(data.index.get_loc))
+    correlations = pd.DataFrame(correlations, index=data.index, columns=subset.index)
+    return correlations
+
+def pearson_df(data, subset): #TODO docstring from generic_df
+    return generic_df(pearson, data, subset)
+
+def mutual_information_df(data, subset): #TODO docstring from generic_df
+    return generic_df(mutual_information, data, subset)
 
