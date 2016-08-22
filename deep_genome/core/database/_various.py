@@ -43,6 +43,7 @@ from collections import namedtuple
 import pandas as pd
 import logging
 import os
+import re
 
 _logger = logging.getLogger('deep_genome.core.Database')
 
@@ -598,7 +599,7 @@ class Session(object):
     def _data_file_path(self, data_file):
         return _data_file_dir(self._context) / str(data_file.id)
         
-    def add_expression_matrix(self, expression_matrix):
+    def add_expression_matrix(self, expression_matrix, name):
         '''
         Add expression matrix
         
@@ -606,6 +607,8 @@ class Session(object):
         ----------
         expression_matrix : pd.DataFrame({condition_name => [gene_expression :: float]}, index=pd.Index([gene_symbol :: str]))
             Expression matrix to add
+        name : str
+            Expression matrix name. Surrounding whitespace is stripped. Musn't be empty or contain nul characters.
             
         Returns
         -------
@@ -615,9 +618,22 @@ class Session(object):
         Raises
         ------
         ValueError
-            When a gene appears multiple times with different expression values.
-            Or when a gene is unknown and unknown_gene_handling = fail 
+            When either:
+            
+            - a gene appears multiple times with different expression values.
+            - a gene is unknown and unknown_gene_handling = fail
+            - an expression matrix already exists with the given name
+            - name contains invalid characters
         '''
+        # Validate name
+        name = name.strip()
+        if '\0' in name:
+            raise ValueError('Expression matrix name contains nul characters: {!r}'.format(name))
+        if not name:
+            raise ValueError("Expression matrix name is '' after stripping whitespace")
+        if self._session.query(ExpressionMatrix).filter_by(name=name).first():
+            raise ValueError("Expression matrix name already exists: {!r}".format(name))
+        
         #TODO allow empty matrix? Please no
         # Get `Gene`s
         expression_matrix = expression_matrix.copy()
@@ -643,7 +659,7 @@ class Session(object):
         expression_matrix.to_pickle(str(self._data_file_path(data_file)))
         
         # Insert in database
-        expression_matrix = ExpressionMatrix(data_file=data_file, genes=genes)
+        expression_matrix = ExpressionMatrix(data_file=data_file, genes=genes, name=name)
         self._session.add(expression_matrix)
         
         return expression_matrix

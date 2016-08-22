@@ -205,7 +205,7 @@ class TestExpressionMatrix(object):
         When unknown_gene_handling=add, add all rows
         '''
         passed_in = original.copy()
-        expression_matrix = session.add_expression_matrix(passed_in)
+        expression_matrix = session.add_expression_matrix(passed_in, 'expmat1')
         assert df_.equals(original, passed_in) # input unchanged
         
         actual = session.get_expression_matrix_data(expression_matrix)
@@ -225,7 +225,7 @@ class TestExpressionMatrix(object):
         mocker.patch.object(context.configuration, 'unknown_gene_handling', UnknownGeneHandling.ignore)
         
         passed_in = original.copy()
-        expression_matrix = session.add_expression_matrix(passed_in)
+        expression_matrix = session.add_expression_matrix(passed_in, 'expmat1')
         assert df_.equals(original, passed_in) # input unchanged
         
         actual = session.get_expression_matrix_data(expression_matrix)
@@ -239,14 +239,60 @@ class TestExpressionMatrix(object):
         session.get_genes_by_name(pd.Series(['gene1']))
         mocker.patch.object(context.configuration, 'unknown_gene_handling', UnknownGeneHandling.fail)
         with pytest.raises(ValueError):
-            session.add_expression_matrix(self.expression_matrix_df.copy())
+            session.add_expression_matrix(self.expression_matrix_df.copy(), 'expmat1')
         
     def test_conflict(self, session):
         '''
         When a gene has multiple rows with different expression values, raise ValueError
         '''
         with pytest.raises(ValueError):
-            session.add_expression_matrix(self.expression_matrix_df_conflict.copy())
+            session.add_expression_matrix(self.expression_matrix_df_conflict.copy(), 'expmat1')
+            
+    def test_name_nul_characters(self, session):
+        '''
+        When name contains nul characters, raise ValueError
+        '''
+        name = 'na\0me'
+        with pytest.raises(ValueError) as ex:
+            session.add_expression_matrix(self.expression_matrix_df, name=name)
+        assert 'Expression matrix name contains nul characters: {!r}'.format(name.strip()) in str(ex.value)
+        
+    def test_name_empty(self, session):
+        '''
+        When name is whitespace, raise ValueError
+        '''
+        for name in ('', ' ', '\t'):
+            with pytest.raises(ValueError) as ex:
+                session.add_expression_matrix(self.expression_matrix_df, name=name)
+            assert "Expression matrix name is '' after stripping whitespace" in str(ex.value)
+        
+    @pytest.mark.parametrize('name', ('name', 'NAME', 'naME', 'na ME', ' nA Me ', '\nname\t', 'name:', 'na:me', 'na+me', 'na/me', 'na\tme', 'na\nme'))
+    def test_name_valid(self, session, name):
+        '''
+        When name valid, all good
+        '''
+        actual = session.add_expression_matrix(self.expression_matrix_df, name=name)
+        assert actual.name == name.strip()
+        
+    def test_name_strip(self, session):
+        '''
+        Strip surrounding whitespace of name
+        '''
+        actual = session.add_expression_matrix(self.expression_matrix_df, name=' na me ')
+        assert actual.name == 'na me'
+        
+    def test_name_duplicate(self, session):
+        '''
+        When add expression matrix with already existing name, raise ValueError
+        '''
+        session.add_expression_matrix(self.expression_matrix_df, name='name')
+        session.add_expression_matrix(self.expression_matrix_df, name='name1') # duplicate data okay
+        
+        # duplicate name is not
+        for name in ('name', ' name '):
+            with pytest.raises(ValueError) as ex:
+                session.add_expression_matrix(self.expression_matrix_df, name=name)
+            assert "Expression matrix name already exists: {!r}".format(name.strip()) in str(ex.value)
             
 class TestClustering(object):
     
@@ -691,12 +737,14 @@ class TestFileImporter(object):
             gene2\t3.3\t4.4
             ''') + '\r\n\r\r'
         )
+        name = 'the name'
         
-        id_ = importer.import_expression_matrix(path)
+        id_ = importer.import_expression_matrix(path, name)
         assert id_ >= 0
         
         with db.scoped_session() as session:  # Note: starting the session after import guarantees seeing the import's effects
             expression_matrix = session.sa_session.query(ExpressionMatrix).get(id_)
+            assert expression_matrix.name == name
             
             actual = session.get_expression_matrix_data(expression_matrix)
             actual.reset_index(inplace=True)
@@ -807,9 +855,9 @@ class TestGetByGenes(object):
         session.add_gene_mapping(pd.DataFrame({'source': ['a1', 'a1'], 'destination': ['b1', 'b2']}))
         
         # import some expression matrices
-        exp_mat1 = session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1, 1]}, index=['a1', 'c1', 'c2']))
-        exp_mat2 = session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1]}, index=['b1', 'b2']))
-        session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1, 1]}, index=['b1', 'c2', 'c3']))
+        exp_mat1 = session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1, 1]}, index=['a1', 'c1', 'c2']), 'expmat1')
+        exp_mat2 = session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1]}, index=['b1', 'b2']), 'expmat2')
+        session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1, 1]}, index=['b1', 'c2', 'c3']), 'expmat3')
         
         # import some clusterings
         clustering1 = session.add_clustering(pd.DataFrame({'cluster_id': ['1337', '1', '1'], 'gene': ['a1', 'c1', 'c2']}))

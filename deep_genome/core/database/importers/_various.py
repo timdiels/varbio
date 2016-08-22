@@ -34,7 +34,7 @@ class FileImporter(object):
         self._context = context
         self._parser = Parser(context)
     
-    def import_expression_matrix(self, path):
+    def import_expression_matrix(self, path, name):
         '''
         Import expression matrix file into database
         
@@ -47,6 +47,10 @@ class FileImporter(object):
         ----------
         path : pathlib.Path
             Path to expression matrix file.
+        name : str
+            Expression matrix name. See
+            :meth:`deep_genome.core.database.Session.add_expression_matrix` for
+            details.
             
         Returns
         -------
@@ -58,7 +62,7 @@ class FileImporter(object):
             _logger.info('Adding expression matrix: {}'.format(path))
             with path.open() as f:
                 exp_mat = self._parser.parse_expression_matrix(clean.plain_text(f))
-            exp_mat = session.add_expression_matrix(exp_mat)
+            exp_mat = session.add_expression_matrix(exp_mat, name)
             session.sa_session.flush()
             return exp_mat.id
                

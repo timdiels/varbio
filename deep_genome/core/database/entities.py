@@ -169,6 +169,7 @@ GeneExpressionMatrixTable = Table('gene_expression_matrix', DBEntity.metadata,
 class ExpressionMatrix(DBEntity):
      
     id =  Column(Integer, primary_key=True)
+    name = Column(String(1000), nullable=False) #Note: unique within a scope
     data_file_id = Column(Integer, ForeignKey('data_file.id'), nullable=False)
      
     genes = relationship("Gene", backref='expression_matrices', secondary=GeneExpressionMatrixTable)  # Genes whose expression was measured in the expression matrix
