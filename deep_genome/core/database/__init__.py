@@ -1,1 +1,1 @@
-from .database import Database
+from deep_genome.core.database._various import Database, Session
