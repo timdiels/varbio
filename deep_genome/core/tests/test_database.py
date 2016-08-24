@@ -33,6 +33,7 @@ import pytest
 import sqlalchemy as sa
 from textwrap import dedent
 import pandas as pd
+import numpy as np
 
 @pytest.yield_fixture
 def session(db):
@@ -186,18 +187,97 @@ class TestExpressionMatrix(object):
     Test Session.add_expression_matrix and Session.get_expression_matrix_data
     '''
     
-    #: Simple valid matrix
-    expression_matrix_df = pd.DataFrame({'condition1': [1.1, 3.3], 'condition2': [2.2, 4.4]}, index=pd.Index(['gene1', 'gene2'], name='gene'))
+    _expression_matrix_df = pd.DataFrame({'condition1': [1.1, 3.3], 'condition2': [2.2, 4.4]}, index=pd.Index(['gene1', 'gene2'], name='gene'))
+    _expression_matrix_df_duplicate_row = pd.DataFrame({'condition1': [1.1, 3.3, 3.3], 'condition2': [1.1, 4.4, 4.4]}, index=pd.Index(['gene1', 'gene2', 'gene2'], name='gene'))
+    _expression_matrix_df_conflict = pd.DataFrame({'condition1': [1.1, 3.3], 'condition2': [1.1, 4.4]}, index=pd.Index(['gene1', 'gene1'], name='gene'))
     
-    #: Valid matrix with a duplicate row
-    expression_matrix_df_duplicate_row = pd.DataFrame({'condition1': [1.1, 3.3, 3.3], 'condition2': [1.1, 4.4, 4.4]}, index=pd.Index(['gene1', 'gene2', 'gene2'], name='gene'))
+    @pytest.fixture
+    def expression_matrix_df(self):
+        '''
+        Simple valid matrix
+        '''
+        return self._expression_matrix_df.copy()
     
-    #: Expression matrix with conflicting rows
-    expression_matrix_df_conflict = pd.DataFrame({'condition1': [1.1, 3.3], 'condition2': [1.1, 4.4]}, index=pd.Index(['gene1', 'gene1'], name='gene'))
+    @pytest.fixture
+    def expression_matrix_df_duplicate_row(self):
+        '''
+        Valid matrix with a duplicate row
+        '''
+        return self._expression_matrix_df_duplicate_row.copy()
+    
+    @pytest.fixture
+    def expression_matrix_df_conflict(self):
+        '''
+        Expression matrix with conflicting rows
+        '''
+        return self._expression_matrix_df_conflict.copy()
+    
+    def test_expression_matrix_invalid_type(self, session, expression_matrix_df):
+        '''
+        When matrix one of columns not int type, raise ValueError
+        '''
+        expression_matrix = expression_matrix_df
+        expression_matrix['condition1'] = expression_matrix['condition1'].astype(int)
+        with pytest.raises(ValueError) as ex:
+            session.add_expression_matrix(expression_matrix, name='name')
+        print(str(ex.value))
+        assert (dedent('''\
+            Expression matrix values must be of type {}, column types of given matrix:
+            condition1      int64
+            condition2    float64'''
+            ).format(np.dtype(float))
+            in str(ex.value)
+        )
+            
+    def test_name_nul_characters(self, session, expression_matrix_df):
+        '''
+        When name contains nul characters, raise ValueError
+        '''
+        name = 'na\0me'
+        with pytest.raises(ValueError) as ex:
+            session.add_expression_matrix(expression_matrix_df, name=name)
+        assert 'Expression matrix name contains nul characters: {!r}'.format(name.strip()) in str(ex.value)
+        
+    def test_name_empty(self, session, expression_matrix_df):
+        '''
+        When name is whitespace, raise ValueError
+        '''
+        for name in ('', ' ', '\t'):
+            with pytest.raises(ValueError) as ex:
+                session.add_expression_matrix(expression_matrix_df, name=name)
+            assert "Expression matrix name is '' after stripping whitespace" in str(ex.value)
+        
+    @pytest.mark.parametrize('name', ('name', 'NAME', 'naME', 'na ME', ' nA Me ', '\nname\t', 'name:', 'na:me', 'na+me', 'na/me', 'na\tme', 'na\nme'))
+    def test_name_valid(self, session, expression_matrix_df, name):
+        '''
+        When name valid, all good
+        '''
+        actual = session.add_expression_matrix(expression_matrix_df, name=name)
+        assert actual.name == name.strip()
+        
+    def test_name_strip(self, session, expression_matrix_df):
+        '''
+        Strip surrounding whitespace of name
+        '''
+        actual = session.add_expression_matrix(expression_matrix_df, name=' na me ')
+        assert actual.name == 'na me'
+        
+    def test_name_duplicate(self, session, expression_matrix_df):
+        '''
+        When add expression matrix with already existing name, raise ValueError
+        '''
+        session.add_expression_matrix(expression_matrix_df, name='name')
+        session.add_expression_matrix(expression_matrix_df, name='name1') # duplicate data okay
+        
+        # duplicate name is not
+        for name in ('name', ' name '):
+            with pytest.raises(ValueError) as ex:
+                session.add_expression_matrix(expression_matrix_df, name=name)
+            assert "Expression matrix name already exists: {!r}".format(name.strip()) in str(ex.value)
     
     params = (
-        (expression_matrix_df, expression_matrix_df),
-        (expression_matrix_df_duplicate_row, expression_matrix_df_duplicate_row.iloc[0:2])
+        (_expression_matrix_df, _expression_matrix_df),
+        (_expression_matrix_df_duplicate_row, _expression_matrix_df_duplicate_row.iloc[0:2])
     )
     @pytest.mark.parametrize('original, expected', params)
     def test_handling_add(self, session, original, expected):
@@ -213,8 +293,8 @@ class TestExpressionMatrix(object):
         assert df_.equals(actual, expected)
         
     params = (
-        (expression_matrix_df, expression_matrix_df.drop('gene2')),
-        (expression_matrix_df_duplicate_row, expression_matrix_df_duplicate_row.drop('gene2'))
+        (_expression_matrix_df, _expression_matrix_df.drop('gene2')),
+        (_expression_matrix_df_duplicate_row, _expression_matrix_df_duplicate_row.drop('gene2'))
     )
     @pytest.mark.parametrize('original, expected', params)
     def test_handling_ignore(self, context, mocker, session, original, expected): #TODO add_ should warn about dropped rows of unknown genes 'gene2' (caplog)
@@ -232,67 +312,21 @@ class TestExpressionMatrix(object):
         actual.index = actual.index.to_series().apply(lambda x: x.canonical_name.name)
         assert df_.equals(actual, expected)
         
-    def test_handling_fail(self, context, mocker, session):
+    def test_handling_fail(self, context, mocker, session, expression_matrix_df):
         '''
         When unknown_gene_handling=fail and rows with unknown genes, raise ValueError
         '''
         session.get_genes_by_name(pd.Series(['gene1']))
         mocker.patch.object(context.configuration, 'unknown_gene_handling', UnknownGeneHandling.fail)
         with pytest.raises(ValueError):
-            session.add_expression_matrix(self.expression_matrix_df.copy(), 'expmat1')
+            session.add_expression_matrix(expression_matrix_df, 'expmat1')
         
-    def test_conflict(self, session):
+    def test_conflict(self, session, expression_matrix_df_conflict):
         '''
         When a gene has multiple rows with different expression values, raise ValueError
         '''
         with pytest.raises(ValueError):
-            session.add_expression_matrix(self.expression_matrix_df_conflict.copy(), 'expmat1')
-            
-    def test_name_nul_characters(self, session):
-        '''
-        When name contains nul characters, raise ValueError
-        '''
-        name = 'na\0me'
-        with pytest.raises(ValueError) as ex:
-            session.add_expression_matrix(self.expression_matrix_df, name=name)
-        assert 'Expression matrix name contains nul characters: {!r}'.format(name.strip()) in str(ex.value)
-        
-    def test_name_empty(self, session):
-        '''
-        When name is whitespace, raise ValueError
-        '''
-        for name in ('', ' ', '\t'):
-            with pytest.raises(ValueError) as ex:
-                session.add_expression_matrix(self.expression_matrix_df, name=name)
-            assert "Expression matrix name is '' after stripping whitespace" in str(ex.value)
-        
-    @pytest.mark.parametrize('name', ('name', 'NAME', 'naME', 'na ME', ' nA Me ', '\nname\t', 'name:', 'na:me', 'na+me', 'na/me', 'na\tme', 'na\nme'))
-    def test_name_valid(self, session, name):
-        '''
-        When name valid, all good
-        '''
-        actual = session.add_expression_matrix(self.expression_matrix_df, name=name)
-        assert actual.name == name.strip()
-        
-    def test_name_strip(self, session):
-        '''
-        Strip surrounding whitespace of name
-        '''
-        actual = session.add_expression_matrix(self.expression_matrix_df, name=' na me ')
-        assert actual.name == 'na me'
-        
-    def test_name_duplicate(self, session):
-        '''
-        When add expression matrix with already existing name, raise ValueError
-        '''
-        session.add_expression_matrix(self.expression_matrix_df, name='name')
-        session.add_expression_matrix(self.expression_matrix_df, name='name1') # duplicate data okay
-        
-        # duplicate name is not
-        for name in ('name', ' name '):
-            with pytest.raises(ValueError) as ex:
-                session.add_expression_matrix(self.expression_matrix_df, name=name)
-            assert "Expression matrix name already exists: {!r}".format(name.strip()) in str(ex.value)
+            session.add_expression_matrix(expression_matrix_df_conflict, 'expmat1')
             
 class TestClustering(object):
     
@@ -855,9 +889,9 @@ class TestGetByGenes(object):
         session.add_gene_mapping(pd.DataFrame({'source': ['a1', 'a1'], 'destination': ['b1', 'b2']}))
         
         # import some expression matrices
-        exp_mat1 = session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1, 1]}, index=['a1', 'c1', 'c2']), 'expmat1')
-        exp_mat2 = session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1]}, index=['b1', 'b2']), 'expmat2')
-        session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1, 1]}, index=['b1', 'c2', 'c3']), 'expmat3')
+        exp_mat1 = session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1, 1]}, index=['a1', 'c1', 'c2'], dtype=float), 'expmat1')
+        exp_mat2 = session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1]}, dtype=float, index=['b1', 'b2']), 'expmat2')
+        session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1, 1]}, index=['b1', 'c2', 'c3'], dtype=float), 'expmat3')
         
         # import some clusterings
         clustering1 = session.add_clustering(pd.DataFrame({'cluster_id': ['1337', '1', '1'], 'gene': ['a1', 'c1', 'c2']}))

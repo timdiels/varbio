@@ -43,7 +43,7 @@ from collections import namedtuple
 import pandas as pd
 import logging
 import os
-import re
+import numpy as np
 
 _logger = logging.getLogger('deep_genome.core.Database')
 
@@ -624,6 +624,7 @@ class Session(object):
             - a gene is unknown and unknown_gene_handling = fail
             - an expression matrix already exists with the given name
             - name contains invalid characters
+            - expression matrix has a column with a dtype other than float
         '''
         # Validate name
         name = name.strip()
@@ -633,6 +634,10 @@ class Session(object):
             raise ValueError("Expression matrix name is '' after stripping whitespace")
         if self._session.query(ExpressionMatrix).filter_by(name=name).first():
             raise ValueError("Expression matrix name already exists: {!r}".format(name))
+        
+        # Validate expression_matrix
+        if not (expression_matrix.dtypes == float).all(): #TODO test
+            raise ValueError("Expression matrix values must be of type {}, column types of given matrix:\n{}".format(np.dtype(float), expression_matrix.dtypes.to_string()))
         
         #TODO allow empty matrix? Please no
         # Get `Gene`s
