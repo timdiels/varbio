@@ -115,7 +115,8 @@ def pearson(data, indices):
         mean += delta / (i+1);
      
     sum_sq = np.sqrt(sum_sq)
-    correlations = sum_cross / np.outer(sum_sq, sum_sq[indices]);
+    with np.errstate(divide='ignore',invalid='ignore'):  # divide by zero, it happens
+        correlations = sum_cross / np.outer(sum_sq, sum_sq[indices])
     np.clip(correlations, -1, 1, correlations)
     return correlations
 
