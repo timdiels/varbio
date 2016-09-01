@@ -370,11 +370,14 @@ class Session(object):
             columns=dict(enumerate(names_.columns)),
             inplace=True
         )
-        genes.index.name = names_.index.name
-        genes.columns.name = names_.columns.name
         
+        genes.index.name = names_.index.name
         if isinstance(names, pd.Series):
             genes = genes[genes.columns[0]]
+            genes.name = names.name
+        else:
+            genes.columns.name = names_.columns.name
+            
         return genes
      
     # Note: removed map_suffix1 which mapped gene_name.1 to gene_name. This is easy enough to do manually or at least can be split out. I.e. names.applymap(lambda x: re.sub(r'\.1$', '', x))  #XXX rm note when done

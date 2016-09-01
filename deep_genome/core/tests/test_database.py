@@ -106,15 +106,17 @@ class TestGetGenesByName(object):
     See TestGeneMapping for testing of _map with actual mappings present
     '''
     
-    def assert_equals(self, index1, index2):
-        assert index1.equals(index2)
-        assert index1.name == index2.name
-        
-    def assert_(self, original, passed_in, actual):
+    def assert_dfs(self, original, passed_in, actual):
         df_.assert_equals(passed_in, original)  # musn't change what's passed in
-        assert (actual.applymap(lambda x: len(x)).values == 1).all()
+        assert (actual.applymap(lambda x: len(x)).values == 1).all().all()
         actual = actual.applymap(lambda x: first(x).canonical_name.name)
         df_.assert_equals(actual, original)
+        
+    def assert_series(self, original, passed_in, actual):
+        series_.assert_equals(passed_in, original)  # musn't change what's passed in
+        assert (actual.apply(lambda x: len(x)).values == 1).all()
+        actual = actual.apply(lambda x: first(x).canonical_name.name)
+        series_.assert_equals(actual, original)
     
     @pytest.fixture(params=(True, False))
     def map_(self, request):  # The value of _map shouldn't matter when there are no mappings in database
@@ -129,12 +131,12 @@ class TestGetGenesByName(object):
         df = original.copy()
         actual = session.get_genes_by_name(df, _map=map_)
         assert first(actual.iloc[0,0]) is first(actual.iloc[0,1])
-        self.assert_(original, df, actual)
+        self.assert_dfs(original, df, actual)
         
         # When doing it on existing genes, still return correctly
         actual2 = session.get_genes_by_name(df, _map=map_)
         assert actual2.equals(actual)
-        self.assert_(original, df, actual2)
+        self.assert_dfs(original, df, actual2)
     
     def test_add_series(self, session, map_):
         '''
@@ -145,12 +147,12 @@ class TestGetGenesByName(object):
         series = original.copy()
         actual = session.get_genes_by_name(series, _map=map_)
         assert first(actual.iloc[0]) is first(actual.iloc[2])
-        self.assert_(original.to_frame(), series.to_frame(), actual.to_frame())
+        self.assert_series(original, series, actual)
         
         # When doing it on existing genes, still return correctly
         actual2 = session.get_genes_by_name(series, _map=map_)
-        assert actual2.equals(actual)
-        self.assert_(original.to_frame(), series.to_frame(), actual2.to_frame())
+        series_.assert_equals(actual, actual2)
+        self.assert_series(original, series, actual2)
         
     def test_ignore_df(self, session, map_):
         '''
@@ -180,6 +182,17 @@ class TestGetGenesByName(object):
         session.get_genes_by_name(pd.Series(['gene1']), _map=map_)  # add to DB
         with pytest.raises(ValueError):
             session.get_genes_by_name(pd.Series(['gene1', 'gene2']), unknown_gene_handling=UnknownGeneHandling.fail, _map=map_)
+            
+    def test_get_series_names(self, session, map_):
+        '''
+        When get series, return same name and same index.name
+        
+        Only testing with nameless series now, but named series is covered by test_add_series 
+        '''
+        original = pd.Series(['gene1', 'gene2', 'gene1'], index=['first', 'second', 'second'])
+        series = original.copy()
+        actual = session.get_genes_by_name(series, _map=map_)
+        self.assert_series(original, series, actual)
         
 class TestExpressionMatrix(object):
     
