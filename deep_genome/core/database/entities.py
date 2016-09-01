@@ -45,6 +45,9 @@ class DBEntity(object):
             'mysql_character_set': 'utf8',
             'mysql_collate': 'utf8_general_ci'
         }
+        
+    def __hash__(self):
+        return hash(self.id)
 
 DBEntity = declarative_base(cls=DBEntity)
 
@@ -58,8 +61,8 @@ class CachedFile(DBEntity):
     
     def __repr__(self):
         return (
-            '<CachedFile(id={!r}, source_url={!r}, path={!r}, cached_at={!r}'
-            ', expires_at={!r})>'.format(
+            'CachedFile(id={!r}, source_url={!r}, path={!r}, cached_at={!r}'
+            ', expires_at={!r})'.format(
                 self.id, self.source_url, self.path,
                 self.cached_at, self.expires_at
             )
@@ -79,7 +82,7 @@ class GeneName(DBEntity):
     gene = relationship('Gene', backref='names', foreign_keys=[gene_id])
      
     def __repr__(self):
-        return '<GeneName(id={!r}, name={!r})>'.format(self.id, self.name)
+        return 'GeneName({!r}, {!r})'.format(self.id, self.name)
 
 class DataFile(DBEntity):
     
@@ -152,17 +155,15 @@ class Gene(DBEntity):
         return self.canonical_name.name
      
     def __repr__(self):
-        return 'Gene(id={!r}, name={!r})'.format(self.id, self.canonical_name.name)
+        return 'Gene({!r}, {!r})'.format(self.id, self.canonical_name.name)
     
     def __str__(self):
         return 'Gene({!r})'.format(self.canonical_name.name)
     
     def __lt__(self, other):
-        if isinstance(other, Gene):
-            return self.id < other.id
-        else:
-            return False
-    
+        if not isinstance(other, Gene):
+            raise TypeError()
+        return self.name < other.name
     
 GeneExpressionMatrixTable = Table('gene_expression_matrix', DBEntity.metadata,
     Column('gene_id', Integer, ForeignKey('gene.id')),
@@ -173,24 +174,22 @@ GeneExpressionMatrixTable = Table('gene_expression_matrix', DBEntity.metadata,
 class ExpressionMatrix(DBEntity):
      
     id =  Column(Integer, primary_key=True)
-    name = Column(String(1000), nullable=False) #Note: unique within a scope
+    name = Column(String(1000), nullable=False)  # Note: unique within a scope
     data_file_id = Column(Integer, ForeignKey('data_file.id'), nullable=False)
      
     genes = relationship("Gene", backref='expression_matrices', secondary=GeneExpressionMatrixTable)  # Genes whose expression was measured in the expression matrix
     data_file = relationship('DataFile')
-     
+    
     def __repr__(self):
-        return '<ExpressionMatrix(id={!r})>'.format(self.id)
+        return 'ExpressionMatrix({!r}, {!r})'.format(self.id, self.name)
     
     def __str__(self):
-        return '<ExpressionMatrix {!s}>'.format(self.id)
+        return 'ExpressionMatrix({!r})'.format(self.name)
     
     def __lt__(self, other):
-        if isinstance(other, ExpressionMatrix):
-            return self.id < other.id
-        else:
-            return False
-
+        if not isinstance(other, ExpressionMatrix):
+            raise TypeError()
+        return self.name < other.name
 
 GeneClusteringTable = Table('gene_clustering', DBEntity.metadata,
     Column('gene_id', Integer, ForeignKey('gene.id')),
@@ -211,16 +210,12 @@ class Clustering(DBEntity):
     data_file = relationship('DataFile')
      
     def __repr__(self):
-        return '<Clustering(id={!r})>'.format(self.id)
-    
-    def __str__(self):
-        return '<Clustering {!s}>'.format(self.id)
+        return 'Clustering({!r})'.format(self.id)
     
     def __lt__(self, other):
-        if isinstance(other, Clustering):
-            return self.id < other.id
-        else:
-            return False
+        if not isinstance(other, Clustering):
+            raise TypeError()
+        return self.id < other.id
     
 class GetByGenesQuery(DBEntity):
     id =  Column(Integer, primary_key=True)
@@ -243,7 +238,7 @@ class CoroutineCall(DBEntity):
     return_value = Column(PickleType, nullable=True) 
      
     def __repr__(self):
-        return '<CoroutineCall(id={!r}, name={!r})>'.format(self.id, self.name)
+        return 'CoroutineCall({!r}, {!r})'.format(self.id, self.name)
     
 class Job(DBEntity):
      
@@ -252,7 +247,7 @@ class Job(DBEntity):
     finished = Column(Boolean, nullable=False)
      
     def __repr__(self):
-        return '<Job(id={!r}, name={!r})>'.format(self.id, self.name) #TODO no <>  TODO drop clear enough prefixes such as id=, name=
+        return 'Job({!r}, {!r})'.format(self.id, self.name)
 
 class Scope(DBEntity): #TODO move up file
     
@@ -266,10 +261,9 @@ class Scope(DBEntity): #TODO move up file
         return 'Scope({!r})'.format(self.name)
     
     def __lt__(self, other):
-        if isinstance(other, Scope):
-            return self.name < other.name
-        else:
-            return False
+        if not isinstance(other, Scope):
+            raise TypeError()
+        return self.name < other.name
 
 GeneGeneFamilyTable = Table('gene_gene_family', DBEntity.metadata,
     Column('gene_id', Integer, ForeignKey('gene.id')),
@@ -277,8 +271,6 @@ GeneGeneFamilyTable = Table('gene_gene_family', DBEntity.metadata,
 )
         
 class GeneFamily(DBEntity):
-    
-    'Gene family'
     
     id =  Column(Integer, primary_key=True)
     name = Column(String(1000), nullable=False)
@@ -294,10 +286,9 @@ class GeneFamily(DBEntity):
         return 'GeneFamily({!r}, {!s})'.format(self.name, self.scope)
     
     def __lt__(self, other):
-        if isinstance(other, GeneFamily):
-            return (self.name, self.scope) < (self.name, other.scope) 
-        else:
-            return False
+        if not isinstance(other, GeneFamily):
+            raise TypeError()
+        return (self.name, self.scope) < (self.name, other.scope) 
     
 class AddGeneFamiliesQuery(DBEntity):
     
