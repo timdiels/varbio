@@ -31,16 +31,16 @@ def initialise():
     # setup logging for testing
     # also log everything to stdout
     # XXX logging.basicConfig is easier to set things up
-    import sys
-    import logging
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-    logging.getLogger().root.addHandler(ch)
-    logging.getLogger('deep_genome').setLevel(logging.INFO)
-    logging.getLogger('deep_genome').setLevel(logging.DEBUG)
-    logging.getLogger('deep_genome.core.Database').setLevel(logging.INFO)
+#     import sys
+#     import logging
+#     ch = logging.StreamHandler(sys.stdout)
+#     ch.setLevel(logging.DEBUG)
+#     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+#     ch.setFormatter(formatter)
+#     logging.getLogger().root.addHandler(ch)
+#     logging.getLogger('deep_genome').setLevel(logging.INFO)
+#     logging.getLogger('deep_genome').setLevel(logging.DEBUG)
+#     logging.getLogger('deep_genome.core.Database').setLevel(logging.INFO)
     
     # Fix https://github.com/pydata/pandas/issues/8222 which releases aug 2017 with 0.19.x
     if tuple(map(int, pd.__version__.split('.')[0:1])) < (0, 19):

@@ -176,7 +176,7 @@ class ExpressionMatrix(DBEntity):
     data_file = relationship('DataFile')
      
     def __repr__(self):
-        return '<ExpressionMatrix(id={!r})>'.format(self.id, self.path)
+        return '<ExpressionMatrix(id={!r})>'.format(self.id)
     
     def __str__(self):
         return '<ExpressionMatrix {!s}>'.format(self.id)
@@ -207,7 +207,7 @@ class Clustering(DBEntity):
     data_file = relationship('DataFile')
      
     def __repr__(self):
-        return '<Clustering(id={!r})>'.format(self.id, self.path)
+        return '<Clustering(id={!r})>'.format(self.id)
     
     def __str__(self):
         return '<Clustering {!s}>'.format(self.id)
