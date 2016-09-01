@@ -20,6 +20,7 @@ from chicken_turtle_util.test import temp_dir_cwd
 from deep_genome.core import AlgorithmContext, initialise
 from click.testing import CliRunner
 from pathlib import Path
+import logging
 import pytest
 
 # http://stackoverflow.com/a/30091579/1031434
@@ -27,6 +28,11 @@ from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE, SIG_DFL) # Ignore SIGPIPE
 
 initialise()
+
+@pytest.fixture(autouse=True, scope='session')
+def common_init():
+    # log levels
+    logging.getLogger('chicken_turtle_util').setLevel(logging.INFO)
 
 def pytest_runtest_setup(item): #TODO unused? Might be useful someday though
     marker = item.get_marker('skip_unless_current')
