@@ -608,7 +608,7 @@ class Session(object):
         
         Parameters
         ----------
-        expression_matrix : pd.DataFrame({condition_name => [gene_expression :: float]}, index=pd.Index([gene_symbol :: str]))
+        expression_matrix : pd.DataFrame({condition_name => [gene_expression :: float]}, index=[gene_symbol :: str])
             Expression matrix to add
         name : str
             Expression matrix name. Surrounding whitespace is stripped. Musn't be empty or contain nul characters.

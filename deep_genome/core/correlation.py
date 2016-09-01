@@ -153,8 +153,8 @@ def generic_df(vectorised_correlation_function, data, subset):
     Parameters
     ----------
     vectorised_correlation_function : (data :: np.array(dimensions=2), indices) -> correlation_matrix :: np.array
-        Function for creating a correlation matrix. See the returns section of
-        `generic` for full details on the desired type.
+        Function for creating a correlation matrix. This function is exactly
+        like `generic` with a `correlation_function` already applied.
     data : pd.DataFrame([[float]])
         Data for which to calculate correlations
     subset

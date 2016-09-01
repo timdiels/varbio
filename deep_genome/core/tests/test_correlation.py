@@ -381,4 +381,4 @@ def test_mutual_information_df():
     np.testing.assert_allclose(actual.values, expected.values, equal_nan=True)
     
 #TODO performance test where you use `generic` as baseline. Just set some min amount of speedup compared to generic. Of course you have to change that when optimising generic itself
-# Performance tests should run separately without xdist for better accuracy
+# Performance tests should run separately without xdist for better accuracy. Note: we already do testing without xdist. Should list in setup.cfg why it should not be enabled
