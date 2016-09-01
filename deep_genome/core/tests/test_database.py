@@ -111,10 +111,10 @@ class TestGetGenesByName(object):
         assert index1.name == index2.name
         
     def assert_(self, original, passed_in, actual):
-        assert df_.equals(passed_in, original)  # musn't change what's passed in
+        df_.assert_equals(passed_in, original)  # musn't change what's passed in
         assert (actual.applymap(lambda x: len(x)).values == 1).all()
         actual = actual.applymap(lambda x: first(x).canonical_name.name)
-        assert df_.equals(actual, original)
+        df_.assert_equals(actual, original)
     
     @pytest.fixture(params=(True, False))
     def map_(self, request):  # The value of _map shouldn't matter when there are no mappings in database
@@ -286,11 +286,11 @@ class TestExpressionMatrix(object):
         '''
         passed_in = original.copy()
         expression_matrix = session.add_expression_matrix(passed_in, 'expmat1')
-        assert df_.equals(original, passed_in) # input unchanged
+        df_.assert_equals(original, passed_in) # input unchanged
         
         actual = session.get_expression_matrix_data(expression_matrix)
         actual.index = actual.index.to_series().apply(lambda x: x.canonical_name.name)
-        assert df_.equals(actual, expected)
+        df_.assert_equals(actual, expected)
         
     params = (
         (_expression_matrix_df, _expression_matrix_df.drop('gene2')),
@@ -306,11 +306,11 @@ class TestExpressionMatrix(object):
         
         passed_in = original.copy()
         expression_matrix = session.add_expression_matrix(passed_in, 'expmat1')
-        assert df_.equals(original, passed_in) # input unchanged
+        df_.assert_equals(original, passed_in) # input unchanged
         
         actual = session.get_expression_matrix_data(expression_matrix)
         actual.index = actual.index.to_series().apply(lambda x: x.canonical_name.name)
-        assert df_.equals(actual, expected)
+        df_.assert_equals(actual, expected)
         
     def test_handling_fail(self, context, mocker, session, expression_matrix_df):
         '''
@@ -355,7 +355,7 @@ class TestClustering(object):
         
         passed_in = original.copy()
         clustering = session.add_clustering(passed_in)
-        assert df_.equals(original, passed_in) # input unchanged
+        df_.assert_equals(original, passed_in) # input unchanged
         
         actual = session.get_clustering_data(clustering)
         self.assert_equals(actual, expected)
@@ -371,7 +371,7 @@ class TestClustering(object):
           
         passed_in = original.copy()
         clustering = session.add_clustering(passed_in)
-        assert df_.equals(original, passed_in) # input unchanged
+        df_.assert_equals(original, passed_in) # input unchanged
         
         actual = session.get_clustering_data(clustering)
         self.assert_equals(actual, expected)
@@ -402,7 +402,7 @@ class TestGeneMapping(object):
         '''
         passed_in = original.copy()
         session.add_gene_mapping(passed_in)
-        assert df_.equals(original, passed_in)
+        df_.assert_equals(original, passed_in)
         
         actual = session.get_genes_by_name(pd.Series(['geneA1', 'geneB1', 'geneA2', 'geneA3', 'geneC1']))
         actual = actual.apply(lambda x: {y.canonical_name.name for y in x}).tolist()
@@ -417,7 +417,7 @@ class TestGeneMapping(object):
         
         passed_in = original.copy()
         session.add_gene_mapping(passed_in)
-        assert df_.equals(original, passed_in)
+        df_.assert_equals(original, passed_in)
         
         actual = session.get_genes_by_name(pd.Series(['geneA1', 'geneB1', 'geneA2', 'geneA3', 'geneC1']))
         actual = actual.apply(lambda x: {y.canonical_name.name for y in x}).tolist()
@@ -478,7 +478,7 @@ class TestGeneFamilies(object):
         expected = pd.DataFrame(expected, columns=['gene', 'family'])
         actual['family'] = actual['family'].apply(lambda x: x.name if pd.notnull(x) else None)
         actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
-        assert df_.equals(actual, expected)
+        df_.assert_equals(actual, expected)
         
     def assert_rows(self, session, expected):
         assert {family.name : {x.canonical_name.name for x in family.genes} for family in session.sa_session.query(GeneFamily)} == expected
@@ -786,7 +786,7 @@ class TestFileImporter(object):
             actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
             expected = pd.DataFrame({'gene': ['gene1', 'gene2'], 'condition1': [1.1, 3.3], 'condition2': [2.2, 4.4]})
             expected = expected.reindex(columns=('gene', 'condition1', 'condition2'))
-            assert df_.equals(actual, expected)
+            df_.assert_equals(actual, expected)
         
     def test_import_clustering(self, db, importer, temp_dir_cwd):
         '''
@@ -871,7 +871,7 @@ class TestFileImporter(object):
                 ],
                 columns=('gene', 'family')
             )
-            assert df_.equals(actual, expected)
+            df_.assert_equals(actual, expected)
 
 class TestGetByGenes(object):
     
@@ -914,14 +914,14 @@ class TestGetByGenes(object):
         
         actual = result.expression_matrices
         actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
-        assert df_.equals(actual, expected, ignore_order={0,1}, ignore_index=True)
+        df_.assert_equals(actual, expected, ignore_order={0,1}, ignore_indices={0})
         
         # assert clusterings
         expected.drop('expression_matrix', axis=1, inplace=True)
         expected['clustering'] = [clustering1]*3 + [clustering2]*2 + [clustering1]*2
         actual = result.clusterings
         actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
-        assert df_.equals(actual, expected, ignore_order={0,1}, ignore_index=True)
+        df_.assert_equals(actual, expected, ignore_order={0,1}, ignore_indices={0})
 
 '''
 TODO

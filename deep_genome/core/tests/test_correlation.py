@@ -302,10 +302,10 @@ class TestGenericDF(object):
         subset_original = subset.copy()
         expected = pd.DataFrame(np.dot(data.values, data.iloc[indices].values.T + 1), index=data.index, columns=data.index[indices])
         actual = correlation_function(data, subset)
-        assert df_.equals(data, data_original)
-        assert df_.equals(subset, subset_original)
+        df_.assert_equals(data, data_original)
+        df_.assert_equals(subset, subset_original)
         
-        assert df_.equals(actual, expected, ignore_order={0,1}) 
+        df_.assert_equals(actual, expected, ignore_order={0,1}) 
         
     def test_duplicate_index(self, vectorised_df):
         '''
@@ -358,7 +358,7 @@ class TestGenericDF(object):
         When data is empty
         '''
         actual = vectorised_df(pd.DataFrame(), pd.DataFrame())
-        assert df_.equals(actual, pd.DataFrame())
+        df_.assert_equals(actual, pd.DataFrame())
          
 def test_pearson_df():
     data = pd.DataFrame([[1,2,3], [3,2,1], [1,2,1]], index=['a', 'b', 'c'], dtype=float)
