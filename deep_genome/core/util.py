@@ -18,7 +18,64 @@
 import numpy as np
 import colorsys
 from numpy.linalg import norm
+from chicken_turtle_util.algorithms import spread_points_in_hypercube
 
+#TODO ideally in a color module so that color.RGB
+class RGB(object): #TODO somewhere someone must have written some color classes before in Python
+    
+    '''
+    Color as red green blue sequence color components
+    
+    Each component is an integer in the range of [0, 255].
+    '''
+    def __init__(self, rgb):
+        '''
+        Parameters
+        ----------
+        rgb : array-like
+        '''
+        self._rgb = np.array(rgb)
+        if ((self._rgb < 0) | (self._rgb > 255)).any():
+            raise ValueError('Invalid color component value(s). Given rgb: {}'.format(self._rgb))
+        if self._rgb.dtype != int:
+            raise ValueError('Color component value(s) must be int. Given values have type {}'.format(self._rgb.dtype))
+        
+    @staticmethod
+    def from_float(rgb):
+        '''
+        Parameters
+        ----------
+        rgb : array-like
+        '''
+        rgb = np.array(rgb)
+        if ((rgb < 0.0) | (rgb > 1.0)).any():
+            raise ValueError('Invalid component value(s), should be float in range of [0, 1]. Given rgb: {}', rgb)
+        return RGB((rgb * 255).round().astype(int))
+        
+    @property
+    def r(self):
+        return self[0]
+    
+    @property
+    def g(self):
+        return self[1]
+    
+    @property
+    def b(self):
+        return self[2]
+    
+    def __equals__(self, other):
+        return isinstance(other, RGB) and other._rgb == self._rgb
+    
+    def __get_item__(self, index):
+        return self._rgb[index]
+    
+    def __repr__(self):
+        return 'RGB({})'.format(self._rgb)
+    
+    def __str__(self):
+        return repr(self)
+    
 def remove_duplicates(items):
     '''
     Removes duplicates in list, order is *not* preserved
@@ -55,7 +112,7 @@ def yuv_to_rgb(yuv):
     '''
     return yuv * _yuv_to_rgb
 
-def get_distinct_colours(n):
+def get_distinct_colours(n): #TODO used by CoExpNetViz, keep and test it
     '''
     Get `n` most distinguishably colours as perceived by human vision.
     
@@ -65,13 +122,14 @@ def get_distinct_colours(n):
     
     Returns
     -------
-    iterable of (r,g,b)
-        n RGB colours
+    np.array(shape=(n, 3))
+        n raw RGB float colours
     ''' 
     points = spread_points_in_hypercube(n+2, 3)
     lightest = norm(points, axis=1).argmax()
     darkest = norm(points - np.array([1,1,1]), axis=1).argmax()
-    return np.delete(points, np.array([lightest,darkest]), axis=0)
+    points = np.delete(points, np.array([lightest,darkest]), axis=0)
+    return points
     # TODO use CIEDE2000 or the simpler CMC l:c.
     # https://en.wikipedia.org/wiki/Color_difference
     # The trick lies in
