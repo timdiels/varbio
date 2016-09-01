@@ -341,6 +341,14 @@ class TestExpressionMatrix(object):
         with pytest.raises(ValueError):
             session.add_expression_matrix(expression_matrix_df_conflict, 'expmat1')
             
+    def test_empty(self, session, expression_matrix_df):
+        '''
+        When adding an empty matrix, raise ValueError
+        '''
+        with pytest.raises(ValueError) as ex:
+            session.add_expression_matrix(expression_matrix_df.loc[[]], 'expmat1')
+        assert 'Expression matrix must not be empty' in str(ex.value) 
+
 class TestClustering(object):
     
     '''

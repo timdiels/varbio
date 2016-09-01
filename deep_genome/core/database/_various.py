@@ -641,8 +641,9 @@ class Session(object):
         # Validate expression_matrix
         if not (expression_matrix.dtypes == float).all(): #TODO test
             raise ValueError("Expression matrix values must be of type {}, column types of given matrix:\n{}".format(np.dtype(float), expression_matrix.dtypes.to_string()))
+        if expression_matrix.empty:
+            raise ValueError('Expression matrix must not be empty')
         
-        #TODO allow empty matrix? Please no
         # Get `Gene`s
         expression_matrix = expression_matrix.copy()
         expression_matrix['_Session__index'] = self.get_genes_by_name(expression_matrix.index.to_series()).apply(list)
