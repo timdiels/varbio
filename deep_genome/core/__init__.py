@@ -14,7 +14,9 @@ def initialise():
     
     import plumbum as pb
     import matplotlib
+    import pandas as pd
     from chicken_turtle_util import pymysql as pymysql_
+    from functools import wraps
     
     # from Bio import Entrez
     # Entrez.email = 'no-reply@psb.ugent.be'  # TODO perhaps this email address should be user supplied
@@ -39,6 +41,16 @@ def initialise():
     logging.getLogger('deep_genome').setLevel(logging.INFO)
     logging.getLogger('deep_genome').setLevel(logging.DEBUG)
     logging.getLogger('deep_genome.core.Database').setLevel(logging.INFO)
+    
+    # Fix https://github.com/pydata/pandas/issues/8222 which releases aug 2017 with 0.19.x
+    if tuple(map(int, pd.__version__.split('.')[0:1])) < (0, 19):
+        applymap_ = pd.DataFrame.applymap
+        @wraps(applymap_)
+        def monkey_patch(self, *args, **kwargs):
+            if self.empty:
+                return self
+            return applymap_(self, *args, **kwargs)
+        pd.DataFrame.applymap = monkey_patch
     
     _initialised = True
 

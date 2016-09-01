@@ -17,7 +17,7 @@
 
 from configparser import ConfigParser
 from chicken_turtle_util.test import temp_dir_cwd
-from deep_genome.core import AlgorithmContext
+from deep_genome.core import AlgorithmContext, initialise
 from click.testing import CliRunner
 from pathlib import Path
 import pytest
@@ -25,6 +25,8 @@ import pytest
 # http://stackoverflow.com/a/30091579/1031434
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE, SIG_DFL) # Ignore SIGPIPE
+
+initialise()
 
 def pytest_runtest_setup(item): #TODO unused? Might be useful someday though
     marker = item.get_marker('skip_unless_current')

@@ -17,39 +17,3 @@
 
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
-
-def _init():
-    import plumbum as pb
-    import matplotlib
-    from chicken_turtle_util import pymysql as pymysql_
-    
-    # from Bio import Entrez
-    # Entrez.email = 'no-reply@psb.ugent.be'  # TODO perhaps this email address should be user supplied
-    
-    # init matplotlib
-    if not 'DISPLAY' in pb.local.env:
-        matplotlib.use('Agg')  # use this backend when no X server
-    
-    # find __root__
-    global __root__
-    __root__ = pb.local.path(__file__).dirname
-    
-    # various
-    pymysql_.patch()
-    
-    # setup logging for testing
-    # also log everything to stdout
-    # XXX logging.basicConfig is easier to set things up
-    import sys
-    import logging
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-    logging.getLogger().root.addHandler(ch)
-    logging.getLogger('deep_genome').setLevel(logging.INFO)
-    logging.getLogger('deep_genome').setLevel(logging.DEBUG)
-    logging.getLogger('deep_genome.core.Database').setLevel(logging.INFO)
-    
-__root__ = None  # make linter happy  #TODO unused? You know, __root__ might not even point to an actual file, could be inside an egg
-_init()
