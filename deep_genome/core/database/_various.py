@@ -683,11 +683,10 @@ class Session(object):
             
         Returns
         -------
-        pd.DataFrame({condition_name => [gene_expression :: float]}, index=pd.Index([Gene], name='gene'))
+        pd.DataFrame({condition_name => [gene_expression :: float]}, index=[Gene])
         '''
         expression_matrix_ = pd.read_pickle(str(self._data_file_path(expression_matrix.data_file)))
         expression_matrix_.index = expression_matrix_.index.map(lambda id_: self._session.query(Gene).get(id_)) # Note: if this is slow, use expression_matrix.genes instead
-        expression_matrix_.index.name = 'gene'
         return expression_matrix_
     
     def add_clustering(self, clustering, expression_matrix=None):

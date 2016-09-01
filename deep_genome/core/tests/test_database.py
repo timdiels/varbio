@@ -200,9 +200,9 @@ class TestExpressionMatrix(object):
     Test Session.add_expression_matrix and Session.get_expression_matrix_data
     '''
     
-    _expression_matrix_df = pd.DataFrame({'condition1': [1.1, 3.3], 'condition2': [2.2, 4.4]}, index=pd.Index(['gene1', 'gene2'], name='gene'))
-    _expression_matrix_df_duplicate_row = pd.DataFrame({'condition1': [1.1, 3.3, 3.3], 'condition2': [1.1, 4.4, 4.4]}, index=pd.Index(['gene1', 'gene2', 'gene2'], name='gene'))
-    _expression_matrix_df_conflict = pd.DataFrame({'condition1': [1.1, 3.3], 'condition2': [1.1, 4.4]}, index=pd.Index(['gene1', 'gene1'], name='gene'))
+    _expression_matrix_df = pd.DataFrame({'condition1': [1.1, 3.3], 'condition2': [2.2, 4.4]}, index=['gene1', 'gene2'])
+    _expression_matrix_df_duplicate_row = pd.DataFrame({'condition1': [1.1, 3.3, 3.3], 'condition2': [1.1, 4.4, 4.4]}, index=['gene1', 'gene2', 'gene2'])
+    _expression_matrix_df_conflict = pd.DataFrame({'condition1': [1.1, 3.3], 'condition2': [1.1, 4.4]}, index=['gene1', 'gene1'])
     
     @pytest.fixture
     def expression_matrix_df(self):
@@ -794,8 +794,8 @@ class TestFileImporter(object):
             assert expression_matrix.name == name
             
             actual = session.get_expression_matrix_data(expression_matrix)
+            actual.index.name = 'gene'
             actual.reset_index(inplace=True)
-            print(actual)
             actual['gene'] = actual['gene'].apply(lambda x: x.canonical_name.name)
             expected = pd.DataFrame({'gene': ['gene1', 'gene2'], 'condition1': [1.1, 3.3], 'condition2': [2.2, 4.4]})
             expected = expected.reindex(columns=('gene', 'condition1', 'condition2'))
