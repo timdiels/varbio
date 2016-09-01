@@ -146,6 +146,10 @@ class Gene(DBEntity):
         secondaryjoin=id == GeneMappingTable.c.destination_id
     )
     mapped_from = None  # genes that map to this gene
+    
+    @property
+    def name(self):
+        return self.canonical_name.name
      
     def __repr__(self):
         return 'Gene(id={!r}, name={!r})'.format(self.id, self.canonical_name.name)
