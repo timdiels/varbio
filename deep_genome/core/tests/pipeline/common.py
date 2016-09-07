@@ -31,12 +31,16 @@ def assert_task_log(caplog, type_name, name, events):
     lines = caplog.text().splitlines()[original_count:]
     
     # assert
+    if type_name == 'Job':
+        name_name = 'Name'
+    elif type_name == 'Coroutine':
+        name_name = 'Repr'
     events_seen = []
     for line in lines:
-        match = re.search(r"{} (started|failed|finished|cancelled): (.+)".format(type_name), line)
+        match = re.search(r"{} ([0-9]+) (started|failed|finished|cancelled). {}: (.+)".format(type_name, name_name), line)
         if match:
-            assert match.group(2) == name  # event happened on wrong task
-            event = match.group(1)
-            assert event not in events_seen, 'Event happens twice'
+            assert match.group(3) == name  # event happened on wrong task
+            event = match.group(2)
+            assert event not in events_seen, 'Event happens twice: {}'.format(event)
             events_seen.append(event)
     assert events_seen == events

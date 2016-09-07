@@ -151,21 +151,22 @@ class Job(object):
         If job has already been run successfully before, return immediately.
         '''
         if self._finished:
+            logger.debug("Job {} already finished, not rerunning. Name: {}".format(self._id, self._name))
             return
         try:
-            logger.info("Job started: {}".format(self._name))
+            logger.info("Job {} started. Name: {}".format(self._id, self._name))
             await self._server.run(self)
             self._finished = True
             with self._context.database.scoped_session() as session:
                 job = session.sa_session.query(entities.Job).get(self._id)
                 assert job
                 job.finished = True
-            logger.info("Job finished: {}".format(self._name))
+            logger.info("Job {} finished. Name: {}".format(self._id, self._name))
         except asyncio.CancelledError:
-            logger.info("Job cancelled: {}".format(self._name))
+            logger.info("Job {} cancelled. Name: {}".format(self._id, self._name))
             raise
         except Exception as ex:
-            logger.info("Job failed: {}".format(self._name))
+            logger.info("Job {} failed. Name: {}".format(self._id, self._name))
             raise
             
     def __str__(self):
@@ -248,7 +249,7 @@ class LocalJobServer(JobServer):
                     await _kill(process.pid)
                     raise
                 if return_code != 0:
-                    raise Exception('Non-zero exit code: {}'.format(return_code))
+                    raise Exception('Job {} exited with non-zero exit code: {}'.format(job.id, return_code))
     
 class DRMAAJobServer(JobServer):
     
@@ -310,14 +311,14 @@ class DRMAAJobServer(JobServer):
         
         # Check result
         if result.wasAborted:
-            raise Exception('Job was aborted before it even started running')
+            raise Exception('Job {} was aborted before it even started running'.format(job.id))
         elif result.hasSignal:
-            raise Exception('Job was killed with signal {}'.format(result.terminatedSignal))
+            raise Exception('Job {} was killed with signal {}'.format(job.id, result.terminatedSignal))
         elif not result.hasExited:
-            raise Exception('Job did not exit normally')
+            raise Exception('Job {} did not exit normally'.format(job.id))
         elif result.hasExited and result.exitStatus != 0:
-            raise Exception('Job exited with non-zero exit code: {}'.format(result.exitStatus))
-        logger.debug("Job {}'s resource usage was: {}".format(job._name, pformat(result.resourceUsage)))
+            raise Exception('Job {} exited with non-zero exit code: {}'.format(job.id, result.exitStatus))
+        logger.debug("Job {}'s resource usage was: {}".format(job.id, result.resourceUsage))
         
     def dispose(self):
         '''

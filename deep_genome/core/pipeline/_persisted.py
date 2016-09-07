@@ -143,7 +143,7 @@ def persisted(call_repr=None, exclude_args=()): #TODO the changes from moving ca
             # Run if not finished and save result
             if not finished:
                 try:
-                    logger.info("Coroutine started: {}".format(call_repr_))
+                    logger.info("Coroutine {} started. Repr: {}".format(id_, call_repr_))
                     return_value = await f(*args, **kwargs)
                     finished = True
                     with context.database.scoped_session() as session:
@@ -151,13 +151,15 @@ def persisted(call_repr=None, exclude_args=()): #TODO the changes from moving ca
                         assert call
                         call.return_value = return_value
                         call.finished = True
-                    logger.info("Coroutine finished: {}".format(call_repr_))
+                    logger.info("Coroutine {} finished. Repr: {}".format(id_, call_repr_))
                 except asyncio.CancelledError:
-                    logger.info("Coroutine cancelled: {}".format(call_repr_))
+                    logger.info("Coroutine {} cancelled. Repr: {}".format(id_, call_repr_))
                     raise
                 except Exception:
-                    logger.info("Coroutine failed: {}".format(call_repr_))
+                    logger.info("Coroutine {} failed. Repr: {}".format(id_, call_repr_))
                     raise
+            else:
+                logger.debug("Coroutine result fetched from cache, not rerunning: {}".format(call_repr_))
             
             return return_value
         
