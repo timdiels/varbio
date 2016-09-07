@@ -78,15 +78,6 @@ class RGB(object): #TODO somewhere someone must have written some color classes 
     
     def to_hex(self):
         return '#{:02x}{:02x}{:02x}'.format(*self._rgb)
-    
-def remove_duplicates(items):
-    '''
-    Removes duplicates in list, order is *not* preserved
-    
-    Returns uniqued list, does *not* modify original list 
-    '''
-    return list(set(items))
-
 
 # TODO wont fix now, but later is good for CTU. Unused atm I think. up to get_distinct_colours
 # See https://en.wikipedia.org/wiki/YUV#HDTV_with_BT.601
