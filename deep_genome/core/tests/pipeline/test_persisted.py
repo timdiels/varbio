@@ -19,14 +19,15 @@
 Test deep_genome.core.pipeline._persisted
 '''
 
-from deep_genome.core.pipeline import persisted
-from chicken_turtle_util.inspect import get_call_repr
+from deep_genome.core.pipeline import persisted, format_call
+from chicken_turtle_util.inspect import call_args
 from .common import assert_task_log
 import inspect
 import asyncio
 import pytest
         
 class TestContextFinding(object):
+    
     '''
     Test whether persisted can always find the context argument
     '''
@@ -112,7 +113,7 @@ class TestExcludeArgs(object):
     
     @pytest.mark.asyncio
     async def test_regular_arg(self, context):
-        @persisted(exclude_args=['b'])
+        @persisted(exclude_args={'b'})
         async def f(a, b, context):
             return b
         assert await f(1, 2, context) == 2
@@ -121,7 +122,7 @@ class TestExcludeArgs(object):
     
     @pytest.mark.asyncio
     async def test_kwonly(self, context):
-        @persisted(exclude_args=['b'])
+        @persisted(exclude_args={'b'})
         async def f(a, *args, b=1, context):
             return b
         assert await f(1, context=context, b=2) == 2
@@ -164,11 +165,23 @@ class TestExcludeArgs(object):
         
 @pytest.mark.asyncio
 async def test_call_repr(context):
-    @persisted(call_repr=True)
+
+    '''
+    Test call_repr_ is passed in when required
+    '''
+    
+    @persisted()
     async def f(a, context, call_repr_):
         return call_repr_
-    result = await f(1, context)
-    assert result == get_call_repr(f.__wrapped__, [1, context, None], exclude_args={'context', 'call_repr_'})
+    actual = await f(1, context)
+    
+    f_ = f.__wrapped__
+    kwargs = call_args(f_, (1, context, None), {})
+    del kwargs['context']
+    del kwargs['call_repr_']
+    expected = format_call(f_, kwargs)
+    
+    assert actual == expected
         
 class CoroutineMock(object):
     
@@ -196,7 +209,11 @@ class CoroutineMock(object):
         self._action = action
         
     def assert_log(self, events, x):
-        return assert_task_log(self._caplog, 'Coroutine', get_call_repr(self.__class__.f.__wrapped__, [self, None, x], exclude_args={'context', 'self'}), events)
+        f = self.__class__.f.__wrapped__
+        kwargs = call_args(f, [self, None, x], {})
+        del kwargs['context']
+        del kwargs['self']
+        return assert_task_log(self._caplog, 'Coroutine', format_call(f, kwargs), events)
         
 @pytest.fixture
 def coroutine_mock(caplog):

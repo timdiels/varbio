@@ -78,7 +78,7 @@ setup(
                             'pymysql',
                             'sqlparse',
                             'drmaa',
-                            'chicken-turtle-util[algorithms]'],
+                            'chicken-turtle-util'],
     'keywords': 'bioinformatics genome-analysis',
     'license': 'LGPL3',
     'long_description': 'Deep Genome Core (DG Core) is a bioinformatics library for writing\n'

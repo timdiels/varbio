@@ -15,11 +15,14 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
+from chicken_turtle_util import inspect as inspect_
+from functools import wraps
 import asyncio
 import traceback
 import sys
 import signal
-from chicken_turtle_util import inspect as inspect_
+import logging
+import click
 
 def pipeline_cli(main, Context):
     
@@ -50,7 +53,7 @@ def pipeline_cli(main, Context):
         
         version = '1.0.0'
         
-        class MyContext(AlgorithmContext(version):
+        class MyContext(AlgorithmContext(version)):
             pass  # any application context things specific to your application. If none, just use AlgorithmContext directly
             
         async def _main(context):
@@ -106,11 +109,117 @@ def pipeline_cli(main, Context):
         print('Pipeline: run completed')
     return _main
 
-def call_repr(*args, **kwargs):
+def call_repr(call_repr=None, exclude_args=()): #TODO update the example
     '''
-    Like `chicken_turtle_util.inspect.call_repr`, except `exclude_args` always
-    includes 'context'.
+    Add repr of function call as argument to function 
+    
+    Function calls are uniquely mapped to strings (it's deterministic and
+    injective) and supplied to the decorated function as the `call_repr_`
+    keyword argument. The manner and order in which the arguments are supplied
+    are ignored. The format is
+    ``{f.__module__}.{f.__qualname__}(arg_name=repr(arg_value), ...)``.
+    
+    Parameters
+    ----------
+    call_repr : ((f :: function, kwargs :: dict) -> (call_repr :: str)) or None
+        If provided, a function which is given the decorated function and all
+        arguments as kwargs and returns the repr of the call.
+        
+    exclude_args : iterable(str)
+        Names of arguments to exclude from the function call repr. The 'context'
+        arg is always excluded.
+        
+    Returns
+    -------
+    function -> decorated_function
+        Function which decorates functions with a `call_repr_` argument.
+    
+    Examples
+    --------
+    >>> # package/module.py
+    >>> @call_repr()
+    ... def f(a, b=2, *myargs, call_repr_, x=1, **mykwargs):
+    ...     return call_repr_
+    ...
+    >>> f(1)
+    'package.module.f(*args=(), a=1, b=2, x=1)'
+    >>> f(1, 2, 3, x=10, y=20)
+    'package.module.f(*args=(1,), a=1, b=2, x=10, y=20)'
+    >>> @call_repr(name='my.func')
+    ... def g(call_repr_):
+    ...     return call_repr_
+    ...
+    >>> g()
+    'my.func()'
+    >>> @call_repr(exclude_args={'a'})
+    ... def h(a, b, call_repr_):
+    ...     return call_repr_
+    ...
+    >>> h(1, 2)
+    'package.module.h(b=2)'
+    
+    With parametrised nesting you may want to:
+    
+    >>> @call_repr()
+    ... def f(a, b, call_repr_):
+    ...     @call_repr(name=call_repr_ + '::g')
+    ...     def g(x, call_repr_):
+    ...         return call_repr_
+    ...
+    >>> f(1,2)('x')
+    "package.module.f(a=1, b=2)::g(x='x')"
+    
+    Optional arguments are always included and the order in which arguments
+    appear in the function definition is ignored:
+    
+    >>> @call_repr()
+    ... def f(b, a=None, call_repr_):
+    ...     return call_repr_
+    ...
+    >>> f(1)
+    'package.module.f(a=None, b=1)'
     '''
-    kwargs['exclude_args'] = set(kwargs.get('exclude_args', {})) | {'context'}
-    return inspect_.call_repr(*args, **kwargs)
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            kwargs['call_repr_'] = None  # otherwise call_args fails on functions with call_repr_ as required arg
+            kwargs['call_repr_'] = _call_repr(f, args, kwargs, call_repr, exclude_args)
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
+
+def _call_repr(f, args, kwargs, call_repr=None, exclude_args=()):
+    if call_repr and exclude_args:
+        raise ValueError('call_repr and exclude_args are mutually exclusive.')
+    kwargs = inspect_.call_args(f, args, kwargs)
+    if 'call_repr_' in kwargs:
+        del kwargs['call_repr_']
+    if call_repr:
+        return call_repr(f, kwargs)
+    else:
+        for arg in set(exclude_args) | {'context'}:
+            if arg in kwargs:
+                del kwargs[arg]
+        return format_call(f, kwargs)
+
+def format_call(f, kwargs):
+    '''
+    Format function call as ``module.func(param=value, ...)``
+    
+    Parameters
+    ----------
+    f : function or str
+        Name of function in call. If str, use str as function name. If function, use its fully qualified name.
+    kwargs : dict
+        Arguments the function is called with. Values are formatted with repr.
+        
+    Returns
+    -------
+    str
+        Formatted function call
+    '''
+    if not isinstance(f, str):
+        f = inspect_.fully_qualified_name(f)
+    kwargs = ', '.join('{}={!r}'.format(key, value) for key, value in sorted(kwargs.items()))
+    return '{}({})'.format(f, kwargs)
     

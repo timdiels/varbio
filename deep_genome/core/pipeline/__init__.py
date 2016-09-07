@@ -33,7 +33,7 @@ working directory (even when it was cancelled before, the next try will start
 from a fresh directory again).
 '''
 
-from ._various import pipeline_cli, call_repr
+from ._various import pipeline_cli, call_repr, format_call
 from ._persisted import persisted
 from ._job import Job, LocalJobServer, DRMAAJobServer
 

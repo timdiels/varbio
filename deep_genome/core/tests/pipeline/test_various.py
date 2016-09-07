@@ -78,8 +78,8 @@ def selfterm_command():
 selfterm_command = selfterm_command()
 
 def test_call_repr():
-    @call_repr(name='g', exclude_args={})
+    @call_repr(exclude_args={})
     def f(context, call_repr_):
         return call_repr_
-    assert f(1) == 'g()'
+    assert f(1) == 'deep_genome.core.tests.pipeline.test_various.test_call_repr.<locals>.f()'
     
