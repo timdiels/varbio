@@ -76,6 +76,9 @@ class RGB(object): #TODO somewhere someone must have written some color classes 
     def __str__(self):
         return repr(self)
     
+    def to_hex(self):
+        return '#{:02x}{:02x}{:02x}'.format(*self._rgb)
+    
 def remove_duplicates(items):
     '''
     Removes duplicates in list, order is *not* preserved
