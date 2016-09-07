@@ -23,7 +23,6 @@ from chicken_turtle_util.exceptions import InvalidOperationError
 from deep_genome.core.database import entities
 from pathlib import Path
 import plumbum as pb
-from pprint import pformat
 from contextlib import suppress
 
 # Note: Libraries other than drmaa I considered:

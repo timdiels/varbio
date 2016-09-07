@@ -75,7 +75,8 @@ def pipeline_cli(main, Context):
     '''
     
     @Context.command()
-    def _main(context):
+    @click.option('--debug/--no-debug', default=False, help='Verbose debug output') #TODO maybe one small test to check --debug, and also check for log file in both cases
+    def _main(context, debug):
         '''
         Run/resume the pipeline
         
@@ -92,6 +93,19 @@ def pipeline_cli(main, Context):
         loop = asyncio.get_event_loop()
         task = asyncio.ensure_future(main(context))
         loop.add_signal_handler(signal.SIGTERM, task.cancel)
+        
+        # Note: keep stdout/stderr readable, even when debugging. Full unambiguous details are sent to a log file
+        if debug:
+            level = logging.DEBUG
+        else:
+            level = logging.INFO
+        logging.basicConfig(level=level, format='{levelname[0]}: {message}', style='{')  # log info to stdout in terse format
+        root_logger = logging.getLogger()  # log debug and higher to file
+        file_handler = logging.FileHandler('pipeline.log')
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(logging.Formatter('{levelname[0]} {asctime} {name} ({module}:{lineno}): {message}', style='{'))
+        root_logger.addHandler(file_handler)
+        
         try:
             loop.run_until_complete(task)
         except asyncio.CancelledError:
