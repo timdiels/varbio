@@ -20,5 +20,5 @@ pymysql
 sqlparse
 drmaa
 
--e /home/limyreth/doc/eclipse_workspace/chicken_turtle_util[algorithms] #TODO add other things we use which were dumped above
+-e /home/limyreth/doc/eclipse_workspace/chicken_turtle_util #[a, b, ...] #TODO add other things we use which were dumped above
 #chicken-turtle-util==1.1.0
