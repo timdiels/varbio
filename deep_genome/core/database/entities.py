@@ -21,17 +21,24 @@ Database entities (i.e. roughly equivalent to the tables of the database)
 
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from inflection import underscore
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table, Boolean, Text, PickleType
+from sqlalchemy import Column, Integer, String, ForeignKey, Table, Boolean, Text, PickleType
 from sqlalchemy.orm import relationship, deferred
-from chicken_turtle_util.various import URL_MAX_LENGTH, PATH_MAX_LENGTH
-from datetime import datetime
 
 # Note: there are some `x = None` statements in class definitions, this is to
 # help autocomplete IDE functions know these attributes exist. Their actual
 # value is filled in by sqlalchemy. Sqlalchemy does not require these statements.
 
-# max length (inclusive) of a key used in any index, expressed in chars
+# MySQL max utf-8 chars (inclusive) allowed on a column with an index
 _max_index_key_length_char = 255
+
+# Note: if the need to inherit from the declarative base becomes too inflexible,
+# you could use this
+# https://websauna.org/docs/api/websauna.system.model.utils.html?highlight=attach#websauna.system.model.utils.attach_model_to_base
+
+# Note: a quick python interpreter session reveals multiple entities of multiple
+# declarative bases (even with different MetaData) can apparently be queried on
+# interchangeably. If you want to rely on this, first ask the mailing list to
+# confirm this.
 
 class DBEntity(object):
     @declared_attr

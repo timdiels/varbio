@@ -33,7 +33,6 @@ remove genes that are duplicated (not in the biological sense) in the input.
 import pandas as pd
 import csv
 from chicken_turtle_util.data_frame import split_array_like
-from itertools import chain
 from collections import defaultdict
 
 class Parser(object):
@@ -41,7 +40,7 @@ class Parser(object):
     def __init__(self, context):
         self._context = context
         
-    def parse_expression_matrix(self, reader): #TODO had sanitise=True, now manual
+    def parse_expression_matrix(self, reader):
         '''
         Parse expression matrix in tabular plain text format
         
