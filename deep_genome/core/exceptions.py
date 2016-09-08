@@ -19,16 +19,6 @@
 Exceptions used by `core`
 '''
 
-class TaskFailedException(Exception): #TODO rename to *Error, not sure whether still using this, maybe rm
-    
-    '''
-    Raised when the current task should fail due to some (hopefully) exceptional
-    event.
-    
-    To give an idea of the scope of these 'tasks', we give a few examples: a
-    MORPH run; importing a gene expression matrix.
-    '''
-        
 class DatabaseIntegrityError(Exception):
     
     '''

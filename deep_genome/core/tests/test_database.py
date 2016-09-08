@@ -24,7 +24,6 @@ from deep_genome.core.database.entities import (
     Clustering, GeneMappingTable, GeneFamily
 )
 from deep_genome.core.database.importers import FileImporter
-from deep_genome.core.configuration import UnknownGeneHandling
 from deep_genome.core.exceptions import DatabaseIntegrityError
 from more_itertools import first
 from chicken_turtle_util import path as path_, data_frame as df_, series as series_
@@ -124,8 +123,7 @@ class TestGetGenesByName(object):
     
     def test_add_df(self, session, map_):
         '''
-        When get on empty db and unknown gene handling set to add, add the
-        missing genes and return correctly
+        When get on empty db, add the missing genes and return correctly
         '''
         original = pd.DataFrame({'colA' : ['gene1', 'gene2'], 'colB': ['gene1', 'gene3']}, index=pd.Index(['first', 'second'], name='myIndex'))
         df = original.copy()
@@ -140,8 +138,7 @@ class TestGetGenesByName(object):
     
     def test_add_series(self, session, map_):
         '''
-        When get on empty db and unknown gene handling set to add, add the
-        missing genes and return correctly
+        When get on empty db, add the missing genes and return correctly
         '''
         original = pd.Series(['gene1', 'gene2', 'gene1'], index=pd.Index(['first', 'second', 'second'], name='myIndex'), name='colA')
         series = original.copy()
@@ -154,35 +151,6 @@ class TestGetGenesByName(object):
         series_.assert_equals(actual, actual2)
         self.assert_series(original, series, actual2)
         
-    def test_ignore_df(self, session, map_):
-        '''
-        When get of a present and missing gene with unknown gene handling set to
-        ignore, return NaN for the missing ones
-        '''
-        session.get_genes_by_name(pd.DataFrame([['gene1']]), _map=map_)  # add to DB
-        actual = session.get_genes_by_name(pd.DataFrame([['gene1', 'gene2'],['gene3', 'gene2']]), unknown_gene_handling=UnknownGeneHandling.ignore, _map=map_)
-        assert first(actual.iloc[0,0]).name == 'gene1'
-        assert (actual == set()).values.sum() == 3
-        
-    def test_ignore_series(self, session, map_):
-        '''
-        When get of a present and missing gene with unknown gene handling set to
-        ignore, return NaN for the missing ones
-        '''
-        session.get_genes_by_name(pd.Series(['gene1']), _map=map_)  # add to DB
-        actual = session.get_genes_by_name(pd.Series(['gene1', 'gene2']), unknown_gene_handling=UnknownGeneHandling.ignore, _map=map_)
-        assert first(actual.iloc[0]).name == 'gene1'
-        assert actual.iloc[1] == set()
-        
-    def test_fail_series(self, session, map_, mocker,context):
-        '''
-        When get of a present and missing gene with unknown gene handling set to
-        ignore, return NaN for the missing ones
-        '''
-        session.get_genes_by_name(pd.Series(['gene1']), _map=map_)  # add to DB
-        with pytest.raises(ValueError):
-            session.get_genes_by_name(pd.Series(['gene1', 'gene2']), unknown_gene_handling=UnknownGeneHandling.fail, _map=map_)
-            
     def test_get_series_names(self, session, map_):
         '''
         When get series, return same name and same index.name
@@ -293,9 +261,9 @@ class TestExpressionMatrix(object):
         (_expression_matrix_df_duplicate_row, _expression_matrix_df_duplicate_row.iloc[0:2])
     )
     @pytest.mark.parametrize('original, expected', params)
-    def test_handling_add(self, session, original, expected):
+    def test_happy_days(self, session, original, expected):
         '''
-        When unknown_gene_handling=add, add all rows
+        When valid input, add all rows
         '''
         passed_in = original.copy()
         expression_matrix = session.add_expression_matrix(passed_in, 'expmat1')
@@ -304,35 +272,6 @@ class TestExpressionMatrix(object):
         actual = session.get_expression_matrix_data(expression_matrix)
         actual.index = actual.index.to_series().apply(lambda x: x.name)
         df_.assert_equals(actual, expected)
-        
-    params = (
-        (_expression_matrix_df, _expression_matrix_df.drop('gene2')),
-        (_expression_matrix_df_duplicate_row, _expression_matrix_df_duplicate_row.drop('gene2'))
-    )
-    @pytest.mark.parametrize('original, expected', params)
-    def test_handling_ignore(self, context, mocker, session, original, expected): #TODO add_ should warn about dropped rows of unknown genes 'gene2' (caplog)
-        '''
-        When unknown_gene_handling=ignore, drop rows with unknown genes
-        '''
-        session.get_genes_by_name(pd.Series(['gene1']))
-        mocker.patch.object(context.configuration, 'unknown_gene_handling', UnknownGeneHandling.ignore)
-        
-        passed_in = original.copy()
-        expression_matrix = session.add_expression_matrix(passed_in, 'expmat1')
-        df_.assert_equals(original, passed_in) # input unchanged
-        
-        actual = session.get_expression_matrix_data(expression_matrix)
-        actual.index = actual.index.to_series().apply(lambda x: x.name)
-        df_.assert_equals(actual, expected)
-        
-    def test_handling_fail(self, context, mocker, session, expression_matrix_df):
-        '''
-        When unknown_gene_handling=fail and rows with unknown genes, raise ValueError
-        '''
-        session.get_genes_by_name(pd.Series(['gene1']))
-        mocker.patch.object(context.configuration, 'unknown_gene_handling', UnknownGeneHandling.fail)
-        with pytest.raises(ValueError):
-            session.add_expression_matrix(expression_matrix_df, 'expmat1')
         
     def test_conflict(self, session, expression_matrix_df_conflict):
         '''
@@ -368,9 +307,9 @@ class TestClustering(object):
     def original(self):
         return pd.DataFrame({'cluster_id': ['cluster1', 'cluster1', 'cluster2', 'cluster2'], 'gene': ['gene1', 'gene2', 'gene3', 'gene4']})
     
-    def test_handling_add(self, session, original):
+    def test_happy_days(self, session, original):
         '''
-        When unknown_gene_handling=add, add whole clustering
+        When valid input, add whole clustering
         '''
         expected = original
         
@@ -381,31 +320,6 @@ class TestClustering(object):
         actual = session.get_clustering_data(clustering)
         self.assert_equals(actual, expected)
 
-    def test_handling_ignore(self, context, mocker, session, original): #TODO add_ should warn about dropped rows of unknown genes 'gene2' (caplog)
-        '''
-        When unknown_gene_handling=ignore, drop unknown genes from clusters and drop empty clusters
-        '''
-        expected = pd.DataFrame({'cluster_id': ['cluster1'], 'gene': ['gene1']})
-        
-        session.get_genes_by_name(pd.Series(['gene1']))
-        mocker.patch.object(context.configuration, 'unknown_gene_handling', UnknownGeneHandling.ignore)
-          
-        passed_in = original.copy()
-        clustering = session.add_clustering(passed_in)
-        df_.assert_equals(original, passed_in) # input unchanged
-        
-        actual = session.get_clustering_data(clustering)
-        self.assert_equals(actual, expected)
-        
-    def test_handling_fail(self, context, mocker, session, original):
-        '''
-        When unknown_gene_handling=fail and cluster with unknown genes, raise ValueError
-        '''
-        session.get_genes_by_name(pd.Series(['gene1']))
-        mocker.patch.object(context.configuration, 'unknown_gene_handling', UnknownGeneHandling.fail)
-        with pytest.raises(ValueError):
-            session.add_clustering(original)
-        
 class TestGeneMapping(object):
     
     '''
@@ -417,9 +331,9 @@ class TestGeneMapping(object):
         # Note: this also asserts that multiple source genes may map to the same gene
         return pd.DataFrame({'source': ['geneA1', 'geneA1', 'geneA2', 'geneA3', 'geneA3'], 'destination': ['geneB1', 'geneB2', 'geneB3', 'geneB4', 'geneB2']})
     
-    def test_handling_add(self, original, session):
+    def test_happy_days(self, original, session):
         '''
-        When unknown_gene_handling=add, add all mappings
+        When valid input, add all mappings
         '''
         passed_in = original.copy()
         session.add_gene_mapping(passed_in)
@@ -429,30 +343,6 @@ class TestGeneMapping(object):
         actual = actual.apply(lambda x: {y.name for y in x}).tolist()
         assert actual == [{'geneB1', 'geneB2'}, {'geneB1'}, {'geneB3'}, {'geneB4', 'geneB2'}, {'geneC1'}]
     
-    def test_handling_ignore(self, original, session, mocker, context): #TODO warn for omitted mappings
-        '''
-        When unknown_gene_handling=ignore, drop mappings with unknown genes
-        '''
-        session.get_genes_by_name(pd.Series(['geneA1', 'geneB1', 'geneB2', 'geneA2', 'geneA3']))
-        mocker.patch.object(context.configuration, 'unknown_gene_handling', UnknownGeneHandling.ignore)
-        
-        passed_in = original.copy()
-        session.add_gene_mapping(passed_in)
-        df_.assert_equals(original, passed_in)
-        
-        actual = session.get_genes_by_name(pd.Series(['geneA1', 'geneB1', 'geneA2', 'geneA3', 'geneC1']))
-        actual = actual.apply(lambda x: {y.name for y in x}).tolist()
-        assert actual == [{'geneB1', 'geneB2'}, {'geneB1'}, {'geneA2'}, {'geneB2'}, set()]
-        
-    def test_handling_fail(self, original, session, context, mocker):
-        '''
-        When unknown_gene_handling=fail and mapping with unknown genes, raise ValueError
-        '''
-        session.get_genes_by_name(pd.Series(['geneA1', 'geneB1', 'geneB2', 'geneA2', 'geneA3']))
-        mocker.patch.object(context.configuration, 'unknown_gene_handling', UnknownGeneHandling.fail)
-        with pytest.raises(ValueError):
-            session.add_gene_mapping(original)
-        
     def test_source_destination_conflict(self, session):
         '''
         When add_gene_mapping causes a gene to appear as both source and destination, raise ValueError
@@ -504,11 +394,10 @@ class TestGeneFamilies(object):
     def assert_rows(self, session, expected):
         assert {family.name : {x.name for x in family.genes} for family in session.sa_session.query(GeneFamily)} == expected
     
-    def test_handling_add(self, session):
+    def test_happy_days(self, session):
         '''
-        When unknown_gene_handling=add, add adds all families
-        
-        + test get_gene_families_by_gene, happy days scenario
+        When valid input, add_gene_families adds all and
+        get_gene_families_by_gene can get them
         '''
         session.add_gene_families(pd.DataFrame(
             [
@@ -528,43 +417,6 @@ class TestGeneFamilies(object):
             ['gene3', 'fam2'],
         ])
     
-    def test_handling_ignore(self, session, mocker, context):
-        '''
-        When unknown_gene_handling=ignore, add drops unknown genes from families
-        '''
-        session.get_genes_by_name(pd.Series(['gene1', 'gene3']))  # add some genes
-        mocker.patch.object(context.configuration, 'unknown_gene_handling', UnknownGeneHandling.ignore)
-        
-        session.add_gene_families(pd.DataFrame(
-            [
-                ['fam1', 'gene1'],
-                ['fam1', 'gene2'],
-                ['fam2', 'gene3'],
-                ['fam3', 'gene4'],
-            ],
-            columns=['family', 'gene']
-        ))
-        self.assert_rows(session, {
-            'fam1': {'gene1'},
-            'fam2': {'gene3'},
-        })
-        
-    def test_handling_fail(self, session, context, mocker):
-        '''
-        When unknown_gene_handling=fail and family with unknown genes, add raises ValueError
-        '''
-        session.get_genes_by_name(pd.Series(['gene1', 'gene3']))  # add some genes
-        mocker.patch.object(context.configuration, 'unknown_gene_handling', UnknownGeneHandling.fail)
-        with pytest.raises(ValueError):
-            session.add_gene_families(pd.DataFrame(
-                [
-                    ['fam1', 'gene1'],
-                    ['fam1', 'gene2'],
-                    ['fam2', 'gene3'],
-                ],
-                columns=['family', 'gene']
-            ))
-            
     def test_add_empty(self, session):
         '''
         When add_gene_families is given an empty DataFrame, do nothing

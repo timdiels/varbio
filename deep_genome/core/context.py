@@ -20,16 +20,11 @@ Deep Genome context
 '''
 
 from chicken_turtle_util import application as app
-from chicken_turtle_util.configuration import ConfigurationLoader
-from deep_genome.core.configuration import Configuration
 from deep_genome.core.database import Database
 
 _DatabaseMixin = app.DatabaseMixin(Database)
 
-# ConfigurationMixin
-_loader = ConfigurationLoader('deep_genome.core', 'deep_genome', 'core')     
-    
-def Context(version, data_directory, cache_directory, configurations={}):
+def Context(version, data_directory, cache_directory):
     '''
     Deep Genome core context, often required by core functions
 
@@ -41,44 +36,21 @@ def Context(version, data_directory, cache_directory, configurations={}):
         Directory in which to store persistent data
     cache_directory : Path
         Directory to use as cache
-    configurations : {configuration_name :: str => help_message :: str}
-        Additional configuration files. 'core' as configuration name is reserved
-        by DG core.
         
     See also
     --------
     chicken_turtle_util.application.Context: CLI application context
     '''
-    if 'core' in configurations:
-        raise ValueError('Configuration name "core" is reserved to Deep Genome core')
-    
-    configurations = configurations.copy()
-    configurations['core'] = _loader.cli_help_message('Configure advanced options such as how exceptional cases should be handled.')
-    _ConfigurationsMixin = app.ConfigurationsMixin(configurations)
-    
     data_directory = data_directory.absolute()
     cache_directory = cache_directory.absolute()
     
-    class _Context(_ConfigurationsMixin, _DatabaseMixin, app.BasicsMixin(version), app.Context):
+    class _Context(_DatabaseMixin, app.BasicsMixin(version), app.Context):
         
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
             self._persisted_coroutine_functions = {}
             self._jobs = {}
             
-            self.__configuration = Configuration(_loader.load(self._configuration_paths.get('core')))
-            
-        @property
-        def configuration(self):
-            '''
-            Get DG core configuration
-            
-            Returns
-            -------
-            deep_genome.core.configuration.Configuration
-            '''
-            return self.__configuration
-        
         @property
         def data_directory(self):
             '''

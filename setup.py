@@ -73,7 +73,6 @@ setup(
                             'psutil',
                             'pyxdg',
                             'frozendict',
-                            'requests',
                             'sqlalchemy',
                             'pymysql',
                             'sqlparse',

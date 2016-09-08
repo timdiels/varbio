@@ -1,8 +1,7 @@
-from .configuration import Configuration
 from .context import Context
 
 _initialised = False
-def initialise():
+def initialise(): #TODO it should be known that this patches modules, so rename it to patch and doc what it does
     '''
     Must be called before using deep_genome.core
     
@@ -18,11 +17,8 @@ def initialise():
     from chicken_turtle_util import pymysql as pymysql_
     from functools import wraps
     
-    # from Bio import Entrez
-    # Entrez.email = 'no-reply@psb.ugent.be'  # TODO perhaps this email address should be user supplied
-    
     # init matplotlib
-    if not 'DISPLAY' in pb.local.env:
+    if not 'DISPLAY' in pb.local.env: #TODO we aren't even using this here, mv to CoExpNetViz
         matplotlib.use('Agg')  # use this backend when no X server
     
     # various

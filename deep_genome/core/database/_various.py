@@ -31,7 +31,6 @@ from deep_genome.core.database.entities import (
     GeneGeneFamilyTable, GeneFamily, Scope,
     GetGeneFamiliesByGeneQuery, GetGeneFamiliesByGeneQueryItem
 )
-from deep_genome.core.configuration import UnknownGeneHandling
 from deep_genome.core.exceptions import DatabaseIntegrityError
 from chicken_turtle_util import data_frame as df_
 from chicken_turtle_util.sqlalchemy import pretty_sql
@@ -99,8 +98,8 @@ class Database(object):
     
     Parameters
     ----------
-    context : core.cli.ConfigurationMixin
-        Application context
+    context : deep_genome.core.Context
+        Deep Genome context
     host : str
         DNS or IP of the DB host
     user : str
@@ -381,36 +380,28 @@ class Session(object):
         return genes
      
     # Note: removed map_suffix1 which mapped gene_name.1 to gene_name. This is easy enough to do manually or at least can be split out. I.e. names.applymap(lambda x: re.sub(r'\.1$', '', x))  #XXX rm note when done
-    def get_genes_by_name(self, names, unknown_gene_handling=None, _map=True): #XXX more examples in docstring: 1 for each return case
+    def get_genes_by_name(self, names, _map=True): #TODO maybe add an example per return
         '''
         Get genes by name
         
-        If a gene is not found and unknown gene handling is set to 'add', a gene
-        will be added with the given name as canonical name. If the handling is
-        set to 'fail', `ValueError` is raised. If the handling is set to
-        'ignore', the name will be replaced by an empty set in the return.
+        If a gene is not found, it will be added with the given name as
+        canonical name.
         
         Parameters
         ----------
         names : pd.DataFrame([[gene_name :: str]]) or pd.Series([gene_name :: str]) 
             A DataFrame or Series of gene names to look up.
-        unknown_gene_handling : UnknownGeneHandling
-            If not None, override `context.configuration.unknown_gene_handling`.
         _map : bool
-            Internal, do not use. Map genes according to gene mappings if True. 
+            Internal, do not use. Map genes according to gene mappings if True.
             
         Returns
         -------
         pd.DataFrame([[{Gene}]], index=names.index, columns=names.columns)
         or
         pd.Series([{Gene}], index=names.index, name=names.name)
-            `names` with each gene name replaced by a set of matching Gene.
+            `names` with each gene name replaced by a set of matching Gene. Each
+            set is non-empty.
              
-        Raises
-        ------
-        ValueError
-            If a gene was not found and handling is set to 'fail'
-            
         Notes
         -----
         All Session methods expect and return mapped genes when
@@ -419,10 +410,7 @@ class Session(object):
         if names.empty:
             return names
         
-        if not unknown_gene_handling:
-            unknown_gene_handling = self._context.configuration.unknown_gene_handling
-        
-        _logger.debug('Querying up to {} genes by name'.format(names.size))
+        _logger.debug('Querying {} genes by name'.format(names.size))
         
         with self.query(GeneNameQuery) as query:
             # Insert gene group for query
@@ -436,24 +424,11 @@ class Session(object):
             items['query_id'] = query.id
             self._session.bulk_insert_mappings(GeneNameQueryItem, items.to_dict('record'))
             
-            # Add unknown genes, maybe
-            if unknown_gene_handling == UnknownGeneHandling.add:
-                self._add_unknown_genes(query.id)
+            # Add any unknown genes (genes not in database)
+            self._add_unknown_genes(query.id)
             
             # Find genes by name
             genes = self._get_genes_by_name(query.id, names, map_=_map)
-            
-            # Handle unknown genes
-            if isinstance(genes, pd.Series):
-                count_missing = genes.apply(lambda x: len(x)==0).values.sum()
-            else:
-                count_missing = genes.applymap(lambda x: len(x)==0).values.sum()
-            if count_missing:
-                _logger.warning('Input has up to {} genes not known to the database'.format(count_missing))    
-                if unknown_gene_handling == UnknownGeneHandling.fail:
-                    raise ValueError('Encountered {} unknown genes'.format(count_missing))
-                else:
-                    assert unknown_gene_handling == UnknownGeneHandling.ignore
             
         return genes
     
@@ -624,7 +599,6 @@ class Session(object):
             When either:
             
             - a gene appears multiple times with different expression values.
-            - a gene is unknown and unknown_gene_handling = fail
             - an expression matrix already exists with the given name
             - name contains invalid characters
             - expression matrix has a column with a dtype other than float
