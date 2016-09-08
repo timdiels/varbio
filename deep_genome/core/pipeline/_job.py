@@ -74,8 +74,11 @@ class Job(object):
                 
     server_args : str
         Additional arguments specific to the job server. E.g. in DRMAAJobServer
-        this corresponds to the 
-        `native specification <http://gridscheduler.sourceforge.net/javadocs/org/ggf/drmaa/JobTemplate.html#setNativeSpecification(java.lang.String)>`_.
+        this corresponds to the `native specification`_, which in the case of
+        SGE or OGS is a string of options given to qsub (according to
+        http://linux.die.net/man/3/drmaa_attributes).
+        
+        .. _native specification: http://gridscheduler.sourceforge.net/javadocs/org/ggf/drmaa/JobTemplate.html#setNativeSpecification(java.lang.String)
     '''
     
     # Note: If you get "drmaa.errors.DeniedByDrmException: code 17: error: no
