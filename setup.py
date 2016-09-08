@@ -167,8 +167,7 @@ setup(
                         'Jobs and their output directories are immutable; this simplifies things\n'
                         'without really getting in the way of ease of use.\n',
     'name': 'deep-genome-core',
-    'package_data': {   'deep_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml'],
-                        'deep_genome.core': ['data/core.defaults.conf']},
+    'package_data': {'deep_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml']},
     'packages': [   'deep_genome',
                     'deep_genome.core',
                     'deep_genome.core.database',

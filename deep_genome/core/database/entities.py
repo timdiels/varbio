@@ -51,28 +51,6 @@ class DBEntity(object):
 
 DBEntity = declarative_base(cls=DBEntity)
 
-class CachedFile(DBEntity):
-    
-    id =  Column(Integer, primary_key=True)
-    source_url = Column(String(min(URL_MAX_LENGTH, _max_index_key_length_char)), unique=True, nullable=False)
-    path = Column(String(PATH_MAX_LENGTH), nullable=False)  # absolute path to file in cache
-    cached_at = Column(DateTime, nullable=False)
-    expires_at = Column(DateTime, nullable=False)
-    
-    def __repr__(self):
-        return (
-            'CachedFile(id={!r}, source_url={!r}, path={!r}, cached_at={!r}'
-            ', expires_at={!r})'.format(
-                self.id, self.source_url, self.path,
-                self.cached_at, self.expires_at
-            )
-        )
-    
-    @property
-    def expired(self):
-        return self.expires_at <= datetime.now()
-    
-        
 class GeneName(DBEntity):
      
     id =  Column(Integer, primary_key=True)
