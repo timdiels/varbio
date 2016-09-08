@@ -363,7 +363,7 @@ class Session(object):
             names_ = names
             
         genes = pd.DataFrame(iter(stmt), columns=['row', 'column', 'value'])
-        genes = genes.groupby(['row', 'column'])['value'].apply(lambda x: set(x.dropna())).unstack('column')
+        genes = genes.groupby(['row', 'column'])['value'].apply(lambda x: frozenset(x.dropna())).unstack('column')
         genes.rename(
             index=dict(enumerate(names_.index)),
             columns=dict(enumerate(names_.columns)),
@@ -396,9 +396,9 @@ class Session(object):
             
         Returns
         -------
-        pd.DataFrame([[{Gene}]], index=names.index, columns=names.columns)
+        pd.DataFrame([[frozenset({Gene})]], index=names.index, columns=names.columns)
         or
-        pd.Series([{Gene}], index=names.index, name=names.name)
+        pd.Series([frozenset({Gene})], index=names.index, name=names.name)
             `names` with each gene name replaced by a set of matching Gene. Each
             set is non-empty.
              
