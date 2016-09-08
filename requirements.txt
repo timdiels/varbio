@@ -12,14 +12,8 @@ more-itertools==2.2
 memory-profiler==0.41
 psutil==4.1.0
 pyxdg==0.25
-frozendict==0.5
-requests==2.9.1
-Sphinx==1.4               # via sphinx-rtd-theme
-numpydoc==0.6.0
 pytest==2.9.0
 pytest-env==0.6.0
-sphinx-rtd-theme==0.1.9
-sqlalchemy==1.0.12
 pytest-xdist==1.14
 pytest-cov==2.2.1
 coverage-pth==0.0.1
@@ -29,11 +23,17 @@ pytest-mock==0.11.0
 pytest-asyncio==0.3.0
 pytest-capturelog==0.7
 freezegun==0.3.6
+frozendict==0.5
+requests==2.9.1
+sqlalchemy==1.0.12
 pymysql==0.7.2
 sqlparse==0.1.19
-networkx==1.11
 drmaa==0.7.6
 -e file:///home/limyreth/doc/eclipse_workspace/chicken_turtle_util
+Sphinx==1.4               # via sphinx-rtd-theme
+networkx==1.11
+numpydoc==0.6.0
+sphinx-rtd-theme==0.1.9
 alabaster==0.7.7          # via sphinx
 apipkg==1.4               # via execnet
 babel==2.3.3              # via sphinx

@@ -1,5 +1,5 @@
 from .configuration import Configuration
-from .context import AlgorithmContext
+from .context import Context
 
 _initialised = False
 def initialise():

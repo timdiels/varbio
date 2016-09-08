@@ -17,7 +17,7 @@
 
 from configparser import ConfigParser
 from chicken_turtle_util.test import temp_dir_cwd
-from deep_genome.core import AlgorithmContext, initialise
+from deep_genome.core import Context, initialise
 from click.testing import CliRunner
 from pathlib import Path
 import logging
@@ -52,11 +52,18 @@ def cli_test_args(test_conf):
     '''
     return test_conf['cli_args'].split()  # Note: offers no support for args with spaces
 
-def _create_context(cli_test_args):
+@pytest.fixture
+def Context_(temp_dir_cwd):
+    return Context(
+        version='1.0.0',
+        data_directory=Path('xdg_data_home'),
+        cache_directory=Path('xdg_cache_home')
+    )
+    
+def _create_context(cli_test_args, Context_):
     _context = []
     
-    Context = AlgorithmContext('1.0.0')
-    @Context.command()
+    @Context_.command()
     def main(context):
         _context.append(context)
     
@@ -65,15 +72,12 @@ def _create_context(cli_test_args):
     return _context[0]
 
 @pytest.fixture
-def context(cli_test_args, temp_dir_cwd, mocker):
-    #TODO ignore system config files, i.e. provide your own fixed test configuration, e.g. patch it on top of the context
-    mocker.patch('xdg.BaseDirectory.xdg_data_home', str(Path('xdg_data_home').absolute()))
-    mocker.patch('xdg.BaseDirectory.xdg_cache_home', str(Path('xdg_cache_home').absolute()))
-    return _create_context(cli_test_args)
+def context(cli_test_args, Context_):
+    return _create_context(cli_test_args, Context_)
 
 @pytest.fixture
-def context2(context, cli_test_args):
-    return _create_context(cli_test_args)
+def context2(cli_test_args, Context_):
+    return _create_context(cli_test_args, Context_)
 
 @pytest.fixture
 def db(context):

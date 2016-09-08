@@ -20,7 +20,8 @@ Test deep_genome.core.pipeline._various
 '''
 
 from deep_genome.core.pipeline import pipeline_cli, call_repr
-from deep_genome.core import AlgorithmContext
+from deep_genome.core import Context
+from pathlib import Path
 import subprocess
 import asyncio
 import pytest
@@ -28,32 +29,30 @@ import psutil
 import os
 from click.testing import CliRunner
 
-Context = AlgorithmContext('1.0.0')
-
 class TestPipelineCLI(object):
     
-    def test_success(self, cli_test_args, event_loop):
+    def test_success(self, cli_test_args, event_loop, Context_):
         '''
         When target job succeeds, exit zero and notify user
         '''
         async def succeeds(context):
             pass
-        main = pipeline_cli(succeeds, Context)
+        main = pipeline_cli(succeeds, Context_)
         result = CliRunner().invoke(main, cli_test_args, catch_exceptions=False)
         assert result.exit_code == 0
          
-    def test_fail(self, cli_test_args, event_loop):
+    def test_fail(self, cli_test_args, event_loop, Context_):
         '''
         When target job fails, exit non-zero and notify user
         '''
         async def raises(context):
             raise Exception('error')
-        main = pipeline_cli(raises, Context) 
+        main = pipeline_cli(raises, Context_)
         result = CliRunner().invoke(main, cli_test_args)
         assert result.exit_code != 0
          
     @pytest.mark.asyncio
-    async def test_sigterm(self, cli_test_args):
+    async def test_sigterm(self, cli_test_args, temp_dir_cwd):  # temp_dir_cwd as dg-tests-pipeline-cli-forever puts cache in local directory
         '''
         When the pipeline controller is signal interrupted, cancel task and exit non-zero.
         '''
@@ -74,7 +73,7 @@ def selfterm_command():
         except asyncio.CancelledError:
             print('forever cancelled')
             raise
-    return pipeline_cli(selfterm, Context)
+    return pipeline_cli(selfterm, Context('1.0.0', Path('data'), Path('cache')))
 selfterm_command = selfterm_command()
 
 def test_call_repr():

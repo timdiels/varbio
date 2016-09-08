@@ -27,12 +27,6 @@ from deep_genome.core.database import Database
 _DatabaseMixin = app.DatabaseMixin(Database)
 
 # ConfigurationMixin
-_loader = ConfigurationLoader('deep_genome.core', 'deep_genome', 'core')    
-
-#
-_DataDirectoryMixin = app.DataDirectoryMixin('deep_genome')
-_CacheDirectoryMixin = app.CacheDirectoryMixin('deep_genome')
-
 # TODO include in AlgorithmMixin and do properly
 # from deep_genome.core.cache import Cache
 # class _CacheMixin(_DatabaseMixin, _CacheDirectoryMixin):
@@ -48,22 +42,27 @@ _CacheDirectoryMixin = app.CacheDirectoryMixin('deep_genome')
 #     @property
 #     def cache(self):
 #         return self._cache 
+_loader = ConfigurationLoader('deep_genome.core', 'deep_genome', 'core')     
     
-def AlgorithmContext(version, configurations={}):
+def Context(version, data_directory, cache_directory, configurations={}):
     '''
-    Application context mixin, bundles mixins for a Deep Genome based algorithm
-        
+    Deep Genome core context, often required by core functions
+
     Parameters
     ----------
     version
         See chicken_turtle_util.cli.BasicsMixin
+    data_directory : Path
+        Directory in which to store persistent data
+    cache_directory : Path
+        Directory to use as cache
     configurations : {configuration_name :: str => help_message :: str}
         Additional configuration files. 'core' as configuration name is reserved
         by DG core.
         
     See also
     --------
-    chicken_turtle_util.cli.Context: CLI application context
+    chicken_turtle_util.application.Context: CLI application context
     '''
     if 'core' in configurations:
         raise ValueError('Configuration name "core" is reserved to Deep Genome core')
@@ -72,7 +71,10 @@ def AlgorithmContext(version, configurations={}):
     configurations['core'] = _loader.cli_help_message('Configure advanced options such as how exceptional cases should be handled.')
     _ConfigurationsMixin = app.ConfigurationsMixin(configurations)
     
-    class _AlgorithmContext(_ConfigurationsMixin, _DatabaseMixin, _CacheDirectoryMixin, _DataDirectoryMixin, app.BasicsMixin(version), app.Context):
+    data_directory = data_directory.absolute()
+    cache_directory = cache_directory.absolute()
+    
+    class _Context(_ConfigurationsMixin, _DatabaseMixin, app.BasicsMixin(version), app.Context):
         
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
@@ -91,6 +93,24 @@ def AlgorithmContext(version, configurations={}):
             deep_genome.core.configuration.Configuration
             '''
             return self.__configuration
+        
+        @property
+        def data_directory(self):
+            '''
+            Get data root directory
+            
+            Only data that needs to be persistent should be stored here.
+            '''
+            return data_directory
+        
+        @property
+        def cache_directory(self):
+            '''
+            Get cache root directory
+            
+            Only non-persistent data that is reused between runs should be stored here.
+            '''
+            return cache_directory
 
-    return _AlgorithmContext
+    return _Context
 
