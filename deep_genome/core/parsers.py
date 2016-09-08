@@ -130,31 +130,6 @@ class Parser(object):
         clustering = dict(clustering)
         return clustering
     
-    # TODO rm after commit, too trivial
-    # def genes(reader): #TODO had sanitise=True, now manual
-    #     '''
-    #     Parse group of genes formatted as plain text separated by whitespace
-    #         
-    #     Parameters
-    #     ----------
-    #     reader : io.BufferedReader
-    #         Text reader whose content contains a group of genes
-    #     
-    #     Returns
-    #     -------
-    #     pandas.Series({'gene' => [str]})
-    #         Series of genes
-    #         
-    #     Examples
-    #     --------
-    #     Format example::
-    #     
-    #         gene1 gene2<tab>gene3
-    #            gene4
-    #         gene5
-    #     '''
-    #     return pd.Series(reader.read().split(), name='gene')
-    
     # XXX Temporarily unused
     # def read_mcl_clustering(path):
     #     '''

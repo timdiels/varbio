@@ -545,29 +545,6 @@ class Session(object):
                 
             return _ReturnTuple(expression_matrices=expression_matrices, clusterings=clusterings)
     
-    # XXX rm or needed?
-#     def load_gene_details(self, genes, names=False, session):
-#         '''
-#         Load more detailed info for given genes
-#         
-#         genes : pd.DataFrame([[Gene]])
-#         names : bool
-#             Whether or not to load names and canonical name of gene
-#         '''
-#         if not session:
-#             session = self.session
-#         
-#         if names:
-#             stmt = (
-#                 session
-#                 .query(Gene)
-#                 # TODO load names and canonical_name http://docs.sqlalchemy.org/en/latest/orm/loading_relationships.html
-#             )
-#             pretty_sql(stmt)
-#             stmt.all()
-#         # TODO test this:
-#         # When a Gene is loaded in the same session, it will be the same object. So loading additional stuff, should load it on the relevant objects. So no need for any assignments or returns.
-
     def _create_data_file(self):
         file = DataFile()
         self._session.add(file)
