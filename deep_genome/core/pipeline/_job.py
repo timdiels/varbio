@@ -78,6 +78,12 @@ class Job(object):
         `native specification <http://gridscheduler.sourceforge.net/javadocs/org/ggf/drmaa/JobTemplate.html#setNativeSpecification(java.lang.String)>`_.
     '''
     
+    # Note: If you get "drmaa.errors.DeniedByDrmException: code 17: error: no
+    # suitable queues" consider prefixing the server_args with '-w no'. This
+    # most often happens when specifying mem_free on clusters that aren't
+    # configured for it (see 
+    # http://gridscheduler.sourceforge.net/howto/commonproblems.html#interactive)
+    
     def __init__(self, name, server, command, server_args=None):
         self._context = server.context
         command = [str(x) for x in command]

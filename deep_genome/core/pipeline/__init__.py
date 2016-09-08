@@ -24,6 +24,7 @@ Features:
 - concurrently execute executables locally and on clusters (which support a DRMAA interface: Grid Engine, ...)
 - persist the results of each of the above
 '''
+
 #TODO in the guide, show how to do all the things: refer to a good asyncio intro, run some concurrent code that is persisted, show how Job works with LocalJobServer and DRMAAJobServer 
 '''
 A job can be run locally or on cluster via a DRMAA interface (e.g. Open Grid
@@ -32,6 +33,21 @@ arguments, to be run locally or on the cluster. Each job is given its own clean
 working directory (even when it was cancelled before, the next try will start
 from a fresh directory again).
 '''
+
+#TODO could this be published? or at least contributed as a library?
+'''
+What it does: cache asyncio results and OGS job runs; also provides an asyncio interface to running OGS jobs
+
+A quick search reveals no existing software for persisted/cached asyncio. Could
+make a separate library with a few funcs to help in formatting a call_repr; just
+as one of many ways of checking whether 2 calls are equivalent. Storage should
+be generic such that it could have a key-value store in the backend, anything.
+Leave the polishing for later.
+
+The OGS jobs part is too specific, that will remain internal. Similar software
+to the pipeline stuff itself is http://www.ruffus.org.uk/index.html and there's
+more https://www.google.com/search?espv=2&q=pipeline+library+python&oq=pipeline+library+python&gs_l=serp.3..0i22i30k1.1080.1766.0.1846.7.7.0.0.0.0.61.343.6.6.0....0...1c.1.64.serp..1.6.343.XjhebQv9x3U
+''' #TODO read ruffus and the other projects on the google search
 
 from ._various import pipeline_cli, call_repr, format_call
 from ._persisted import persisted

@@ -23,6 +23,26 @@ from deep_genome.core.database.entities import CachedFile
 from datetime import datetime
 import plumbum as pb
 
+#TODO module unused, decide what to do with it. Jobs have a cache as well, may
+#consider local job server + wget or indeed keep it separate. But first see what
+#it might still be used for
+
+# TODO
+# from deep_genome.core.cache import Cache
+# class _CacheMixin(_DatabaseMixin, _CacheDirectoryMixin):
+#     
+#     '''
+#     File cache support.
+#     '''
+#     
+#     def __init__(self, **kwargs):
+#         super().__init__(**kwargs)
+#         self._cache = Cache(self.database, self.cache_directory)
+#     
+#     @property
+#     def cache(self):
+#         return self._cache
+
 class Cache(object):
     
     '''

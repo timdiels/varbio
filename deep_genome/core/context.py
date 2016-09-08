@@ -27,21 +27,6 @@ from deep_genome.core.database import Database
 _DatabaseMixin = app.DatabaseMixin(Database)
 
 # ConfigurationMixin
-# TODO include in AlgorithmMixin and do properly
-# from deep_genome.core.cache import Cache
-# class _CacheMixin(_DatabaseMixin, _CacheDirectoryMixin):
-#     
-#     '''
-#     File cache support.
-#     '''
-#     
-#     def __init__(self, **kwargs):
-#         super().__init__(**kwargs)
-#         self._cache = Cache(self.database, self.cache_directory)
-#     
-#     @property
-#     def cache(self):
-#         return self._cache 
 _loader = ConfigurationLoader('deep_genome.core', 'deep_genome', 'core')     
     
 def Context(version, data_directory, cache_directory, configurations={}):
