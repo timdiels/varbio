@@ -147,33 +147,6 @@ class FileImporter(object):
             
             # Add
             session.add_gene_mapping(mapping)
-            
-    def import_gene_families(self, path, name_index=0):
-        '''
-        Import gene families file into database
-        
-        The file is read and cleaned (without modifying the original) using an
-        equivalent of `core.clean.plain_text`, then parsed according to
-        `core.parsers.Parser.parse_clustering`, treating families as clusters.
-        Family names are treated case-insensitively. The result is added to
-        database.
-        
-        Parameters
-        ----------
-        path : pathlib.Path
-            Path to clustering file
-        name_index : int
-            The index of the gene family name field on each row. See `deep_genome.core.parsers.Parser.parse_clustering`
-        '''
-        db = self._context.database
-        with db.scoped_session() as session:
-            _logger.info('Adding gene families: {}'.format(path))
-            with path.open() as f:
-                clustering = self._parser.parse_clustering(clean.plain_text(f), name_index=name_index)
-            clustering = pd.DataFrame(list(clustering.items()), columns=('family', 'gene'))
-            clustering['gene'] = clustering['gene'].apply(list)
-            clustering = df_.split_array_like(clustering, 'gene')
-            session.add_gene_families(clustering)
 
 # '''
 # Affymetrix format parsers

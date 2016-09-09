@@ -124,7 +124,6 @@ class Gene(DBEntity):
     names = None # GeneName backref, all names
     expression_matrices = None  # ExpressionMatrix backref, all matrices of which the gene is part of
     clusterings = None  # Clustering backref, all clusterings of which the gene is part of
-    gene_families = None  # Clustering backref, all gene families of which the gene is part of (of all scopes!)
     
     mapped_to = relationship(   # genes which this gene maps to
         "Gene",
@@ -233,67 +232,3 @@ class Job(DBEntity):
      
     def __repr__(self):
         return 'Job({!r}, {!r})'.format(self.id, self.name)
-
-class Scope(DBEntity): #TODO move up file
-    
-    id =  Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False, unique=True)
-    
-    def __repr__(self):
-        return 'Scope({!r}, {!r})'.format(self.id, self.name)
-    
-    def __str__(self):
-        return 'Scope({!r})'.format(self.name)
-    
-    def __lt__(self, other):
-        if not isinstance(other, Scope):
-            raise TypeError()
-        return self.name < other.name
-
-GeneGeneFamilyTable = Table('gene_gene_family', DBEntity.metadata,
-    Column('gene_id', Integer, ForeignKey('gene.id')),
-    Column('gene_family_id', Integer, ForeignKey('gene_family.id'))
-)
-        
-class GeneFamily(DBEntity):
-    
-    id =  Column(Integer, primary_key=True)
-    name = Column(String(1000), nullable=False)
-    scope_id = Column(Integer, ForeignKey('scope.id', ondelete='cascade'), nullable=False)
-     
-    scope = relationship('Scope')
-    genes = relationship("Gene", backref='gene_families', secondary=GeneGeneFamilyTable)  # Genes in the family. Note: within a scope it's a one-to-many relation
-     
-    def __repr__(self):
-        return 'GeneFamily({!r}, {!r}, {!r})'.format(self.id, self.name, self.scope)
-    
-    def __str__(self):
-        return 'GeneFamily({!r}, {!s})'.format(self.name, self.scope)
-    
-    def __lt__(self, other):
-        if not isinstance(other, GeneFamily):
-            raise TypeError()
-        return (self.name, self.scope) < (self.name, other.scope) 
-    
-class AddGeneFamiliesQuery(DBEntity):
-    
-    id =  Column(Integer, primary_key=True)
-    
-class AddGeneFamiliesQueryItem(DBEntity):
-    
-    id = Column(Integer, primary_key=True)
-    query_id =  Column(Integer, ForeignKey('add_gene_families_query.id', ondelete='cascade'))
-    gene_id =  Column(Integer, ForeignKey('gene.id'))
-    family_name = Column(String(1000), nullable=False)
-    
-class GetGeneFamiliesByGeneQuery(DBEntity):
-    
-    id =  Column(Integer, primary_key=True)
-    
-class GetGeneFamiliesByGeneQueryItem(DBEntity):
-    
-    id = Column(Integer, primary_key=True)
-    query_id =  Column(Integer, ForeignKey('get_gene_families_by_gene_query.id', ondelete='cascade'))
-    gene_id =  Column(Integer, ForeignKey('gene.id'))
-    
-    
