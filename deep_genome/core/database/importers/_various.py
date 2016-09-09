@@ -15,8 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
-from deep_genome.core.parsers import Parser
-from deep_genome.core import clean
+from deep_genome.core import clean, parse
 from chicken_turtle_util import data_frame as df_
 import logging
 import pandas as pd
@@ -31,7 +30,6 @@ class FileImporter(object):
     
     def __init__(self, context):
         self._context = context
-        self._parser = Parser(context)
             
     def import_gene_mapping(self, path):
         '''
@@ -52,7 +50,7 @@ class FileImporter(object):
             # Read file
             _logger.info('Adding gene mapping from: {}'.format(path))
             with path.open() as f:
-                mapping = self._parser.parse_clustering(clean.plain_text(f))
+                mapping = parse.clustering(clean.plain_text(f))
             mapping = pd.DataFrame(list(mapping.items()), columns=('source', 'destination'))
             mapping['destination'] = mapping['destination'].apply(list)
             mapping = df_.split_array_like(mapping, 'destination')

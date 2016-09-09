@@ -170,7 +170,6 @@ setup(
     'packages': [   'deep_genome',
                     'deep_genome.core',
                     'deep_genome.core.database',
-                    'deep_genome.core.database.importers',
                     'deep_genome.core.pipeline',
                     'deep_genome.core.tests',
                     'deep_genome.core.tests.pipeline',

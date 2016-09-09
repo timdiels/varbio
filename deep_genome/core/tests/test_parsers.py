@@ -16,18 +16,14 @@
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-Test deep_genome.core.parsers
+Test deep_genome.core.parse
 '''
 
-from deep_genome.core.parsers import Parser
+from deep_genome.core import parse
 import pytest
 from textwrap import dedent
 import pandas as pd
 import io
-
-@pytest.fixture
-def parser(context):
-    return Parser(context)
 
 class TestParseExpressionMatrix(object):
     
@@ -35,8 +31,8 @@ class TestParseExpressionMatrix(object):
         assert df1.equals(df2)
         assert df1.index.name == df2.index.name
         
-    def test_happy_days(self, parser):
-        matrix = parser.parse_expression_matrix(io.StringIO(dedent('''\
+    def test_happy_days(self):
+        matrix = parse.expression_matrix(io.StringIO(dedent('''\
             ignored\tcondition1\tcondition2
             gene1\t1.5\t5
             gene2\t.89\t-.1'''
@@ -46,12 +42,12 @@ class TestParseExpressionMatrix(object):
     
 class TestParseClustering(object):
     
-    def test_mixed_input(self, parser):
+    def test_mixed_input(self):
         '''
         When clusters spread across rows, and multiple items on a line, parse
         just fine
         ''' 
-        clustering = parser.parse_clustering(io.StringIO(dedent('''\
+        clustering = parse.clustering(io.StringIO(dedent('''\
             cluster1\titem1\titem2
             cluster2\titem5\titem2
             cluster1\titem3'''
@@ -62,7 +58,7 @@ class TestParseClustering(object):
         }
         assert clustering == expected
         
-    def test_name_index_1(self, parser):
+    def test_name_index_1(self):
         '''
         When name_index=1, treat the second column as the cluster_id
         '''
@@ -71,14 +67,14 @@ class TestParseClustering(object):
             item5\tcluster2\titem2
             item3\tcluster1'''
         ))
-        clustering = parser.parse_clustering(reader, name_index=1)
+        clustering = parse.clustering(reader, name_index=1)
         expected = {
             'cluster1' : {'item1', 'item2', 'item3'},
             'cluster2' : {'item2', 'item5'}
         }
         assert clustering == expected
         
-    def test_name_index_none(self, parser):
+    def test_name_index_none(self):
         '''
         When name_index=None, parse as 1 cluster per row
         '''
@@ -87,7 +83,7 @@ class TestParseClustering(object):
             item5\titem2
             item3'''
         ))
-        clustering = parser.parse_clustering(reader, name_index=None)
+        clustering = parse.clustering(reader, name_index=None)
         expected = {
             0: {'item1', 'item2'},
             1: {'item2', 'item5'},
@@ -95,11 +91,11 @@ class TestParseClustering(object):
         }  # Note: the returned cluster ids don't actually matter
         assert clustering == expected
     
-    def test_name_index_negative(self, parser):
+    def test_name_index_negative(self):
         '''
         When name_index<0, raise ValueError
         '''
         with pytest.raises(ValueError) as ex:
-            parser.parse_clustering(io.StringIO(''), name_index=-1)
+            parse.clustering(io.StringIO(''), name_index=-1)
         assert 'name_index' in str(ex.value)
         
