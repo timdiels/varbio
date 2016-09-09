@@ -122,8 +122,6 @@ class Gene(DBEntity):
      
     canonical_name = relationship('GeneName', foreign_keys=[canonical_name_id], post_update=True)  # The preferred name to assign to this gene. Each gene must have a canonical name.
     names = None # GeneName backref, all names
-    expression_matrices = None  # ExpressionMatrix backref, all matrices of which the gene is part of
-    clusterings = None  # Clustering backref, all clusterings of which the gene is part of
     
     mapped_to = relationship(   # genes which this gene maps to
         "Gene",
@@ -148,71 +146,6 @@ class Gene(DBEntity):
         if not isinstance(other, Gene):
             raise TypeError()
         return self.name < other.name
-    
-GeneExpressionMatrixTable = Table('gene_expression_matrix', DBEntity.metadata,
-    Column('gene_id', Integer, ForeignKey('gene.id')),
-    Column('expression_matrix_id', Integer, ForeignKey('expression_matrix.id'))
-)
-
-
-class ExpressionMatrix(DBEntity):
-     
-    id =  Column(Integer, primary_key=True)
-    name = Column(String(1000), nullable=False)  # Note: unique within a scope
-    data_file_id = Column(Integer, ForeignKey('data_file.id'), nullable=False)
-     
-    genes = relationship("Gene", backref='expression_matrices', secondary=GeneExpressionMatrixTable)  # Genes whose expression was measured in the expression matrix
-    data_file = relationship('DataFile')
-    
-    def __repr__(self):
-        return 'ExpressionMatrix({!r}, {!r})'.format(self.id, self.name)
-    
-    def __str__(self):
-        return 'ExpressionMatrix({!r})'.format(self.name)
-    
-    def __lt__(self, other):
-        if not isinstance(other, ExpressionMatrix):
-            raise TypeError()
-        return self.name < other.name
-
-GeneClusteringTable = Table('gene_clustering', DBEntity.metadata,
-    Column('gene_id', Integer, ForeignKey('gene.id')),
-    Column('clustering_id', Integer, ForeignKey('clustering.id'))
-)
-
-
-class Clustering(DBEntity):
-    
-    'Gene clustering'
-     
-    id =  Column(Integer, primary_key=True)
-    data_file_id = Column(Integer, ForeignKey('data_file.id'), nullable=False)
-    expression_matrix_id =  Column(Integer, ForeignKey('expression_matrix.id'), nullable=True)
-     
-    genes = relationship("Gene", backref='clusterings', secondary=GeneClusteringTable)  # Genes mentioned in the clustering
-    expression_matrix = relationship('ExpressionMatrix')  # The expression_matrix this clustering should be used with, else can be used with any expression matrix
-    data_file = relationship('DataFile')
-     
-    def __repr__(self):
-        return 'Clustering({!r})'.format(self.id)
-    
-    def __lt__(self, other):
-        if not isinstance(other, Clustering):
-            raise TypeError()
-        return self.id < other.id
-    
-class GetByGenesQuery(DBEntity):
-    id =  Column(Integer, primary_key=True)
-    
-class GetByGenesQueryItem(DBEntity):
-    
-    '''Temporary storage for bait sets to query on'''
-    
-    query_id =  Column(Integer, ForeignKey('get_by_genes_query.id', ondelete='cascade'), primary_key=True)
-    gene_group_id =  Column(Integer, primary_key=True, autoincrement=False)
-    gene_id =  Column(Integer, ForeignKey('gene.id'), primary_key=True)
-    
-    gene = relationship('Gene', foreign_keys=[gene_id])
     
 class CoroutineCall(DBEntity):
      

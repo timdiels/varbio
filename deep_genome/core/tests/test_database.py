@@ -20,8 +20,7 @@ Test deep_genome.core.database
 '''
 
 from deep_genome.core.database.entities import (
-    Gene, GeneNameQueryItem, GeneNameQuery, ExpressionMatrix,
-    Clustering, GeneMappingTable
+    Gene, GeneNameQueryItem, GeneNameQuery, GeneMappingTable
 )
 from deep_genome.core.database.importers import FileImporter
 from more_itertools import first
@@ -31,7 +30,6 @@ import pytest
 import sqlalchemy as sa
 from textwrap import dedent
 import pandas as pd
-import numpy as np
 
 @pytest.yield_fixture
 def session(db):
@@ -151,164 +149,6 @@ class TestGetGenesByName(object):
         series = original.copy()
         actual = session.get_genes_by_name(series, _map=map_)
         self.assert_series(original, series, actual)
-        
-class TestExpressionMatrix(object):
-    
-    '''
-    Test Session.add_expression_matrix and Session.get_expression_matrix_data
-    '''
-    
-    _expression_matrix_df = pd.DataFrame({'condition1': [1.1, 3.3], 'condition2': [2.2, 4.4]}, index=['gene1', 'gene2'])
-    _expression_matrix_df_duplicate_row = pd.DataFrame({'condition1': [1.1, 3.3, 3.3], 'condition2': [1.1, 4.4, 4.4]}, index=['gene1', 'gene2', 'gene2'])
-    _expression_matrix_df_conflict = pd.DataFrame({'condition1': [1.1, 3.3], 'condition2': [1.1, 4.4]}, index=['gene1', 'gene1'])
-    
-    @pytest.fixture
-    def expression_matrix_df(self):
-        '''
-        Simple valid matrix
-        '''
-        return self._expression_matrix_df.copy()
-    
-    @pytest.fixture
-    def expression_matrix_df_duplicate_row(self):
-        '''
-        Valid matrix with a duplicate row
-        '''
-        return self._expression_matrix_df_duplicate_row.copy()
-    
-    @pytest.fixture
-    def expression_matrix_df_conflict(self):
-        '''
-        Expression matrix with conflicting rows
-        '''
-        return self._expression_matrix_df_conflict.copy()
-    
-    def test_expression_matrix_invalid_type(self, session, expression_matrix_df):
-        '''
-        When matrix one of columns not int type, raise ValueError
-        '''
-        expression_matrix = expression_matrix_df
-        expression_matrix['condition1'] = expression_matrix['condition1'].astype(int)
-        with pytest.raises(ValueError) as ex:
-            session.add_expression_matrix(expression_matrix, name='name')
-        print(str(ex.value))
-        assert (dedent('''\
-            Expression matrix values must be of type {}, column types of given matrix:
-            condition1      int64
-            condition2    float64'''
-            ).format(np.dtype(float))
-            in str(ex.value)
-        )
-            
-    def test_name_nul_characters(self, session, expression_matrix_df):
-        '''
-        When name contains nul characters, raise ValueError
-        '''
-        name = 'na\0me'
-        with pytest.raises(ValueError) as ex:
-            session.add_expression_matrix(expression_matrix_df, name=name)
-        assert 'Expression matrix name contains nul characters: {!r}'.format(name.strip()) in str(ex.value)
-        
-    def test_name_empty(self, session, expression_matrix_df):
-        '''
-        When name is whitespace, raise ValueError
-        '''
-        for name in ('', ' ', '\t'):
-            with pytest.raises(ValueError) as ex:
-                session.add_expression_matrix(expression_matrix_df, name=name)
-            assert "Expression matrix name is '' after stripping whitespace" in str(ex.value)
-        
-    @pytest.mark.parametrize('name', ('name', 'NAME', 'naME', 'na ME', ' nA Me ', '\nname\t', 'name:', 'na:me', 'na+me', 'na/me', 'na\tme', 'na\nme'))
-    def test_name_valid(self, session, expression_matrix_df, name):
-        '''
-        When name valid, all good
-        '''
-        actual = session.add_expression_matrix(expression_matrix_df, name=name)
-        assert actual.name == name.strip()
-        
-    def test_name_strip(self, session, expression_matrix_df):
-        '''
-        Strip surrounding whitespace of name
-        '''
-        actual = session.add_expression_matrix(expression_matrix_df, name=' na me ')
-        assert actual.name == 'na me'
-        
-    def test_name_duplicate(self, session, expression_matrix_df):
-        '''
-        When add expression matrix with already existing name, raise ValueError
-        '''
-        session.add_expression_matrix(expression_matrix_df, name='name')
-        session.add_expression_matrix(expression_matrix_df, name='name1') # duplicate data okay
-        
-        # duplicate name is not
-        for name in ('name', ' name '):
-            with pytest.raises(ValueError) as ex:
-                session.add_expression_matrix(expression_matrix_df, name=name)
-            assert "Expression matrix name already exists: {!r}".format(name.strip()) in str(ex.value)
-    
-    params = (
-        (_expression_matrix_df, _expression_matrix_df),
-        (_expression_matrix_df_duplicate_row, _expression_matrix_df_duplicate_row.iloc[0:2])
-    )
-    @pytest.mark.parametrize('original, expected', params)
-    def test_happy_days(self, session, original, expected):
-        '''
-        When valid input, add all rows
-        '''
-        passed_in = original.copy()
-        expression_matrix = session.add_expression_matrix(passed_in, 'expmat1')
-        df_.assert_equals(original, passed_in) # input unchanged
-        
-        actual = session.get_expression_matrix_data(expression_matrix)
-        actual.index = actual.index.to_series().apply(lambda x: x.name)
-        df_.assert_equals(actual, expected)
-        
-    def test_conflict(self, session, expression_matrix_df_conflict):
-        '''
-        When a gene has multiple rows with different expression values, raise ValueError
-        '''
-        with pytest.raises(ValueError):
-            session.add_expression_matrix(expression_matrix_df_conflict, 'expmat1')
-            
-    def test_empty(self, session, expression_matrix_df):
-        '''
-        When adding an empty matrix, raise ValueError
-        '''
-        with pytest.raises(ValueError) as ex:
-            session.add_expression_matrix(expression_matrix_df.loc[[]], 'expmat1')
-        assert 'Expression matrix must not be empty' in str(ex.value) 
-
-class TestClustering(object):
-    
-    '''
-    Test Session.add_clustering and Session.get_clustering_data
-    '''
-    
-    def assert_equals(self, actual, expected):
-        '''Compare clusterings'''
-        actual['gene'] = actual['gene'].apply(lambda x: x.name)
-        actual.sort_values(by=actual.columns.tolist(), inplace=True)
-        actual.reset_index(drop=True, inplace=True)
-        actual = actual.reindex(columns=('cluster_id', 'gene'))
-        expected = expected.reindex(columns=('cluster_id', 'gene'))
-        assert actual.equals(expected)
-        
-    @pytest.fixture
-    def original(self):
-        return pd.DataFrame({'cluster_id': ['cluster1', 'cluster1', 'cluster2', 'cluster2'], 'gene': ['gene1', 'gene2', 'gene3', 'gene4']})
-    
-    def test_happy_days(self, session, original):
-        '''
-        When valid input, add whole clustering
-        '''
-        expected = original
-        
-        passed_in = original.copy()
-        clustering = session.add_clustering(passed_in)
-        df_.assert_equals(original, passed_in) # input unchanged
-        
-        actual = session.get_clustering_data(clustering)
-        self.assert_equals(actual, expected)
 
 class TestGeneMapping(object):
     
@@ -375,64 +215,6 @@ class TestFileImporter(object):
     def importer(self, context):
         return FileImporter(context)
     
-    def test_import_expression_matrix(self, db, importer, temp_dir_cwd):
-        '''
-        Test FileImporter.import_expression_matrix and Database.get_expression_matrix_data
-        '''
-        path = Path('file')
-        path_.write(path, dedent('''\
-            ignore\tcondition1\t\tcondition2
-            \0gene1\t1.1\t2.2
-            gene2\t3.3\t4.4
-            ''') + '\r\n\r\r'
-        )
-        name = 'the name'
-        
-        id_ = importer.import_expression_matrix(path, name)
-        assert id_ >= 0
-        
-        with db.scoped_session() as session:  # Note: starting the session after import guarantees seeing the import's effects
-            expression_matrix = session.sa_session.query(ExpressionMatrix).get(id_)
-            assert expression_matrix.name == name
-            
-            actual = session.get_expression_matrix_data(expression_matrix)
-            actual.index.name = 'gene'
-            actual.reset_index(inplace=True)
-            actual['gene'] = actual['gene'].apply(lambda x: x.name)
-            expected = pd.DataFrame({'gene': ['gene1', 'gene2'], 'condition1': [1.1, 3.3], 'condition2': [2.2, 4.4]})
-            expected = expected.reindex(columns=('gene', 'condition1', 'condition2'))
-            df_.assert_equals(actual, expected)
-        
-    def test_import_clustering(self, db, importer, temp_dir_cwd):
-        '''
-        Test FileImporter.import_clustering and Database.get_clustering_data
-        '''
-        path = Path('file')
-        path_.write(path, dedent('''\
-            item1\t\tCluster1
-            \0item2\tCLUSTER1
-            item3\tcluster2\titem4
-            ''') + '\r\n\r\r'
-        )
-        
-        id_ = importer.import_clustering(path, name_index=1)
-        assert id_ >= 0
-        
-        with db.scoped_session() as session:
-            clustering = session.sa_session.query(Clustering).get(id_)
-            
-            actual = session.get_clustering_data(clustering)
-            cluster_ids = actual['cluster_id'].tolist()
-            assert ('Cluster1' in cluster_ids) ^ ('CLUSTER1' in cluster_ids)
-            
-            actual['cluster_id'] = actual['cluster_id'].str.lower()
-            actual['gene'] = actual['gene'].apply(lambda x: x.name)
-            actual.sort_values(by=actual.columns.tolist(), inplace=True)
-            actual.reset_index(drop=True, inplace=True)
-            actual = actual.reindex(columns=('cluster_id', 'gene'))
-            expected = pd.DataFrame({'cluster_id': ['cluster1', 'cluster1', 'cluster2', 'cluster2'], 'gene': ['item1', 'item2', 'item3', 'item4']})
-            assert actual.equals(expected)
-        
     def test_import_gene_mapping(self, db, importer, temp_dir_cwd):
         '''
         Test FileImporter.import_gene_mapping, Database.get_genes_by_name(_map=True)
@@ -452,56 +234,6 @@ class TestFileImporter(object):
             actual = actual.apply(lambda x: {y.name for y in x}).tolist()
             assert actual == [{'geneB1', 'geneB2'}, {'geneB1'}, {'geneB3'}, {'geneB4', 'geneB2'}, {'geneC1'}]
         
-class TestGetByGenes(object):
-    
-    def test_get_nothing(self, session):
-        gene_groups = pd.DataFrame(columns=['group_id', 'gene'])
-        result = session.get_by_genes(gene_groups, min_genes=2, clusterings=False, expression_matrices=False)
-        assert result.expression_matrices is None
-        assert result.clusterings is None
-
-    def test_happy_days(self, session):
-        '''
-        Test get_by_genes with gene mappings
-        '''
-        # import a gene mapping
-        session.add_gene_mapping(pd.DataFrame({'source': ['a1', 'a1'], 'destination': ['b1', 'b2']}))
-        
-        # import some expression matrices
-        exp_mat1 = session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1, 1]}, index=['a1', 'c1', 'c2'], dtype=float), 'expmat1')
-        exp_mat2 = session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1]}, dtype=float, index=['b1', 'b2']), 'expmat2')
-        session.add_expression_matrix(pd.DataFrame({'condition1': [1337, 1, 1]}, index=['b1', 'c2', 'c3'], dtype=float), 'expmat3')
-        
-        # import some clusterings
-        clustering1 = session.add_clustering(pd.DataFrame({'cluster_id': ['1337', '1', '1'], 'gene': ['a1', 'c1', 'c2']}))
-        clustering2 = session.add_clustering(pd.DataFrame({'cluster_id': ['1337', '1'], 'gene': ['b1', 'b2']}))
-        session.add_clustering(pd.DataFrame({'cluster_id': ['1337', '1', '1'], 'gene': ['b1', 'c2', 'c3']}))
-    
-        # get
-        gene_groups = pd.DataFrame({'group_id': [1]*3 + [2]*2, 'gene': ['b1', 'b2', 'c1', 'b2', 'c1']})
-        gene_groups['gene'] = session.get_genes_by_name(gene_groups['gene']).apply(list)
-        gene_groups = df_.split_array_like(gene_groups, 'gene')
-        print(gene_groups)
-        result = session.get_by_genes(gene_groups, min_genes=2, clusterings=True, expression_matrices=True)
-        
-        # assert
-        expected = pd.DataFrame({
-            'group_id': [1]*5 + [2]*2, 
-            'gene': ['b1', 'b2', 'c1', 'b1', 'b2', 'b2', 'c1'], 
-            'expression_matrix': [exp_mat1]*3 + [exp_mat2]*2 + [exp_mat1]*2
-        })
-        
-        actual = result.expression_matrices
-        actual['gene'] = actual['gene'].apply(lambda x: x.name)
-        df_.assert_equals(actual, expected, ignore_order={0,1}, ignore_indices={0})
-        
-        # assert clusterings
-        expected.drop('expression_matrix', axis=1, inplace=True)
-        expected['clustering'] = [clustering1]*3 + [clustering2]*2 + [clustering1]*2
-        actual = result.clusterings
-        actual['gene'] = actual['gene'].apply(lambda x: x.name)
-        df_.assert_equals(actual, expected, ignore_order={0,1}, ignore_indices={0})
-
 '''
 TODO
 

@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
-from deep_genome.core.database.entities import ExpressionMatrix
 from deep_genome.core.parsers import Parser
 from deep_genome.core import clean
 from chicken_turtle_util import data_frame as df_
@@ -33,93 +32,6 @@ class FileImporter(object):
     def __init__(self, context):
         self._context = context
         self._parser = Parser(context)
-    
-    def import_expression_matrix(self, path, name):
-        '''
-        Import expression matrix file into database
-        
-        The file is read and cleaned (without modifying the original) using an
-        equivalent of `core.clean.plain_text`, then parsed according to
-        `core.parsers.Parser.parse_expression_matrix`. The result is added to
-        database.
-        
-        Parameters
-        ----------
-        path : pathlib.Path
-            Path to expression matrix file.
-        name : str
-            Expression matrix name. See
-            :meth:`deep_genome.core.database.Session.add_expression_matrix` for
-            details.
-            
-        Returns
-        -------
-        int
-            Id of added expression matrix
-        '''
-        db = self._context.database
-        with db.scoped_session() as session:
-            _logger.info('Adding expression matrix: {}'.format(path))
-            with path.open() as f:
-                exp_mat = self._parser.parse_expression_matrix(clean.plain_text(f))
-            exp_mat = session.add_expression_matrix(exp_mat, name)
-            session.sa_session.flush()
-            return exp_mat.id
-               
-    # TODO think about thorough validation for each input here and in file reading and don't forget to make quick todo notes on new input in the future
-    # TODO the funcs here will be reusable and should be thrown in somewhere else, something in core. We used to call it DataImporter, we won't now
-    def import_clustering(self, path, name_index=0, expression_matrix_id=None):
-        '''
-        Import gene clustering file into database
-        
-        The file is read and cleaned (without modifying the original) using an
-        equivalent of `core.clean.plain_text`, then parsed according to
-        `core.parsers.Parser.parse_clustering`. Cluster ids are treated case-
-        insensitively, overlapping clusters are merged. The result is added to
-        database.
-        
-        Parameters
-        ----------
-        path : pathlib.Path
-            Path to clustering file
-        name_index
-            See `core.parsers.Parser.parse_clustering`
-        expression_matrix_id : int or None
-            If not None, hint to algorithms to use this clustering only on this
-            expression matrix. Otherwise, it may be used on any expression matrix.
-            
-        Returns
-        -------
-        int
-            Id of added clustering
-        '''
-        db = self._context.database
-        with db.scoped_session() as session:
-            _logger.info('Adding clustering: {}'.format(path))
-            with path.open() as f:
-                clustering = self._parser.parse_clustering(clean.plain_text(f), name_index=name_index)
-            clustering = pd.DataFrame(list(clustering.items()), columns=('cluster_id', 'gene'))
-            
-            # Use consistent case for each clustering (without resorting to all lower case)
-            clustering['cluster_id_lower'] = clustering['cluster_id'].str.lower()
-            canonical_ids = clustering.groupby('cluster_id_lower')['cluster_id'].apply(lambda x: x.iloc[0])  # pd.Series mapping 1-to-1 lowercase => case
-            clustering.drop('cluster_id', inplace=True, axis=1)
-            clustering = clustering.join(canonical_ids, on='cluster_id_lower')
-            clustering.drop('cluster_id_lower', inplace=True, axis=1)
-            
-            # Split gene sets
-            clustering['gene'] = clustering['gene'].apply(list)
-            clustering = df_.split_array_like(clustering, 'gene')
-
-            #
-            if expression_matrix_id is not None:
-                expression_matrix = session.sa_session.query(ExpressionMatrix).get(expression_matrix_id)
-            else:
-                expression_matrix = None
-                
-            clustering = session.add_clustering(clustering, expression_matrix)
-            session.sa_session.flush()
-            return clustering.id
             
     def import_gene_mapping(self, path):
         '''
