@@ -22,7 +22,7 @@ Test deep_genome.core.database
 from deep_genome.core.database.entities import (
     Gene, GeneNameQueryItem, GeneNameQuery, GeneMappingTable
 )
-from deep_genome.core.database.importers import FileImporter
+from deep_genome.core.database import import_
 from more_itertools import first
 from chicken_turtle_util import path as path_, data_frame as df_, series as series_
 from pathlib import Path
@@ -209,30 +209,24 @@ class TestGeneMapping(object):
         assert first(actual).name == 'geneB'
         assert session.sa_session.execute(sa.sql.select([sa.func.count()]).select_from(GeneMappingTable)).scalar() == 1
         
-class TestFileImporter(object):
+def test_import_gene_mapping(db, context, temp_dir_cwd):
+    '''
+    Test FileImporter.import_gene_mapping, Database.get_genes_by_name(_map=True)
+    '''
+    path = Path('file')
+    path_.write(path, dedent('''\
+        geneA1\t\tgeneB1\tgeneB2
+        \0geneA2\tgeneB3
+        geneA3\tgeneB4\tgeneB2
+        ''') + '\r\n\r\r'
+    )
     
-    @pytest.fixture
-    def importer(self, context):
-        return FileImporter(context)
+    import_.gene_mapping(context, path)
     
-    def test_import_gene_mapping(self, db, importer, temp_dir_cwd):
-        '''
-        Test FileImporter.import_gene_mapping, Database.get_genes_by_name(_map=True)
-        '''
-        path = Path('file')
-        path_.write(path, dedent('''\
-            geneA1\t\tgeneB1\tgeneB2
-            \0geneA2\tgeneB3
-            geneA3\tgeneB4\tgeneB2
-            ''') + '\r\n\r\r'
-        )
-        
-        importer.import_gene_mapping(path)
-        
-        with db.scoped_session() as session:
-            actual = session.get_genes_by_name(pd.Series(['geneA1', 'geneB1', 'geneA2', 'geneA3', 'geneC1']))
-            actual = actual.apply(lambda x: {y.name for y in x}).tolist()
-            assert actual == [{'geneB1', 'geneB2'}, {'geneB1'}, {'geneB3'}, {'geneB4', 'geneB2'}, {'geneC1'}]
+    with db.scoped_session() as session:
+        actual = session.get_genes_by_name(pd.Series(['geneA1', 'geneB1', 'geneA2', 'geneA3', 'geneC1']))
+        actual = actual.apply(lambda x: {y.name for y in x}).tolist()
+        assert actual == [{'geneB1', 'geneB2'}, {'geneB1'}, {'geneB3'}, {'geneB4', 'geneB2'}, {'geneC1'}]
         
 '''
 TODO
