@@ -123,29 +123,3 @@ def clustering(reader, name_index=0):
             clustering[i] = set(row)
     clustering = dict(clustering)
     return clustering
-
-# XXX Temporarily unused
-# def read_mcl_clustering(path):
-#     '''
-#     Read MCL clustering outputted by an `--abc` run.
-#     
-#     No input sanitisation as output is expected to come directly from the MCL
-#     algorithm (which is well behaved).
-#         
-#     Parameters
-#     ----------
-#     path : str
-#         path to file to read
-#     
-#     Returns
-#     -------
-#     pandas.DataFrame(data=[cluster_id : int, item : str])
-#         Clusters
-#     '''
-#     # XXX use read_clustering
-#     df = pd.read_csv(path, names=['item']).applymap(lambda x: x.lower().split())
-#     df.index.name = 'cluster_id'
-#     df.reset_index(inplace=True)
-#     df = split_array_like(df, 'item')
-#     return df
-    
