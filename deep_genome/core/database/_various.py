@@ -47,38 +47,11 @@ def _data_file_dir(context):
 def _print_sql(stmt):
     print(pretty_sql(stmt))
     
-# TODO not allowing new gene mappings later on may prove too limiting one day
-# (where in a different scope a gene mapping is added, you can no longer have
-# one pre-compiled set of mappings)
-
-# Verdict:
-# 1. just add it to our database, add to our scheme and such. Extend that Gene entity, though maybe go more weak reffed: e.g. IdType(id, name), GeneId(Gene, IdType, value:str), Gene(id, description, ...)
-# - useful things in BioPython and BioSQL. We should know it and stay up to date with it. Set a schedule to learn it.
-# - no apparent easy way to load gene2refseq, ... in BioSQL and BioPython in bulk. But before making your own, ask on relevant IRC or mailing list.
-#   If none, understand the data provided on the FTP, that will be the structure of our entities.
-
-# 0. Is there a Bio SQL example database to browse?
-# 1. Read the Bio SQL schema (downloads), maybe combine with BioPython doc if you think it's related. Get an idea of what goes in it.
-#    Bio.BioSQL only supports Seq, SeqRecord data
-#    Maybe other Bio.* do still use Bio SQL?
-#    Bio SQL schema however supports: taxonomy, ontology, bioentries in biodatabases along with features (e.g. a seqref id?)
-# 2. What do? How integrate, if at all?
-#TODO consider using and extending the BioSQL database scheme instead of making
-#our own. Making a sqlalchemy interface on top of it may be useful though, or
-#generally providing a less raw interface (if it is raw). Consider adding
-#directly to BioPython though.
-# "Bringing bulk operations and concurrency to (some of) BioPython for higher throughput.
-
-#TODO BioPython has Bio.Affy, Bio.KEGG, Bio.Pathway, Bio.UniProt, ...
-
-# TODO Nice to have: I could write something to automatically generate namespaced copies of tables (taking into account foreign keys as well)
-#   gene_name_table = GeneName.__table__.tometadata(meta_data, name='tmp_gene_name')
-#   gene_name_table.c.name.unique = False
-# TODO if using ORM on those classes, you can use the ORM syntax, even though you wouldn't want to do any bulk on them via ORM, ever
-
-#TODO take a connection string, not host, user, .... Instead have your create_database in the context take host, ... and make a conn string out of it as is done here
-
 class Database(object):
+    
+    # Note: could be used on other RDBMS with these changes (just not SQLite as
+    # it's too basic, e.g. no transactions): connection string, table args to
+    # ensure case-insensitive collation, ...
     
     '''
     MySQL database access

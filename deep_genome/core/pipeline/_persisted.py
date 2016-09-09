@@ -107,10 +107,6 @@ def persisted(call_repr=None, exclude_args=()): #TODO the changes from moving ca
             add_call_repr = 'call_repr_' in argspec.args or 'call_repr_' in argspec.kwonlyargs or argspec.varkw
             if add_call_repr:
                 kwargs['call_repr_'] = None
-            if not isinstance(call_repr, dict):
-                call_repr_ = dict(call_repr=call_repr)
-            else:
-                call_repr_ = call_repr
             call_repr_ = _call_repr(f, args, kwargs, call_repr=call_repr, exclude_args=exclude_args)
             if add_call_repr:
                 kwargs['call_repr_'] = call_repr_

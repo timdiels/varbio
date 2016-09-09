@@ -21,6 +21,11 @@ import logging
 import pandas as pd
 
 _logger = logging.getLogger(__name__)
+
+# Note: import functions create their own session as the amount of imported data
+# often is too large. Intermediate commits are necessary to avoid sqlalchemy
+# crashing or running out of memory. When a session is passed in, we usually
+# promise not to commit it; so we don't allow passing in a session.
     
 def gene_mapping(context, path):
     '''
