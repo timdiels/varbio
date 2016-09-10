@@ -38,6 +38,7 @@ def gene_mapping(context, path):
     
     Parameters
     ----------
+    context : deep_genome.core.Context
     path : pathlib.Path
         Path to gene mapping file.
     '''

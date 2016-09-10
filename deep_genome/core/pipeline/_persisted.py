@@ -33,11 +33,12 @@ def persisted(call_repr=None, exclude_args=()): #TODO the changes from moving ca
     arguments it was given. The cached results are persisted in a database;
     i.e. they are available across application runs.
     
-    The coroutine function to decorate must take an application context
-    (AlgorithmContext) as argument. The argument must be named `context` and may
-    be a positional or keyword argument.
+    The coroutine function to decorate must take a deep_genome.core.Context
+    instance as argument. The argument must be named `context` and may be a
+    positional or keyword argument.
     
-    When using `staticmethod` or `classmethod`, be sure to apply `persisted` to the inner function, i.e. in this order::
+    When using `staticmethod` or `classmethod`, be sure to apply `persisted` to
+    the inner function, i.e. in this order::
     
         @staticmethod
         @persisted()

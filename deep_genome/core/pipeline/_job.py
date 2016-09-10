@@ -233,7 +233,7 @@ class LocalJobServer(JobServer):
     
     Parameters
     ----------
-    context
+    context : deep_genome.core.Context
     jobs_directory : pathlib.Path or None
         Directory in which to create working directories for jobs. If ``None``,
         a subdirectory of XDG_CACHE_DIR will be used.
@@ -273,7 +273,7 @@ class DRMAAJobServer(JobServer):
     
     Parameters
     ----------
-    context
+    context : deep_genome.core.Context
     jobs_directory : pathlib.Path
         Directory in which to create working directories for jobs. Should be
         accessible on both the local machine and the cluster workers.
