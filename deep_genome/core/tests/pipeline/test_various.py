@@ -20,8 +20,6 @@ Test deep_genome.core.pipeline._various
 '''
 
 from deep_genome.core.pipeline import pipeline_cli, call_repr
-from deep_genome.core import Context
-from pathlib import Path
 import subprocess
 import asyncio
 import pytest
@@ -31,32 +29,32 @@ from click.testing import CliRunner
 
 class TestPipelineCLI(object):
     
-    def test_success(self, cli_test_args, event_loop, Context_):
+    def test_success(self, event_loop):
         '''
         When target job succeeds, exit zero and notify user
         '''
-        async def succeeds(context):
+        async def succeeds():
             pass
-        main = pipeline_cli(succeeds, Context_)
-        result = CliRunner().invoke(main, cli_test_args, catch_exceptions=False)
+        main = pipeline_cli(succeeds, version='1.0.0')
+        result = CliRunner().invoke(main, catch_exceptions=False)
         assert result.exit_code == 0
          
-    def test_fail(self, cli_test_args, event_loop, Context_):
+    def test_fail(self, event_loop):
         '''
         When target job fails, exit non-zero and notify user
         '''
-        async def raises(context):
+        async def raises():
             raise Exception('error')
-        main = pipeline_cli(raises, Context_)
-        result = CliRunner().invoke(main, cli_test_args)
+        main = pipeline_cli(raises, version='1.0.0')
+        result = CliRunner().invoke(main)
         assert result.exit_code != 0
          
     @pytest.mark.asyncio
-    async def test_sigterm(self, cli_test_args, temp_dir_cwd):  # temp_dir_cwd as dg-tests-pipeline-cli-forever puts cache in local directory
+    async def test_sigterm(self, temp_dir_cwd):  # temp_dir_cwd as dg-tests-pipeline-cli-forever puts cache in local directory
         '''
         When the pipeline controller is signal interrupted, cancel task and exit non-zero.
         '''
-        process = await asyncio.create_subprocess_exec('dg-tests-pipeline-cli-selfterm', *cli_test_args, stdout=subprocess.PIPE)
+        process = await asyncio.create_subprocess_exec('dg-tests-pipeline-cli-selfterm', stdout=subprocess.PIPE)
         stdout, _ = await process.communicate()
         assert process.returncode != 0
         assert 'forever cancelled' in stdout.decode('utf-8')
@@ -66,14 +64,14 @@ def selfterm_command():
     '''
     Pipeline whose coroutine kills the pipeline process and sleeps nearly forever
     '''
-    async def selfterm(context):
+    async def selfterm():
         try:
             psutil.Process(os.getpid()).terminate()
             await asyncio.sleep(99999)
         except asyncio.CancelledError:
             print('forever cancelled')
             raise
-    return pipeline_cli(selfterm, Context('1.0.0', Path('data'), Path('cache')))
+    return pipeline_cli(selfterm, version='1.0.0')
 selfterm_command = selfterm_command()
 
 def test_call_repr():

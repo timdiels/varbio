@@ -45,6 +45,20 @@ def _data_file_dir(context):
 def _print_sql(stmt):
     print(pretty_sql(stmt))
     
+@attr.s(frozen=True)
+class Credentials(object):
+    host = attr.ib()
+    'Host to connect to as DNS or IP' #TODO do these show up in apiref or help()? If not, use Credentials' docstring
+    
+    database = attr.ib()
+    'Database name'
+    
+    user = attr.ib()
+    'Database user'
+    
+    password = attr.ib(repr=False)
+    'Password of user'
+    
 class Database(object):
     
     # Note: could be used on other RDBMS with these changes (just not SQLite as
@@ -64,14 +78,8 @@ class Database(object):
     ----------
     context : deep_genome.core.Context
         Deep Genome context
-    host : str
-        DNS or IP of the DB host
-    user : str
-        Username to log in with
-    password : str
-        Password to log in with
-    name : str
-        Database name
+    credentials : Credentials
+        Database credentials
     entities : {class.__name__ => class} or None
         If not ``None``, entities to use. See
         :meth:`deep_genome.core.database.entities`. Cannot be ``None`` if `tables`
@@ -91,7 +99,7 @@ class Database(object):
     else, other than in GeneName.
     '''
     
-    def __init__(self, context, host, user, password, name, entities=None, tables=None): 
+    def __init__(self, context, credentials, entities=None, tables=None): 
         if (entities is None) != (tables is None):
             raise ValueError(
                 'entities and tables must be either both None or both not None, '
@@ -99,7 +107,7 @@ class Database(object):
             )
         
         self._context = context
-        self._engine = sa.create_engine('mysql+pymysql://{}:{}@{}/{}'.format(user, password, host, name), echo=False)
+        self._engine = sa.create_engine('mysql+pymysql://{user}:{password}@{host}/{database}'.format(**attr.asdict(credentials)), echo=False)
         self._Session = sessionmaker(bind=self._engine)
         os.makedirs(str(_data_file_dir(context)), exist_ok=True)
         

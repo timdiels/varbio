@@ -24,7 +24,7 @@ import signal
 import logging
 import click
 
-def pipeline_cli(main, Context):
+def pipeline_cli(main, version):
     
     '''
     Get CLI frontend to running a pipeline
@@ -33,12 +33,10 @@ def pipeline_cli(main, Context):
     
     Parameters
     ----------
-    main : async (Context)
-        Main coroutine function of the pipeline that is called with the
-        application context you provided.
-    Context
-        Application context class to use. Should be
-        deep_genome.core.context.AlgorithmMixin or a subclass thereof.
+    main : async () -> None
+        Main coroutine function of the pipeline to call.
+    version : str
+        Pipeline version, e.g. ``1.0.0``.
         
     Returns
     -------
@@ -48,18 +46,14 @@ def pipeline_cli(main, Context):
     --------
     ::
         # main.py
-        from deep_genome.core import AlgorithmContext
         from deep_genome.core.pipeline import pipeline_cli
         
         version = '1.0.0'
         
-        class MyContext(AlgorithmContext(version)):
-            pass  # any application context things specific to your application. If none, just use AlgorithmContext directly
-            
-        async def _main(context):
+        async def _main():
             print('Hello world')
             
-        main = pipeline_cli(_main, MyContext)
+        main = pipeline_cli(_main, version)
         
         # Tip: If you distribute your package using setup.py, use
         # `setup(entry_points={'console_scripts': [...]})` instead of the
@@ -74,9 +68,16 @@ def pipeline_cli(main, Context):
         Pipeline: run completed
     '''
     
-    @Context.command()
-    @click.option('--debug/--no-debug', default=False, help='Verbose debug output') #TODO maybe one small test to check --debug, and also check for log file in both cases
-    def _main(context, debug):
+    #TODO maybe one small test to check:
+    # --debug, and also check for log file in both cases
+    #
+    # and another for (parametrize -h, --help; assert output string matches exactly some manually checked str):
+    # --version (correct version printed too)
+    # -h, --help
+    @click.command(context_settings={'help_option_names': ['-h', '--help']})
+    @click.version_option(version=version)
+    @click.option('--debug/--no-debug', default=False, help='Verbose debug output')
+    def _main(debug):
         '''
         Run/resume the pipeline
         
@@ -91,7 +92,7 @@ def pipeline_cli(main, Context):
         SIGKILL arrived, will not be rerun
         '''
         loop = asyncio.get_event_loop()
-        task = asyncio.ensure_future(main(context))
+        task = asyncio.ensure_future(main())
         loop.add_signal_handler(signal.SIGTERM, task.cancel)
         
         # Note: keep stdout/stderr readable, even when debugging. Full unambiguous details are sent to a log file

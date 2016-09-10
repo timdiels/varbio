@@ -18,7 +18,7 @@
 from configparser import ConfigParser
 from chicken_turtle_util.test import temp_dir_cwd
 from deep_genome.core import Context, initialise
-from click.testing import CliRunner
+from deep_genome.core.database import Credentials
 from pathlib import Path
 import logging
 import pytest
@@ -43,41 +43,29 @@ def pytest_runtest_setup(item): #TODO unused? Might be useful someday though
 def test_conf(pytestconfig):
     config = ConfigParser()
     config.read([str(pytestconfig.rootdir / 'test.conf')])  # machine specific testing conf goes here
-    return config['main']
+    return config
 
 @pytest.fixture(scope='session')
-def cli_test_args(test_conf):
+def database_credentials(test_conf):
     '''
     Arguments to prepend to any DG CLI invocation
     '''
-    return test_conf['cli_args'].split()  # Note: offers no support for args with spaces
+    return Credentials(**test_conf['database'])
 
-@pytest.fixture
-def Context_(temp_dir_cwd):
+def _create_context(database_credentials):
     return Context(
-        version='1.0.0',
         data_directory=Path('xdg_data_home'),
-        cache_directory=Path('xdg_cache_home')
+        cache_directory=Path('xdg_cache_home'),
+        database_credentials=database_credentials
     )
     
-def _create_context(cli_test_args, Context_):
-    _context = []
-    
-    @Context_.command()
-    def main(context):
-        _context.append(context)
-    
-    CliRunner().invoke(main, cli_test_args, catch_exceptions=False)
-    
-    return _context[0]
+@pytest.fixture
+def context(database_credentials, temp_dir_cwd):
+    return _create_context(database_credentials)
 
 @pytest.fixture
-def context(cli_test_args, Context_):
-    return _create_context(cli_test_args, Context_)
-
-@pytest.fixture
-def context2(cli_test_args, Context_):
-    return _create_context(cli_test_args, Context_)
+def context2(database_credentials, temp_dir_cwd):
+    return _create_context(database_credentials)
 
 @pytest.fixture
 def db(context):

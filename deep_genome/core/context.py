@@ -19,55 +19,54 @@
 Deep Genome context
 '''
 
-from chicken_turtle_util import application as app
 from deep_genome.core.database import Database
 
-_DatabaseMixin = app.DatabaseMixin(Database)
-
-def Context(version, data_directory, cache_directory):
+class Context(object):
+    
     '''
-    Deep Genome core context, often required by core functions
+    Deep Genome core context
+    
+    Provides context (i.e. semi-globals) to many Deep Geneome core functions.
 
     Parameters
     ----------
-    version
-        See chicken_turtle_util.cli.BasicsMixin
     data_directory : Path
         Directory in which to store persistent data
     cache_directory : Path
         Directory to use as cache
-        
-    See also
-    --------
-    chicken_turtle_util.application.Context: CLI application context
+    database_credentials : deep_genome.core.database.Credentials
+        Passed to :class:`deep_genome.core.database.Database`.
+    entities : {class.__name__ => class} or None
+        Passed to :class:`deep_genome.core.database.Database`. 
+    tables : {name :: str => Table} or None
+        Passed to :class:`deep_genome.core.database.Database`.
     '''
-    data_directory = data_directory.absolute()
-    cache_directory = cache_directory.absolute()
     
-    class _Context(_DatabaseMixin, app.BasicsMixin(version), app.Context):
+    def __init__(self, data_directory, cache_directory, database_credentials, entities=None, tables=None):
+        self._persisted_coroutine_functions = {}
+        self._jobs = {}
+        self._data_directory = data_directory.absolute()
+        self._cache_directory = cache_directory.absolute()
+        self._database = Database(self, database_credentials, entities, tables)
         
-        def __init__(self, **kwargs):
-            super().__init__(**kwargs)
-            self._persisted_coroutine_functions = {}
-            self._jobs = {}
-            
-        @property
-        def data_directory(self):
-            '''
-            Get data root directory
-            
-            Only data that needs to be persistent should be stored here.
-            '''
-            return data_directory
+    @property
+    def database(self):
+        return self._database
         
-        @property
-        def cache_directory(self):
-            '''
-            Get cache root directory
-            
-            Only non-persistent data that is reused between runs should be stored here.
-            '''
-            return cache_directory
-
-    return _Context
-
+    @property
+    def data_directory(self):
+        '''
+        Get data root directory
+        
+        Only data that needs to be persistent should be stored here.
+        '''
+        return self._data_directory
+    
+    @property
+    def cache_directory(self):
+        '''
+        Get cache root directory
+        
+        Only non-persistent data that is reused between runs should be stored here.
+        '''
+        return self._cache_directory
