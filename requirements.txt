@@ -2,6 +2,7 @@
 -e file:///home/limyreth/doc/eclipse_workspace/chicken_turtle_util
 alabaster==0.7.7
 apipkg==1.4
+attrs==16.1.0
 babel==2.3.3
 bottleneck==1.0.0
 click==6.3

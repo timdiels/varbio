@@ -18,7 +18,6 @@
 import asyncio
 from chicken_turtle_util import path as path_, inspect as inspect_
 from chicken_turtle_util.exceptions import InvalidOperationError
-from deep_genome.core.database import entities
 from functools import wraps
 from ._various import _call_repr
 import logging
@@ -116,6 +115,7 @@ def persisted(call_repr=None, exclude_args=()): #TODO the changes from moving ca
                 context = inspect_.call_args(f, args, kwargs)['context']
             except KeyError:
                 raise TypeError(f.__name__ + " missing 1 required argument: 'context'")
+            CoroutineCall = context.database.e.CoroutineCall
                  
             # Register name context-globally
             if function_name not in context._persisted_coroutine_functions:
@@ -127,9 +127,9 @@ def persisted(call_repr=None, exclude_args=()): #TODO the changes from moving ca
             # Load/create from database
             with context.database.scoped_session() as session:
                 sa_session = session.sa_session
-                call = sa_session.query(entities.CoroutineCall).filter_by(name=call_repr_).one_or_none()
+                call = sa_session.query(CoroutineCall).filter_by(name=call_repr_).one_or_none()
                 if not call:
-                    call = entities.CoroutineCall(name=call_repr_, finished=False)
+                    call = CoroutineCall(name=call_repr_, finished=False)
                     sa_session.add(call)
                     sa_session.flush()
                 id_ = call.id
@@ -143,7 +143,7 @@ def persisted(call_repr=None, exclude_args=()): #TODO the changes from moving ca
                     return_value = await f(*args, **kwargs)
                     finished = True
                     with context.database.scoped_session() as session:
-                        call = session.sa_session.query(entities.CoroutineCall).get(id_)
+                        call = session.sa_session.query(CoroutineCall).get(id_)
                         assert call
                         call.return_value = return_value
                         call.finished = True

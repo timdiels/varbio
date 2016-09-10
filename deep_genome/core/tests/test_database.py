@@ -19,9 +19,6 @@
 Test deep_genome.core.database
 '''
 
-from deep_genome.core.database.entities import (
-    Gene, GeneNameQueryItem, GeneNameQuery, GeneMappingTable
-)
 from deep_genome.core.database import import_
 from more_itertools import first
 from chicken_turtle_util import path as path_, data_frame as df_, series as series_
@@ -37,8 +34,8 @@ def session(db):
         yield session
         
         # No temp stuff left behind
-        assert session.sa_session.query(GeneNameQuery).count() == 0
-        assert session.sa_session.query(GeneNameQueryItem).count() == 0
+        assert session.sa_session.query(db.e.GeneNameQuery).count() == 0
+        assert session.sa_session.query(db.e.GeneNameQueryItem).count() == 0
         
 def test_clear_and_create(context):
     db = context.database
@@ -52,20 +49,21 @@ def test_clear_and_create(context):
 
 class TestScopedSession(object):
     
-    def test_happy_days(self, db):
+    def test_happy_days(self, db, caplog):
         '''
         When no exception, commit and close
         '''
         description = 'A gene'
         with db.scoped_session() as session:
-            gene = Gene(description=description)
+            print(id(db.e.Gene))
+            gene = db.e.Gene(description=description)
             sa_session = session.sa_session
             sa_session.add(gene)
             assert sa_session.new
         assert not sa_session.new  # session closed
         
         with db.scoped_session() as session:
-            session.sa_session.query(Gene).filter_by(description=description).one()  # previous session committed
+            session.sa_session.query(db.e.Gene).filter_by(description=description).one()  # previous session committed
            
     def test_exception(self, db): 
         '''
@@ -76,14 +74,14 @@ class TestScopedSession(object):
             pass
         with pytest.raises(TestException):
             with db.scoped_session() as session:
-                gene = Gene(description=description)
+                gene = db.e.Gene(description=description)
                 sa_session = session.sa_session
                 sa_session.add(gene)
                 raise TestException()
         assert not sa_session.new  # session closed
         
         with db.scoped_session() as session:
-            assert session.sa_session.query(Gene).filter_by(description=description).first() is None  # previous session rolled back
+            assert session.sa_session.query(db.e.Gene).filter_by(description=description).first() is None  # previous session rolled back
             
 class TestGetGenesByName(object):
     
@@ -207,7 +205,7 @@ class TestGeneMapping(object):
         actual = session.get_genes_by_name(pd.Series(['geneA']))[0]
         assert len(actual) == 1
         assert first(actual).name == 'geneB'
-        assert session.sa_session.execute(sa.sql.select([sa.func.count()]).select_from(GeneMappingTable)).scalar() == 1
+        assert session.sa_session.execute(sa.sql.select([sa.func.count()]).select_from(session.t.GeneMappingTable)).scalar() == 1
         
 def test_import_gene_mapping(db, context, temp_dir_cwd):
     '''

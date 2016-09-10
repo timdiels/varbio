@@ -20,7 +20,6 @@ import logging
 import os
 from chicken_turtle_util import path as path_
 from chicken_turtle_util.exceptions import InvalidOperationError
-from deep_genome.core.database import entities
 from pathlib import Path
 import plumbum as pb
 from contextlib import suppress
@@ -103,13 +102,17 @@ class Job(object):
         # Load/create from database 
         with self._context.database.scoped_session() as session:
             sa_session = session.sa_session
-            job = sa_session.query(entities.Job).filter_by(name=self._name).one_or_none()
+            job = sa_session.query(self._db.e.Job).filter_by(name=self._name).one_or_none()
             if not job:
-                job = entities.Job(name=name, finished=False)
+                job = self._db.e.Job(name=name, finished=False)
                 sa_session.add(job)
                 sa_session.flush()
             self._id = job.id
             self._finished = job.finished
+            
+    @property
+    def _db(self):
+        return self._context.database
     
     @property
     def id(self):
@@ -166,7 +169,7 @@ class Job(object):
             await self._server.run(self)
             self._finished = True
             with self._context.database.scoped_session() as session:
-                job = session.sa_session.query(entities.Job).get(self._id)
+                job = session.sa_session.query(self._db.e.Job).get(self._id)
                 assert job
                 job.finished = True
             logger.info("Job {} finished. Name: {}".format(self._id, self._name))

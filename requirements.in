@@ -1,4 +1,5 @@
 # List of required dependencies
+attrs
 click
 numpy
 matplotlib

@@ -22,10 +22,6 @@ Whenever null is mentioned, this refers to any value `x` for which
 ``pandas.isnull(x)``
 '''
 
-from deep_genome.core.database.entities import (
-    DBEntity, Gene, GeneName, GeneNameQueryItem, GeneNameQuery, DataFile,
-    GeneMappingTable, AddGeneMappingQuery, AddGeneMappingQueryItem
-)
 from chicken_turtle_util import data_frame as df_
 from chicken_turtle_util.sqlalchemy import pretty_sql
 import sqlalchemy as sa
@@ -33,8 +29,10 @@ import sqlalchemy.sql as sql
 from sqlalchemy.orm import sessionmaker, aliased
 from contextlib import contextmanager
 from collections import namedtuple
+from ._entities import entities as create_entities
 import pandas as pd
 import logging
+import attr
 import os
 
 _logger = logging.getLogger('deep_genome.core.Database')
@@ -74,7 +72,15 @@ class Database(object):
         Password to log in with
     name : str
         Database name
-    
+    entities : {class.__name__ => class} or None
+        If not ``None``, entities to use. See
+        :meth:`deep_genome.core.database.entities`. Cannot be ``None`` if `tables`
+        is not ``None``. If ``None``, default entities are used.
+    tables : {name :: str => Table} or None
+        If not ``None``, tables to use. See
+        :meth:`deep_genome.core.database.entities`. Cannot be ``None`` if `entities`
+        is not ``None``. If ``None``, default tables are used.
+        
     Notes
     -----
     The database serves 2 main purposes: persistence and not having to store
@@ -85,11 +91,24 @@ class Database(object):
     else, other than in GeneName.
     '''
     
-    def __init__(self, context, host, user, password, name): 
+    def __init__(self, context, host, user, password, name, entities=None, tables=None): 
+        if (entities is None) != (tables is None):
+            raise ValueError(
+                'entities and tables must be either both None or both not None, '
+                'got:\nentities={},\ntables={}'.format(entities, tables)
+            )
+        
         self._context = context
         self._engine = sa.create_engine('mysql+pymysql://{}:{}@{}/{}'.format(user, password, host, name), echo=False)
         self._Session = sessionmaker(bind=self._engine)
         os.makedirs(str(_data_file_dir(context)), exist_ok=True)
+        
+        if entities is None:
+            entities, tables, _ = create_entities()
+                
+        self.e = attr.make_class('Entities', list(entities))(**entities)
+        self.t = attr.make_class('Tables', list(tables))(**tables)
+        self._meta_datas = {entity.metadata for entity in entities.values()} | {table.metadata for table in tables.values()}
         
     def dispose(self):
         '''
@@ -112,7 +131,7 @@ class Database(object):
         -------
         deep_genome.core.database.Session
         '''
-        session = Session(self._context, self._create_session())
+        session = Session(self._context, self._create_session(), self.e, self.t)
         try:
             yield session
             session.sa_session.commit()
@@ -135,7 +154,8 @@ class Database(object):
         '''
         Create all missing tables, constraints, ...
         '''
-        DBEntity.metadata.create_all(self._engine)
+        for meta_data in self._meta_datas:
+            meta_data.create_all(self._engine)
         
     def _create_session(self):
         return self._Session(bind=self._engine)
@@ -165,9 +185,11 @@ class Session(object):
     # Design note: when adding, allow the use of gene symbols (i.e. str); when
     # getting, require Gene instances
     
-    def __init__(self, context, session):
+    def __init__(self, context, session, entities, tables):
         self._context = context
         self._session = session
+        self.e = entities
+        self.t = tables
         
     @property
     def sa_session(self):
@@ -213,6 +235,10 @@ class Session(object):
                     raise ex
     
     def _add_unknown_genes(self, query_id):
+        Gene = self.e.Gene
+        GeneName = self.e.GeneName
+        GeneNameQueryItem = self.e.GeneNameQueryItem
+        
         select_missing_names_stmt = (
             self._session.query(GeneNameQueryItem.name)
             .distinct()
@@ -257,6 +283,10 @@ class Session(object):
             _logger.info('Added {} missing genes to database'.format(unknown_genes_count))
         
     def _get_genes_by_name(self, query_id, names, map_):
+        Gene = self.e.Gene
+        GeneName = self.e.GeneName
+        GeneNameQueryItem = self.e.GeneNameQueryItem
+        
         # Build query
         UnmappedGene = aliased(Gene)
         stmt = (  # Select existing genes by name
@@ -341,7 +371,7 @@ class Session(object):
         
         _logger.debug('Querying {} genes by name'.format(names.size))
         
-        with self.query(GeneNameQuery) as query:
+        with self.query(self.e.GeneNameQuery) as query:
             # Insert gene group for query
             if isinstance(names, pd.Series):
                 items = names.to_frame()
@@ -351,7 +381,7 @@ class Session(object):
             items['row'] = range(len(items))
             items = pd.melt(items, id_vars='row', var_name='column', value_name='name')
             items['query_id'] = query.id
-            self._session.bulk_insert_mappings(GeneNameQueryItem, items.to_dict('record'))
+            self._session.bulk_insert_mappings(self.e.GeneNameQueryItem, items.to_dict('record'))
             
             # Add any unknown genes (genes not in database)
             self._add_unknown_genes(query.id)
@@ -362,7 +392,7 @@ class Session(object):
         return genes
     
     def _create_data_file(self):
-        file = DataFile()
+        file = self.e.DataFile()
         self._session.add(file)
         self._session.flush()
         return file
@@ -393,10 +423,14 @@ class Session(object):
             one mapping and the destination side of another (or the same)
             mapping.
         '''
+        Gene = self.e.Gene
+        AddGeneMappingQueryItem = self.e.AddGeneMappingQueryItem
+        GeneMappingTable = self.t.GeneMappingTable
+        
         if mapping.empty:
             return
         
-        with self.query(AddGeneMappingQuery) as query:
+        with self.query(self.e.AddGeneMappingQuery) as query:
             # Get genes from database
             mapping = self.get_genes_by_name(mapping, _map=False).applymap(list)
             mapping = df_.split_array_like(mapping)
