@@ -2,7 +2,6 @@
 attrs
 click
 numpy
-matplotlib
 scipy
 scikit-learn
 pandas
@@ -11,14 +10,10 @@ bottleneck
 plumbum
 inflection
 more_itertools
-memory_profiler
 psutil
-pyxdg
-frozendict
 sqlalchemy
 pymysql
-sqlparse
 drmaa
 
--e /home/limyreth/doc/eclipse_workspace/chicken_turtle_util #[a, b, ...] #TODO add other things we use which were dumped above
+-e /home/limyreth/doc/eclipse_workspace/chicken_turtle_util[path,exceptions,inspect,data_frame,series,test,pymysql,sqlalchemy]
 #chicken-turtle-util==1.1.0
