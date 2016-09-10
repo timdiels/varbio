@@ -17,7 +17,7 @@
 
 from configparser import ConfigParser
 from chicken_turtle_util.test import temp_dir_cwd
-from deep_genome.core import Context, initialise
+from deep_genome.core import Context, patch
 from deep_genome.core.database import Credentials
 from pathlib import Path
 import logging
@@ -27,7 +27,7 @@ import pytest
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE, SIG_DFL) # Ignore SIGPIPE
 
-initialise()
+patch()
 
 @pytest.fixture(autouse=True, scope='session')
 def common_init():
