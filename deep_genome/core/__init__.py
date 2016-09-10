@@ -12,14 +12,9 @@ def initialise(): #TODO it should be known that this patches modules, so rename 
         return
     
     import plumbum as pb
-    import matplotlib
     import pandas as pd
     from chicken_turtle_util import pymysql as pymysql_
     from functools import wraps
-    
-    # init matplotlib
-    if not 'DISPLAY' in pb.local.env: #TODO we aren't even using this here, mv to CoExpNetViz
-        matplotlib.use('Agg')  # use this backend when no X server
     
     # various
     pymysql_.patch()
