@@ -36,6 +36,27 @@ except RuntimeError as ex:  # drmaa isn't always used, don't complain when it fa
     _drmaa_import_error = ex
 
 logger = logging.getLogger(__name__)
+
+class ExitCodeError(Exception):
+    
+    '''
+    Exit with non-zero exit code
+    '''
+    
+    def __init__(self, job, exit_code):
+        message = 'Job {} exited with non-zero exit code: {}'.format(job.id, exit_code)
+        
+        message += '\n\nCommand (split):\n{}'.format([job.executable] + list(job.args))
+        
+        stdout = path_.read(job.stdout_file).strip()
+        if stdout:
+            message += '\n\nstdout:\n{}'.format(stdout)
+        
+        stderr = path_.read(job.stderr_file).strip()
+        if stderr:
+            message += '\n\nstderr:\n{}'.format(stderr)
+            
+        super().__init__(message)
     
 class Job(object):
     
@@ -260,7 +281,7 @@ class LocalJobServer(JobServer):
                     await _kill(process.pid)
                     raise
                 if return_code != 0:
-                    raise Exception('Job {} exited with non-zero exit code: {}'.format(job.id, return_code))
+                    raise ExitCodeError(job, return_code)
     
 class DRMAAJobServer(JobServer):
     
@@ -328,7 +349,7 @@ class DRMAAJobServer(JobServer):
         elif not result.hasExited:
             raise Exception('Job {} did not exit normally'.format(job.id))
         elif result.hasExited and result.exitStatus != 0:
-            raise Exception('Job {} exited with non-zero exit code: {}'.format(job.id, result.exitStatus))
+            raise ExitCodeError(job, result.exitStatus)
         logger.debug("Job {}'s resource usage was: {}".format(job.id, result.resourceUsage))
         
     def dispose(self):
