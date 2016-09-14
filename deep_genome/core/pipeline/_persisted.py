@@ -19,7 +19,7 @@ import asyncio
 from chicken_turtle_util import path as path_, inspect as inspect_
 from chicken_turtle_util.exceptions import InvalidOperationError
 from functools import wraps
-from ._various import _call_repr
+from ._various import _call_repr, fully_qualified_name
 import logging
 import inspect
 
@@ -95,7 +95,7 @@ def persisted(call_repr=None, exclude_args=()): #TODO the changes from moving ca
         if not asyncio.iscoroutinefunction(f):
             raise ValueError('Function to decorate must be a coroutine function')
         
-        function_name = inspect_.fully_qualified_name(f)
+        function_name = fully_qualified_name(f)
             
         argspec = inspect.getfullargspec(f)
         if 'context' not in argspec.args and 'context' not in argspec.kwonlyargs and not argspec.varkw:

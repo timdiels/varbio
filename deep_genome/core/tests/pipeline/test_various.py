@@ -19,7 +19,7 @@
 Test deep_genome.core.pipeline._various
 '''
 
-from deep_genome.core.pipeline import pipeline_cli, call_repr
+from deep_genome.core.pipeline import pipeline_cli, call_repr, fully_qualified_name
 import subprocess
 import asyncio
 import pytest
@@ -74,6 +74,21 @@ def selfterm_command():
     return pipeline_cli(selfterm, version='1.0.0')
 selfterm_command = selfterm_command()
 
+def test_fully_qualified_name():
+    '''
+    Assert for top-level and nested function that: 
+    
+    - it contains the module name,
+    - names of nesting scopes leading up to it (e.g. test_fully_qualified_name in the case below),
+    - its own name
+    '''
+    expected = __name__ + '.test_fully_qualified_name'
+    assert fully_qualified_name(test_fully_qualified_name) == expected
+    
+    def f():
+        pass
+    assert fully_qualified_name(f) == expected + '.<locals>.f'
+    
 def test_call_repr():
     @call_repr(exclude_args={})
     def f(context, call_repr_):
