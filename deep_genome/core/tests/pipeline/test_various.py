@@ -136,8 +136,27 @@ def test_fully_qualified_name():
     assert fully_qualified_name(f) == expected + '.<locals>.f'
     
 def test_call_repr():
-    @call_repr(exclude_args={})
-    def f(context, call_repr_):
+    @call_repr()
+    def f(a, b=2, *myargs, call_repr_, x=1, **mykwargs):
         return call_repr_
-    assert f(1) == 'deep_genome.core.tests.pipeline.test_various.test_call_repr.<locals>.f()'
+    
+    name = fully_qualified_name(f)
+    assert f(1) == name + '(*args=(), a=1, b=2, x=1)'
+    assert f(1, 2, 3, x=10, y=20) == name + '(*args=(3,), a=1, b=2, x=10, y=20)'
+    
+    @call_repr()
+    def f2(b, a, call_repr_):
+        return call_repr_
+    assert f2(1, 2) == fully_qualified_name(f2) + '(a=2, b=1)'
+    
+    f3 = call_repr(exclude_args={'a'})(f2.__wrapped__)
+    assert f3(1, 2) == fully_qualified_name(f3) + '(b=1)'
+    
+    f4 = call_repr(exclude_args={'a', 'b'})(f2.__wrapped__)
+    assert f4(1, 2) == fully_qualified_name(f4) + '()'
+    
+    @call_repr(exclude_args={})
+    def f5(context, call_repr_):
+        return call_repr_
+    assert f5(1) == fully_qualified_name(f5) + '()'
     
