@@ -20,34 +20,81 @@ Test deep_genome.core.pipeline._various
 '''
 
 from deep_genome.core.pipeline import pipeline_cli, call_repr, fully_qualified_name
+from chicken_turtle_util import path as path_
+from chicken_turtle_util.test import reset_logging
+from pathlib import Path
 import subprocess
 import asyncio
 import pytest
 import psutil
+import logging
 import os
-from click.testing import CliRunner
+import re
 
 class TestPipelineCLI(object):
     
-    def test_success(self, event_loop):
+    @pytest.fixture
+    def reset_logging(self, reset_logging):
+        # Silence asyncio
+        # Note: needs to be done before the event_loop fixture to prevent
+        #   "DEBUG Using selector: EpollSelector"
+        logging.getLogger('asyncio').setLevel(logging.INFO)
+        
+    @pytest.fixture(autouse=True)
+    def autouse(self, reset_logging, event_loop, temp_dir_cwd):
+        # event_loop resets the event loop, used by pipeline_cli
+        # temp dir is needed as log file is written to pipeline.conf in cwd
+        pass
+    
+    def test_success(self):
         '''
         When target job succeeds, exit zero and notify user
         '''
         async def succeeds():
             pass
-        main = pipeline_cli(succeeds, version='1.0.0')
-        result = CliRunner().invoke(main, catch_exceptions=False)
-        assert result.exit_code == 0
+        pipeline_cli(succeeds(), debug=False)
          
-    def test_fail(self, event_loop):
+    def test_fail(self):
         '''
         When target job fails, exit non-zero and notify user
         '''
         async def raises():
+            await asyncio.sleep(1)
             raise Exception('error')
-        main = pipeline_cli(raises, version='1.0.0')
-        result = CliRunner().invoke(main)
-        assert result.exit_code != 0
+        future = raises()
+        with pytest.raises(SystemExit) as ex:
+            pipeline_cli(future, debug=False)
+        assert ex.value.code != 0
+        
+    @pytest.mark.parametrize('debug', (False, True))
+    def test_logging(self, debug, capsys):
+        '''
+        Test all logging
+        '''
+        # Run
+        async def succeeds():
+            logger = logging.getLogger('deep_genome.core.pipeline')
+            logger.info('Fake info')
+            logger.debug('Fake debug')
+        pipeline_cli(succeeds(), debug)
+        
+        # stderr
+        #
+        # - level is DEBUG if debug, else INFO
+        # - terse log format
+        stderr = 'I: Fake info\n'
+        if debug:
+            stderr += 'D: Fake debug\n'
+        assert capsys.readouterr()[1] == stderr #TODO how --nocapturelog on just this test?
+        
+        # log file
+        #
+        # - regardless of debug mode, level is DEBUG
+        # - long format with fairly unambiguous source
+        lines = path_.read(Path('pipeline.log')).splitlines()
+        infix = r' [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2},[0-9]{3} deep_genome.core.pipeline \(test_various:[0-9]+\): '
+        assert re.match('I' + infix + 'Fake info', lines[0])
+        assert re.match('D' + infix + 'Fake debug', lines[1])
          
     @pytest.mark.asyncio
     async def test_sigterm(self, temp_dir_cwd):  # temp_dir_cwd as dg-tests-pipeline-cli-forever puts cache in local directory
@@ -57,7 +104,7 @@ class TestPipelineCLI(object):
         process = await asyncio.create_subprocess_exec('dg-tests-pipeline-cli-selfterm', stdout=subprocess.PIPE)
         stdout, _ = await process.communicate()
         assert process.returncode != 0
-        assert 'forever cancelled' in stdout.decode('utf-8')
+        assert 'Forever cancelled' in stdout.decode()
         
 # dg-tests-pipeline-cli-forever
 def selfterm_command():
@@ -69,10 +116,9 @@ def selfterm_command():
             psutil.Process(os.getpid()).terminate()
             await asyncio.sleep(99999)
         except asyncio.CancelledError:
-            print('forever cancelled')
+            print('Forever cancelled')
             raise
-    return pipeline_cli(selfterm, version='1.0.0')
-selfterm_command = selfterm_command()
+    pipeline_cli(selfterm(), debug=False)
 
 def test_fully_qualified_name():
     '''

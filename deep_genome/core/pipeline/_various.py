@@ -22,44 +22,44 @@ import traceback
 import sys
 import signal
 import logging
-import click
 
-def pipeline_cli(main, version):
-    
+def pipeline_cli(main, debug):
     '''
-    Get CLI frontend to running a pipeline
+    Run/resume pipeline as CLI front/mid-end
     
-    It takes care of details such as handling interrupt signals.
+    It handles interrupt signals, prints status messages, ...
+    
+    Fault tolerance:
+        
+    - When signal interrupted (SIGTERM), stops all jobs and gracefully exits.
+    The run can be resumed correctly on a next invocation.
+    
+    - When killed (SIGKILL), or when server has power failure, or when
+    errors like out-of-memory raised, simply crash. Before resuming you
+    should kill any jobs started by the pipeline. Jobs that finished before
+    SIGKILL arrived, will not be rerun
     
     Parameters
     ----------
-    main : async () -> None
-        Main coroutine function of the pipeline to call.
-    version : str
-        Pipeline version, e.g. ``1.0.0``.
+    main : awaitable
+        An awaitable that runs the pipeline when awaited
+    debug : bool
+        If True, enable debug mode, e.g. more detailed output.
         
-    Returns
-    -------
-    click.Command
-    
     Examples
     --------
     ::
         # main.py
         from deep_genome.core.pipeline import pipeline_cli
         
-        version = '1.0.0'
-        
-        async def _main():
+        async def main():
             print('Hello world')
-            
-        main = pipeline_cli(_main, version)
         
         # Tip: If you distribute your package using setup.py, use
         # `setup(entry_points={'console_scripts': [...]})` instead of the
         # following
         if __name__ == '__main__':
-            main()
+            pipeline_cli(main(), False)
             
     Now on the command line::
     
@@ -67,62 +67,45 @@ def pipeline_cli(main, version):
         Hello world
         Pipeline: run completed
     '''
+    #TODO update example (some of that log messages)
+    #TODO maybe one small test to check: debug, and also check for log file in both cases
     
-    #TODO maybe one small test to check:
-    # --debug, and also check for log file in both cases
+    loop = asyncio.get_event_loop()
+    task = asyncio.ensure_future(main)
+    loop.add_signal_handler(signal.SIGTERM, task.cancel)
+    
+    # Note: do not use logging.basicConfig as it does not play along with caplog in testing
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)  # handlers will cut down on this
+    
+    # log info or debug to stderr in terse format (details go in log file, not stderr)
+    stderr_handler = logging.StreamHandler() # to stderr
+    stderr_handler.setLevel(logging.DEBUG if debug else logging.INFO)
+    stderr_handler.setFormatter(logging.Formatter('{levelname[0]}: {message}', style='{'))
+    root_logger.addHandler(stderr_handler)
+    
+    # log debug and higher to file in long format
+    file_handler = logging.FileHandler('pipeline.log')
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter('{levelname[0]} {asctime} {name} ({module}:{lineno}): {message}', style='{'))
+    root_logger.addHandler(file_handler)
+    
     #
-    # and another for (parametrize -h, --help; assert output string matches exactly some manually checked str):
-    # --version (correct version printed too)
-    # -h, --help
-    @click.command(context_settings={'help_option_names': ['-h', '--help']})
-    @click.version_option(version=version)
-    @click.option('--debug/--no-debug', default=False, help='Verbose debug output')
-    def _main(debug):
-        '''
-        Run/resume the pipeline
-        
-        Fault tolerance:
-        
-        - When signal interrupted (SIGTERM), stops all jobs and gracefully exits.
-        The run can be resumed correctly on a next invocation.
-        
-        - When killed (SIGKILL), or when server has power failure, or when
-        errors like out-of-memory raised, simply crash. Before resuming you
-        should kill any jobs started by the pipeline. Jobs that finished before
-        SIGKILL arrived, will not be rerun
-        '''
-        loop = asyncio.get_event_loop()
-        task = asyncio.ensure_future(main())
-        loop.add_signal_handler(signal.SIGTERM, task.cancel)
-        
-        # Note: keep stdout/stderr readable, even when debugging. Full unambiguous details are sent to a log file
-        if debug:
-            level = logging.DEBUG
-        else:
-            level = logging.INFO
-        logging.basicConfig(level=level, format='{levelname[0]}: {message}', style='{')  # log info to stdout in terse format
-        root_logger = logging.getLogger()  # log debug and higher to file
-        file_handler = logging.FileHandler('pipeline.log')
-        file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(logging.Formatter('{levelname[0]} {asctime} {name} ({module}:{lineno}): {message}', style='{'))
-        root_logger.addHandler(file_handler)
-        
-        try:
-            loop.run_until_complete(task)
-        except asyncio.CancelledError:
-            print()
-            print('Pipeline: run cancelled')
-            sys.exit(1)
-        except Exception:
-            traceback.print_exc()
-            print()
-            print('Pipeline: run failed to complete')
-            sys.exit(1)
-        finally:
-            loop.close()
+    try:
+        loop.run_until_complete(task)
+    except asyncio.CancelledError:
         print()
-        print('Pipeline: run completed')
-    return _main
+        print('Pipeline: run cancelled')
+        sys.exit(1)
+    except Exception:
+        traceback.print_exc()
+        print()
+        print('Pipeline: run failed to complete')
+        sys.exit(1)
+    finally:
+        loop.close()
+    print()
+    print('Pipeline: run completed')
 
 def call_repr(call_repr=None, exclude_args=()): #TODO update the example
     '''
