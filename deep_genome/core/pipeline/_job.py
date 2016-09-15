@@ -285,8 +285,8 @@ class LocalJobServer(JobServer):
     context : deep_genome.core.Context
     jobs_directory : pathlib.Path or None
         Directory in which to create working directories for jobs. If ``None``,
-        a subdirectory of XDG_CACHE_DIR will be used.
-    '''
+        a subdirectory of context.cache_directory will be used.
+    ''' #TODO probably want require explicitly specify jobs_directory 
     
     def __init__(self, context, jobs_directory=None):
         super().__init__(context)
