@@ -25,11 +25,6 @@ from pathlib import Path
 import plumbum as pb
 from contextlib import suppress
 
-# Note: Libraries other than drmaa I considered:
-# - gridmap (GPL, thus not compatible with our LGPL project)
-# - https://bitbucket.org/markoristin/a-python-wrapper-for-sun-grid-engine (GPL)
-# - https://github.com/hbristow/gridengine (GPL)
-# - https://github.com/jiahao/PySGE (no setup.py)
 try:
     import drmaa
     _drmaa_import_error = None
