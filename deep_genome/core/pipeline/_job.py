@@ -17,6 +17,7 @@
 
 import asyncio
 import logging
+import attr
 import os
 from chicken_turtle_util import path as path_
 from chicken_turtle_util.exceptions import InvalidOperationError
@@ -43,16 +44,16 @@ class ExitCodeError(Exception):
     Exit with non-zero exit code
     '''
     
-    def __init__(self, job, exit_code):
-        message = 'Job {} exited with non-zero exit code: {}'.format(job.id, exit_code)
+    def __init__(self, job_data, exit_code):
+        message = 'Job {} exited with non-zero exit code: {}'.format(job_data.id, exit_code)
         
-        message += '\n\nCommand (split):\n{}'.format([job.executable] + list(job.args))
+        message += '\n\nCommand (split):\n{}'.format([job_data.executable] + list(job_data.arguments))
         
-        stdout = path_.read(job.stdout_file).strip()
+        stdout = path_.read(job_data.stdout_file).strip()
         if stdout:
             message += '\n\nstdout:\n{}'.format(stdout)
         
-        stderr = path_.read(job.stderr_file).strip()
+        stderr = path_.read(job_data.stderr_file).strip()
         if stderr:
             message += '\n\nstderr:\n{}'.format(stderr)
             
@@ -67,12 +68,6 @@ class Job(object):
     
     Parameters
     ----------
-    command : [any]
-        ``str(command[0])`` is the executable (script with shebang or binary)
-        to execute, ``map(str, command[1:])`` are the args to pass it. The
-        executable is looked up using the PATH env var if it's not absolute.
-    server : JobServer
-        Server to submit job to for execution.
     name : str
         Unique job name. May use any characters, even whitespace (and nul
         characters), but it's recommended to keep it readable.
@@ -92,13 +87,22 @@ class Job(object):
                 name = format_call(create_job, arg1, arg2)
                 return Job(name, server, ['command', arg1, arg2])
                 
-    server_args : str
+    server : JobServer
+        Server to submit job to for execution.
+    command : [any]
+        ``str(command[0])`` is the executable (script with shebang or binary)
+        to execute, ``map(str, command[1:])`` are the args to pass it. The
+        executable is looked up using the PATH env var if it's not absolute.
+    server_arguments : str
         Additional arguments specific to the job server. E.g. in DRMAAJobServer
         this corresponds to the `native specification`_, which in the case of
         SGE or OGS is a string of options given to qsub (according to
         http://linux.die.net/man/3/drmaa_attributes).
+    on_directory_created : ((Job) -> None) or None
+        Hook function called right after the job directory has been created, but
+        before the job has been submitted.
         
-        .. _native specification: http://gridscheduler.sourceforge.net/javadocs/org/ggf/drmaa/JobTemplate.html#setNativeSpecification(java.lang.String)
+    .. _native specification: http://gridscheduler.sourceforge.net/javadocs/org/ggf/drmaa/JobTemplate.html#setNativeSpecification(java.lang.String)
     '''
     
     # Note: If you get "drmaa.errors.DeniedByDrmException: code 17: error: no
@@ -107,13 +111,10 @@ class Job(object):
     # configured for it (see 
     # http://gridscheduler.sourceforge.net/howto/commonproblems.html#interactive)
     
-    def __init__(self, name, server, command, server_args=None):
+    def __init__(self, name, server, command, server_arguments=None, on_directory_created=None):
         self._context = server.context
         command = [str(x) for x in command]
-        self._executable = Path(str(pb.local[command[0]].executable))
-        self._args = command[1:]
         self._server = server
-        self._server_args = server_args
         
         if name in self._context._jobs:
             raise ValueError('A Job already exists with this name: ' + name)
@@ -128,53 +129,28 @@ class Job(object):
                 job = self._db.e.Job(name=name, finished=False)
                 sa_session.add(job)
                 sa_session.flush()
-            self._id = job.id
+            id_ = job.id
             self._finished = job.finished
+        
+        # on_directory_created
+        if on_directory_created:
+            _on_directory_created = lambda: on_directory_created(self)
+        else:
+            _on_directory_created = lambda: None
+        
+        # _data
+        self._data = _JobData(
+            id=id_,
+            executable=Path(str(pb.local[command[0]].executable)),
+            arguments=command[1:],
+            server_arguments=server_arguments,
+            on_directory_created=_on_directory_created,
+            server_directory=self._server.get_directory(id_)
+        )
             
     @property
     def _db(self):
         return self._context.database
-    
-    @property
-    def id(self):
-        return self._id
-    
-    @property
-    def executable(self):
-        return self._executable
-    
-    @property
-    def args(self):
-        return self._args
-    
-    @property
-    def server_args(self):
-        return self._server_args
-    
-    @property
-    def directory(self):
-        '''
-        Get working directory
-        '''
-        return self._server.get_directory(self) / 'output'
-    
-    @property
-    def stderr_file(self):
-        '''
-        Returns
-        -------
-        pathlib.Path
-        '''
-        return self._server.get_directory(self) / 'stderr'
-    
-    @property
-    def stdout_file(self):
-        '''
-        Returns
-        -------
-        pathlib.Path
-        '''
-        return self._server.get_directory(self) / 'stdout'
     
     async def run(self):
         '''
@@ -183,22 +159,22 @@ class Job(object):
         If job has already been run successfully before, return immediately.
         '''
         if self._finished:
-            logger.debug("Job {} already finished, not rerunning. Name: {}".format(self._id, self._name))
+            logger.debug("Job {} already finished, not rerunning. Name: {}".format(self._data.id, self._name))
             return
         try:
-            logger.info("Job {} started. Name: {}".format(self._id, self._name))
-            await self._server.run(self)
+            logger.info("Job {} started. Name: {}".format(self._data.id, self._name))
+            await self._server.run(self._data)
             self._finished = True
             with self._context.database.scoped_session() as session:
-                job = session.sa_session.query(self._db.e.Job).get(self._id)
+                job = session.sa_session.query(self._db.e.Job).get(self._data.id)
                 assert job
                 job.finished = True
-            logger.info("Job {} finished. Name: {}".format(self._id, self._name))
+            logger.info("Job {} finished. Name: {}".format(self._data.id, self._name))
         except asyncio.CancelledError:
-            logger.info("Job {} cancelled. Name: {}".format(self._id, self._name))
+            logger.info("Job {} cancelled. Name: {}".format(self._data.id, self._name))
             raise
         except Exception as ex:
-            logger.info("Job {} failed. Name: {}".format(self._id, self._name))
+            logger.info("Job {} failed. Name: {}".format(self._data.id, self._name))
             raise
             
     def __str__(self):
@@ -207,12 +183,63 @@ class Job(object):
             name = self._name[:max_] + '...'
         else:
             name = self._name
-        return 'Job(id={}, name={!r})'.format(self._id, name)
+        return 'Job({!r}, {!r})'.format(self._id, name)
     
     def __repr__(self):
-        return 'Job(id={!r})'.format(self._id)
+        return 'Job({!r})'.format(self._id)
+    
+    def __getattr__(self, attr):
+        if attr in ('directory', 'stderr_file', 'stdout_file'):
+            return getattr(self._data, attr)
+    
+@attr.s(frozen=True)
+class _JobData(object):
+    
+    id = attr.ib()
+    executable = attr.ib()
+    arguments = attr.ib()
+    server_arguments = attr.ib()
+    on_directory_created = attr.ib()
+    
+    server_directory = attr.ib()
+    '''
+    Directory on server with all of the job's files
+    '''
+    
+    @property
+    def directory(self):
+        '''
+        Get working directory
         
-class JobServer(object):
+        Returns
+        -------
+        pathlib.Path
+        '''
+        return self.server_directory / 'output'
+    
+    @property
+    def stderr_file(self):
+        '''
+        Get path to stderr output file
+        
+        Returns
+        -------
+        pathlib.Path
+        '''
+        return self.server_directory / 'stderr'
+    
+    @property
+    def stdout_file(self):
+        '''
+        Get path to stdout output file
+        
+        Returns
+        -------
+        pathlib.Path
+        '''
+        return self.server_directory / 'stdout'
+        
+class JobServer(object): #TODO composition instead of inheritance
     
     def __init__(self, context):
         self._context = context
@@ -221,27 +248,33 @@ class JobServer(object):
     def context(self):
         return self._context
     
-    def get_directory(self, job):
+    def get_directory(self, job_id):
         '''
         Get directory in which a job's data is stored
+        
+        Parameters
+        ----------
+        job_id : int
+            Id of job
         '''
         raise NotImplementedError()
     
-    async def run(self, job):
+    async def run(self, job_data):
         '''
         Internal, use `Job.run` instead. Add job to queue and run it
         
         Parameters
         ----------
-        job : Job
+        job_data : _JobData
         '''
-        path_.remove(self.get_directory(job), force=True)  # remove left overs from a previous (failed) run
-        os.makedirs(str(job.directory), exist_ok=True)
+        path_.remove(job_data.server_directory, force=True)  # remove left overs from a previous (failed) run
+        os.makedirs(str(job_data.directory), exist_ok=True)
+        job_data.on_directory_created()
         
-        await self._run(job)
+        await self._run(job_data)
     
         # Make job data dir read only
-        for dir_, _, files in os.walk(str(self.get_directory(job))):
+        for dir_, _, files in os.walk(str(job_data.server_directory)):
             dir_ = Path(dir_)
             dir_.chmod(0o500)
             for file in files:
@@ -267,21 +300,23 @@ class LocalJobServer(JobServer):
         else:
             self._jobs_directory = self._context.cache_directory / 'jobs'
         
-    def get_directory(self, job):
-        return self._jobs_directory / str(job.id)
+    def get_directory(self, job_id):
+        return self._jobs_directory / str(job_id)
         
-    async def _run(self, job): # assuming a fresh job dir, run
-        with job.stdout_file.open('w') as stdout:
-            with job.stderr_file.open('w') as stderr:
-                args = [str(job.executable)] + job.args
-                process = await asyncio.create_subprocess_exec(*args, cwd=str(job.directory), stdout=stdout, stderr=stderr)
+    async def _run(self, job_data): # assuming a fresh job dir, run
+        if job_data.server_arguments:
+            raise ValueError('LocalJobServer does not recognise any server arguments, got: {}'.format(job_data.server_arguments))
+        with job_data.stdout_file.open('w') as stdout:
+            with job_data.stderr_file.open('w') as stderr:
+                args = [str(job_data.executable)] + job_data.arguments
+                process = await asyncio.create_subprocess_exec(*args, cwd=str(job_data.directory), stdout=stdout, stderr=stderr)
                 try:
                     return_code = await process.wait()
                 except asyncio.CancelledError:
                     await _kill(process.pid)
                     raise
                 if return_code != 0:
-                    raise ExitCodeError(job, return_code)
+                    raise ExitCodeError(job_data, return_code)
     
 class DRMAAJobServer(JobServer):
     
@@ -312,22 +347,22 @@ class DRMAAJobServer(JobServer):
         DRMAAJobServer._session = drmaa.Session()
         DRMAAJobServer._session.initialize()
         
-    def get_directory(self, job):
-        return self._jobs_directory / str(job.id)
+    def get_directory(self, job_id):
+        return self._jobs_directory / str(job_id)
     
-    async def _run(self, job): # assuming a fresh job dir, run
+    async def _run(self, job_data): # assuming a fresh job dir, run
         loop = asyncio.get_event_loop()
         
         # Submit job
         job_template = DRMAAJobServer._session.createJobTemplate()
         try:
-            job_template.workingDirectory = str(job.directory)
-            job_template.outputPath = ':' + str(job.stdout_file)
-            job_template.errorPath = ':' + str(job.stderr_file)
-            job_template.remoteCommand = str(job.executable)
-            job_template.args = job.args
-            if job.server_args:
-                job_template.nativeSpecification = job.server_args
+            job_template.workingDirectory = str(job_data.directory)
+            job_template.outputPath = ':' + str(job_data.stdout_file)
+            job_template.errorPath = ':' + str(job_data.stderr_file)
+            job_template.remoteCommand = str(job_data.executable)
+            job_template.args = job_data.arguments
+            if job_data.server_arguments:
+                job_template.nativeSpecification = job_data.server_arguments
             job_id = await loop.run_in_executor(None, DRMAAJobServer._session.runJob, job_template)
         finally:
             DRMAAJobServer._session.deleteJobTemplate(job_template)
@@ -343,14 +378,14 @@ class DRMAAJobServer(JobServer):
         
         # Check result
         if result.wasAborted:
-            raise Exception('Job {} was aborted before it even started running'.format(job.id))
+            raise Exception('Job {} was aborted before it even started running'.format(job_data))
         elif result.hasSignal:
-            raise Exception('Job {} was killed with signal {}'.format(job.id, result.terminatedSignal))
+            raise Exception('Job {} was killed with signal {}'.format(job_data, result.terminatedSignal))
         elif not result.hasExited:
-            raise Exception('Job {} did not exit normally'.format(job.id))
+            raise Exception('Job {} did not exit normally'.format(job_data))
         elif result.hasExited and result.exitStatus != 0:
-            raise ExitCodeError(job, result.exitStatus)
-        logger.debug("Job {}'s resource usage was: {}".format(job.id, result.resourceUsage))
+            raise ExitCodeError(job_data, result.exitStatus)
+        logger.debug("Job {}'s resource usage was: {}".format(job_data, result.resourceUsage))
         
     def dispose(self):
         '''

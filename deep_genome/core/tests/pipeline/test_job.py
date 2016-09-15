@@ -223,13 +223,14 @@ class TestJob(object):
         '''
         job1 = Job('job1', server, ['sh', '-c', 'pwd; echo $$; echo stderr >&2; echo extra; touch file; mkdir dir'])
         
-        dir_ = server.get_directory(job1)
+        dir_ = server.get_directory(job1._data.id)
         if isinstance(server, LocalJobServer):
-            assert dir_ == context.cache_directory / 'jobs' / str(job1.id)
+            expected = context.cache_directory / 'jobs' / str(job1._data.id)
         else:
-            assert dir_ == Path(test_conf['drmaa_jobs_directory']) / str(job1.id)
+            expected = Path(test_conf['drmaa_jobs_directory']) / str(job1._data.id)
+        assert dir_ == expected
              
-        assert job1.directory != server.get_directory(job1)
+        assert job1.directory != server.get_directory(job1._data.id)
             
         await job1.run()
         
@@ -254,6 +255,18 @@ class TestJob(object):
             for file in files:
                 assert ((dir_ / file).stat().st_mode & 0o777) == 0o400
                 
+    @pytest.mark.asyncio
+    async def test_on_directory_created(self, server):
+        '''
+        Call on_directory_created after creating a job's directory, before
+        running the job
+        '''
+        job1 = Job('job1', server, ['sh', '-c', '[ -e file ]; echo $?'], on_directory_created=lambda job: (job.directory / 'file').touch())
+        file = job1.directory / 'file'
+        assert not file.exists() 
+        await job1.run()
+        assert file.exists()
+                
 class TestLocalJobServer(object):
     
     '''
@@ -262,8 +275,7 @@ class TestLocalJobServer(object):
     
     def test_custom_jobs_directory(self, context):
         server = LocalJobServer(context, Path('jobs'))
-        job1 = Job('job1', server, ['true'])
-        assert server.get_directory(job1) == Path('jobs') / str(job1.id)
+        assert server.get_directory(1) == Path('jobs/1')
           
 class TestDRMAAJobServer(object):
         
