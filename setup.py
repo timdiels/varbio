@@ -168,7 +168,8 @@ setup(
                     'deep_genome.core.database',
                     'deep_genome.core.pipeline',
                     'deep_genome.core.tests',
-                    'deep_genome.core.tests.pipeline'],
+                    'deep_genome.core.tests.pipeline',
+                    'deep_genome.core.tests.pipeline.local'],
     'url': 'https://gitlab.psb.ugent.be/deep_genome/core',
     'version': '0.0.0'}
 )

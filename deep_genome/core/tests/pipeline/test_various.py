@@ -22,7 +22,6 @@ Test deep_genome.core.pipeline._various
 from deep_genome.core.pipeline import pipeline_cli, call_repr
 from deep_genome.core.pipeline._various import _fully_qualified_name
 from chicken_turtle_util import path as path_
-from chicken_turtle_util.test import reset_logging
 from pathlib import Path
 import subprocess
 import asyncio
@@ -31,21 +30,32 @@ import psutil
 import logging
 import os
 import re
+from textwrap import dedent
 
 class TestPipelineCLI(object):
     
     @pytest.fixture
-    def reset_logging(self, reset_logging):
-        # Silence asyncio
-        # Note: needs to be done before the event_loop fixture to prevent
-        #   "DEBUG Using selector: EpollSelector"
-        logging.getLogger('asyncio').setLevel(logging.INFO)
+    def silent_asyncio(self):
+        '''
+        Silence asyncio
         
-    @pytest.fixture(autouse=True)
-    def autouse(self, reset_logging, event_loop, temp_dir_cwd):
-        # event_loop resets the event loop, used by pipeline_cli
-        # temp dir is needed as log file is written to pipeline.conf in cwd
-        pass
+        Needs to be done before the event_loop fixture to prevent
+        "DEBUG Using selector: EpollSelector"
+        '''
+        logging.getLogger('asyncio').setLevel(logging.WARNING)
+        
+    @pytest.yield_fixture(autouse=True)
+    def autouse(self, silent_asyncio, event_loop, temp_dir_cwd, caplog):
+        # Note: event_loop resets the event loop, used by pipeline_cli
+        # Note: temp dir is needed as log file is written to pipeline.conf in cwd
+        yield
+        
+        # Cleanup any handlers added by pipeline_cli
+        logger = logging.getLogger()
+        for handler in logger.handlers[:]:
+            if handler != caplog.handler:
+                logger.removeHandler(handler)
+                handler.close()
     
     def test_success(self):
         '''
@@ -86,16 +96,25 @@ class TestPipelineCLI(object):
         stderr = 'I: Fake info\n'
         if debug:
             stderr += 'D: Fake debug\n'
-        assert capsys.readouterr()[1] == stderr #TODO how --nocapturelog on just this test?
+        actual = capsys.readouterr()[1]
+        assert actual == stderr, '\n{}\n---\n{}'.format(actual, stderr)
         
         # log file
         #
         # - regardless of debug mode, level is DEBUG
         # - long format with fairly unambiguous source
-        lines = path_.read(Path('pipeline.log')).splitlines()
-        infix = r' [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2},[0-9]{3} deep_genome.core.pipeline \(test_various:[0-9]+\): '
-        assert re.match('I' + infix + 'Fake info', lines[0])
-        assert re.match('D' + infix + 'Fake debug', lines[1])
+        log_file_content = path_.read(Path('pipeline.log'))
+        infix = r' [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2},[0-9]{3} deep_genome.core.pipeline \(test_various:[0-9]+\):'
+        pattern = dedent('''\
+            I{0}
+            Fake info
+             
+            D{0}
+            Fake debug
+            '''
+            .format(infix)
+        )
+        assert re.match(pattern, log_file_content, re.MULTILINE)
          
     @pytest.mark.asyncio
     async def test_sigterm(self, temp_dir_cwd):  # temp_dir_cwd as dg-tests-pipeline-cli-forever puts cache in local directory

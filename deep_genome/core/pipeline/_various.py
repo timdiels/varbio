@@ -87,7 +87,7 @@ def pipeline_cli(main, debug):
     # log debug and higher to file in long format
     file_handler = logging.FileHandler('pipeline.log')
     file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(logging.Formatter('{levelname[0]} {asctime} {name} ({module}:{lineno}): {message}', style='{'))
+    file_handler.setFormatter(logging.Formatter('{levelname[0]} {asctime} {name} ({module}:{lineno}):\n{message}\n', style='{'))
     root_logger.addHandler(file_handler)
     
     #
