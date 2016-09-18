@@ -217,9 +217,9 @@ def format_call(f, kwargs):
         Formatted function call
     '''
     if not isinstance(f, str):
-        f = fully_qualified_name(f)
+        f = _fully_qualified_name(f)
     kwargs = ', '.join('{}={!r}'.format(key, value) for key, value in sorted(kwargs.items()))
     return '{}({})'.format(f, kwargs)
     
-def fully_qualified_name(f):
+def _fully_qualified_name(f):
     return '{}.{}'.format(f.__module__, f.__qualname__)

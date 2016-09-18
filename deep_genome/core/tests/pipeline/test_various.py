@@ -19,7 +19,8 @@
 Test deep_genome.core.pipeline._various
 '''
 
-from deep_genome.core.pipeline import pipeline_cli, call_repr, fully_qualified_name
+from deep_genome.core.pipeline import pipeline_cli, call_repr
+from deep_genome.core.pipeline._various import _fully_qualified_name
 from chicken_turtle_util import path as path_
 from chicken_turtle_util.test import reset_logging
 from pathlib import Path
@@ -129,34 +130,34 @@ def test_fully_qualified_name():
     - its own name
     '''
     expected = __name__ + '.test_fully_qualified_name'
-    assert fully_qualified_name(test_fully_qualified_name) == expected
+    assert _fully_qualified_name(test_fully_qualified_name) == expected
     
     def f():
         pass
-    assert fully_qualified_name(f) == expected + '.<locals>.f'
+    assert _fully_qualified_name(f) == expected + '.<locals>.f'
     
 def test_call_repr():
     @call_repr()
     def f(a, b=2, *myargs, call_repr_, x=1, **mykwargs):
         return call_repr_
     
-    name = fully_qualified_name(f)
+    name = _fully_qualified_name(f)
     assert f(1) == name + '(*args=(), a=1, b=2, x=1)'
     assert f(1, 2, 3, x=10, y=20) == name + '(*args=(3,), a=1, b=2, x=10, y=20)'
     
     @call_repr()
     def f2(b, a, call_repr_):
         return call_repr_
-    assert f2(1, 2) == fully_qualified_name(f2) + '(a=2, b=1)'
+    assert f2(1, 2) == _fully_qualified_name(f2) + '(a=2, b=1)'
     
     f3 = call_repr(exclude_args={'a'})(f2.__wrapped__)
-    assert f3(1, 2) == fully_qualified_name(f3) + '(b=1)'
+    assert f3(1, 2) == _fully_qualified_name(f3) + '(b=1)'
     
     f4 = call_repr(exclude_args={'a', 'b'})(f2.__wrapped__)
-    assert f4(1, 2) == fully_qualified_name(f4) + '()'
+    assert f4(1, 2) == _fully_qualified_name(f4) + '()'
     
     @call_repr(exclude_args={})
     def f5(context, call_repr_):
         return call_repr_
-    assert f5(1) == fully_qualified_name(f5) + '()'
+    assert f5(1) == _fully_qualified_name(f5) + '()'
     
