@@ -104,12 +104,12 @@ def clustering(reader, name_index=0):
     ----------
     reader : io.BufferedReader
         Text reader whose content is a clustering
-    name_index : int
+    name_index : int or None
         Index of the 'column' with the cluster name. If None, each line is an unnamed cluster.
         
     Returns
     -------
-    {cluster_id :: str => items :: {str}})
+    {cluster_id :: str => items :: {str}}
         Clustering as multi-dict.
     '''
     if name_index and name_index < 0:
