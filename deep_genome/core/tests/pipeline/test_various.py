@@ -19,9 +19,9 @@
 Test deep_genome.core.pipeline._various
 '''
 
-from deep_genome.core.pipeline import pipeline_cli, call_repr
-from deep_genome.core.pipeline._various import _fully_qualified_name
+from deep_genome.core.pipeline import pipeline_cli
 from chicken_turtle_util import path as path_
+from chicken_turtle_util.exceptions import InvalidOperationError
 from pathlib import Path
 import subprocess
 import asyncio
@@ -31,6 +31,29 @@ import logging
 import os
 import re
 from textwrap import dedent
+
+class TestContextPipeline(object):
+    
+    '''
+    Test context.pipeline
+    '''
+    
+    def test_raise_uninitialised(self, context):
+        '''
+        When not initialised, raise on usage
+        '''
+        with pytest.raises(InvalidOperationError) as ex:
+            context.pipeline
+        assert 'Pipeline not initialised. Call context.initialise_pipeline first.' in str(ex.value)
+    
+    def test_job_directory(self, context):
+        '''
+        Test context.pipeline.job_directory (an internal function)
+        '''
+        jobs_directory = Path('jobs')
+        context.initialise_pipeline(jobs_directory)
+        assert jobs_directory in context.pipeline.job_directory('type', 1).parents
+
 
 class TestPipelineCLI(object):
     
@@ -139,44 +162,4 @@ def selfterm_command():
             print('Forever cancelled')
             raise
     pipeline_cli(selfterm(), debug=False)
-
-def test_fully_qualified_name():
-    '''
-    Assert for top-level and nested function that: 
-    
-    - it contains the module name,
-    - names of nesting scopes leading up to it (e.g. test_fully_qualified_name in the case below),
-    - its own name
-    '''
-    expected = __name__ + '.test_fully_qualified_name'
-    assert _fully_qualified_name(test_fully_qualified_name) == expected
-    
-    def f():
-        pass
-    assert _fully_qualified_name(f) == expected + '.<locals>.f'
-    
-def test_call_repr():
-    @call_repr()
-    def f(a, b=2, *myargs, call_repr_, x=1, **mykwargs):
-        return call_repr_
-    
-    name = _fully_qualified_name(f)
-    assert f(1) == name + '(*args=(), a=1, b=2, x=1)'
-    assert f(1, 2, 3, x=10, y=20) == name + '(*args=(3,), a=1, b=2, x=10, y=20)'
-    
-    @call_repr()
-    def f2(b, a, call_repr_):
-        return call_repr_
-    assert f2(1, 2) == _fully_qualified_name(f2) + '(a=2, b=1)'
-    
-    f3 = call_repr(exclude_args={'a'})(f2.__wrapped__)
-    assert f3(1, 2) == _fully_qualified_name(f3) + '(b=1)'
-    
-    f4 = call_repr(exclude_args={'a', 'b'})(f2.__wrapped__)
-    assert f4(1, 2) == _fully_qualified_name(f4) + '()'
-    
-    @call_repr(exclude_args={})
-    def f5(context, call_repr_):
-        return call_repr_
-    assert f5(1) == _fully_qualified_name(f5) + '()'
     

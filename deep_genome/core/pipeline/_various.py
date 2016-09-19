@@ -15,14 +15,87 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
-from chicken_turtle_util import inspect as inspect_
-from functools import wraps
+'''
+Things for both local and drmaa execution
+'''
+
 import asyncio
 import traceback
 import sys
 import signal
 import logging
+from ._drmaa import Job
 
+try:
+    import drmaa
+    _drmaa_import_error = None
+except RuntimeError as ex:  # drmaa isn't always used, don't complain immediately when it fails to load
+    _drmaa_import_error = ex
+
+class Pipeline(object):
+    
+    '''
+    Pipeline context class
+    
+    Parameters
+    ----------
+    jobs_directory : pathlib.Path
+        Directory in which to create job directories. Job directories are
+        provided to DRMAA jobs and @persisted(job_directory=True). They are
+        persistent and tied to a job's name (or a coroutine's call_repr).
+    '''
+    
+    _instance_counter = 0
+    _drmaa_session = None  # `drmaa` cannot have multiple active sessions, so we share one across Pipeline instances
+    
+    def __init__(self, context, jobs_directory):
+        self._context = context
+        self._jobs_directory = jobs_directory
+        Pipeline._instance_counter += 1
+    
+    def dispose(self): # TODO keep internal, to be called by Context.dispose
+        '''
+        Internal, use :meth:`deep_genome.core.Context.dispose` instead.
+        '''
+        if Pipeline._instance_counter == 1:
+            # Do actual clean up
+            if Pipeline._drmaa_session:
+                Pipeline._drmaa_session.exit()
+                Pipeline._drmaa_session = None
+        Pipeline._instance_counter -= 1
+        
+    def drmaa_job(self, name, command, server_arguments=None):
+        '''
+        Returns
+        -------
+        deep_genome.core.pipeline._drmaa.Job
+        '''#TODO params from DRMAAJob
+        # Initialise _drmaa_session
+        if _drmaa_import_error:
+            raise _drmaa_import_error
+        if not Pipeline._drmaa_session:
+            Pipeline._drmaa_session = drmaa.Session()
+            Pipeline._drmaa_session.initialize()
+        
+        #
+        return Job(self._context, Pipeline._drmaa_session, name, command, server_arguments)
+    
+    def job_directory(self, job_type, job_id):
+        '''
+        Internal: Get job directory.
+        
+        Parameters
+        ----------
+        job_type : str
+        job_id : int
+        
+        Returns
+        ------
+        pathlib.Path
+            Path to job directory
+        '''
+        return self._jobs_directory / '{}{}'.format(job_type, job_id)
+    
 def pipeline_cli(main, debug):
     '''
     Run/resume pipeline as CLI front/mid-end
@@ -106,120 +179,3 @@ def pipeline_cli(main, debug):
         loop.close()
     print()
     print('Pipeline: run completed')
-
-def call_repr(call_repr=None, exclude_args=()): #TODO update the example
-    '''
-    Add repr of function call as argument to function 
-    
-    Function calls are uniquely mapped to strings (it's deterministic and
-    injective) and supplied to the decorated function as the `call_repr_`
-    keyword argument. The manner and order in which the arguments are supplied
-    are ignored. The format is
-    ``{f.__module__}.{f.__qualname__}(arg_name=repr(arg_value), ...)``.
-    
-    Parameters
-    ----------
-    call_repr : ((f :: function, kwargs :: dict) -> (call_repr :: str)) or None
-        If provided, a function which is given the decorated function and all
-        arguments as kwargs and returns the repr of the call.
-        
-    exclude_args : iterable(str)
-        Names of arguments to exclude from the function call repr. The 'context'
-        arg is always excluded.
-        
-    Returns
-    -------
-    function -> decorated_function
-        Function which decorates functions with a `call_repr_` argument.
-    
-    Examples
-    --------
-    >>> # package/module.py
-    >>> @call_repr()
-    ... def f(a, b=2, *myargs, call_repr_, x=1, **mykwargs):
-    ...     return call_repr_
-    ...
-    >>> f(1)
-    'package.module.f(*args=(), a=1, b=2, x=1)'
-    >>> f(1, 2, 3, x=10, y=20)
-    'package.module.f(*args=(1,), a=1, b=2, x=10, y=20)'
-    >>> @call_repr(name='my.func')
-    ... def g(call_repr_):
-    ...     return call_repr_
-    ...
-    >>> g()
-    'my.func()'
-    >>> @call_repr(exclude_args={'a'})
-    ... def h(a, b, call_repr_):
-    ...     return call_repr_
-    ...
-    >>> h(1, 2)
-    'package.module.h(b=2)'
-    
-    With parametrised nesting you may want to:
-    
-    >>> @call_repr()
-    ... def f(a, b, call_repr_):
-    ...     @call_repr(name=call_repr_ + '::g')
-    ...     def g(x, call_repr_):
-    ...         return call_repr_
-    ...
-    >>> f(1,2)('x')
-    "package.module.f(a=1, b=2)::g(x='x')"
-    
-    Optional arguments are always included and the order in which arguments
-    appear in the function definition is ignored:
-    
-    >>> @call_repr()
-    ... def f(b, a=None, call_repr_):
-    ...     return call_repr_
-    ...
-    >>> f(1)
-    'package.module.f(a=None, b=1)'
-    '''
-    def decorator(f):
-        @wraps(f)
-        def decorated(*args, **kwargs):
-            kwargs['call_repr_'] = None  # otherwise call_args fails on functions with call_repr_ as required arg
-            kwargs['call_repr_'] = _call_repr(f, args, kwargs, call_repr, exclude_args)
-            return f(*args, **kwargs)
-        return decorated
-    return decorator
-
-def _call_repr(f, args, kwargs, call_repr=None, exclude_args=()):
-    if call_repr and exclude_args:
-        raise ValueError('call_repr and exclude_args are mutually exclusive.')
-    kwargs = inspect_.call_args(f, args, kwargs)
-    if 'call_repr_' in kwargs:
-        del kwargs['call_repr_']
-    if call_repr:
-        return call_repr(f, kwargs)
-    else:
-        for arg in set(exclude_args) | {'context'}:
-            if arg in kwargs:
-                del kwargs[arg]
-        return format_call(f, kwargs)
-
-def format_call(f, kwargs):
-    '''
-    Format function call as ``module.func(param=value, ...)``
-    
-    Parameters
-    ----------
-    f : function or str
-        Name of function in call. If str, use str as function name. If function, use its fully qualified name.
-    kwargs : dict
-        Arguments the function is called with. Values are formatted with repr.
-        
-    Returns
-    -------
-    str
-        Formatted function call
-    '''
-    if not isinstance(f, str):
-        f = _fully_qualified_name(f)
-    kwargs = ', '.join('{}={!r}'.format(key, value) for key, value in sorted(kwargs.items()))
-    return '{}({})'.format(f, kwargs)
-    
-def _fully_qualified_name(f):
-    return '{}.{}'.format(f.__module__, f.__qualname__)

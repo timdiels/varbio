@@ -49,9 +49,9 @@ to the pipeline stuff itself is http://www.ruffus.org.uk/index.html and there's
 more https://www.google.com/search?espv=2&q=pipeline+library+python&oq=pipeline+library+python&gs_l=serp.3..0i22i30k1.1080.1766.0.1846.7.7.0.0.0.0.61.343.6.6.0....0...1c.1.64.serp..1.6.343.XjhebQv9x3U
 ''' #TODO read ruffus and the other projects on the google search
 
-from ._various import pipeline_cli, call_repr, format_call
-from ._persisted import persisted
-from ._job import Job, LocalJobServer, DRMAAJobServer
+from deep_genome.core.pipeline._common import fresh_directory, ExitCodeError
+from deep_genome.core.pipeline._local import call_repr, persisted, execute, format_call
+from deep_genome.core.pipeline._various import pipeline_cli
 
 # TODO cache reset in core by using version numbers in task and job names. Or global version number thing (not related to app version).
 

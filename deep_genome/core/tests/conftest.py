@@ -59,13 +59,17 @@ def _create_context(database_credentials):
         database_credentials=database_credentials
     )
     
-@pytest.fixture
+@pytest.yield_fixture
 def context(database_credentials, temp_dir_cwd):
-    return _create_context(database_credentials)
+    context = _create_context(database_credentials)
+    yield context
+    context.dispose()
 
-@pytest.fixture
+@pytest.yield_fixture
 def context2(database_credentials, temp_dir_cwd):
-    return _create_context(database_credentials)
+    context = _create_context(database_credentials)
+    yield context
+    context.dispose()
 
 @pytest.fixture
 def db(context):

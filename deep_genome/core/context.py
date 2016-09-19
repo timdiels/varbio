@@ -19,7 +19,9 @@
 Deep Genome context
 '''
 
+from chicken_turtle_util.exceptions import InvalidOperationError
 from deep_genome.core.database import Database
+from deep_genome.core.pipeline._various import Pipeline
 
 class Context(object):
     
@@ -43,11 +45,11 @@ class Context(object):
     '''
     
     def __init__(self, data_directory, cache_directory, database_credentials, entities=None, tables=None):
-        self._persisted_coroutine_functions = {}
-        self._jobs = {}
         self._data_directory = data_directory.absolute()
         self._cache_directory = cache_directory.absolute()
         self._database = Database(self, database_credentials, entities, tables)
+        self._pipeline = None
+        self._disposed = False
         
     @property
     def database(self):
@@ -70,3 +72,35 @@ class Context(object):
         Only non-persistent data that is reused between runs should be stored here.
         '''
         return self._cache_directory
+    
+    def initialise_pipeline(self, jobs_directory):
+        #TODO steal docstring param from Pipeline
+        self._pipeline = Pipeline(self, jobs_directory) 
+        
+    @property
+    def pipeline(self):
+        '''
+        Get pipeline context
+        
+        Call `initialise_pipeline` before using this attribute.
+        
+        Returns
+        -------
+        deep_genome.core.pipeline._drmaa.Pipeline
+        '''
+        if not self._pipeline:
+            raise InvalidOperationError('Pipeline not initialised. Call context.initialise_pipeline first.')
+        return self._pipeline
+    
+    def dispose(self):
+        '''
+        Release any resources
+        
+        The context instance should not be used after this call, though multiple
+        calls to dispose are allowed
+        '''
+        if self._disposed:
+            return
+        if self._pipeline:
+            self._pipeline.dispose()
+        self._disposed = True

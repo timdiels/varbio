@@ -16,16 +16,19 @@
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-Test deep_genome.core.pipeline._persisted
+Test deep_genome.core.pipeline._local.persisted
 '''
 
 from deep_genome.core.pipeline import persisted, format_call
 from chicken_turtle_util.inspect import call_args
-from .common import assert_task_log
+from ..common import assert_task_log, assert_is_read_only
+from pathlib import Path
 import inspect
 import asyncio
 import pytest
-        
+
+#TODO move thorough call_repr testing in test_call_repr, here assume it defers to call_repr and just use one or 2 examples to check that it does so correctly
+ 
 class TestContextFinding(object):
     
     '''
@@ -113,7 +116,7 @@ class TestExcludeArgs(object):
     
     @pytest.mark.asyncio
     async def test_regular_arg(self, context):
-        @persisted(exclude_args={'b'})
+        @persisted(exclude_arguments={'b'})
         async def f(a, b, context):
             return b
         assert await f(1, 2, context) == 2
@@ -122,7 +125,7 @@ class TestExcludeArgs(object):
     
     @pytest.mark.asyncio
     async def test_kwonly(self, context):
-        @persisted(exclude_args={'b'})
+        @persisted(exclude_arguments={'b'})
         async def f(a, *args, b=1, context):
             return b
         assert await f(1, context=context, b=2) == 2
@@ -131,7 +134,7 @@ class TestExcludeArgs(object):
     
     @pytest.mark.asyncio
     async def test_in_kwargs(self, context):
-        @persisted(exclude_args={'b'})
+        @persisted(exclude_arguments={'b'})
         async def f(a, context, **kwargs):
             return kwargs['b']
         assert await f(1, context, b=2) == 2
@@ -140,14 +143,14 @@ class TestExcludeArgs(object):
         
     @pytest.mark.asyncio
     async def test_no_nameclash(self, context):
-        @persisted(exclude_args={'args'})
+        @persisted(exclude_arguments={'args'})
         async def f1(context, *args, **kwargs):
             return kwargs['args']
         assert await f1(context, args=2) == 2
         assert await f1(context, args=1) == 2
         assert await f1(context, args=1, other=1) == 1
         
-        @persisted(exclude_args={'kwargs'})
+        @persisted(exclude_arguments={'kwargs'})
         async def f2(context, **kwargs):
             return kwargs['kwargs']
         assert await f2(context, kwargs=2) == 2
@@ -156,15 +159,15 @@ class TestExcludeArgs(object):
         
     @pytest.mark.asyncio
     async def test_multiple(self, context):
-        @persisted(exclude_args=('a', 'c'))
+        @persisted(exclude_arguments=('a', 'c'))
         async def f(a, b, c, context):
             return a + c
         assert await f(2, 1, 3, context) == 5
         assert await f(0, 1, 1, context) == 5
         assert await f(0, 2, 1, context) == 1
-        
+    
 @pytest.mark.asyncio
-async def test_call_repr(context):
+async def test_call_repr_argument(context):
 
     '''
     Test call_repr_ is passed in when required
@@ -182,14 +185,14 @@ async def test_call_repr(context):
     expected = format_call(f_, kwargs)
     
     assert actual == expected
-        
+    
 class CoroutineMock(object):
     
     def __init__(self, caplog):
         self._action = 'succeed'
         self._caplog = caplog
         
-    @persisted(exclude_args={'self'})
+    @persisted(exclude_arguments={'self'})
     async def f(self, context, x):
         if self._action == 'succeed':
             return x
@@ -270,3 +273,48 @@ async def test_cancel(coroutine_mock, context):
     coroutine_mock.action = 'succeed'
     with coroutine_mock.assert_log(['started', 'finished'], 1):
         assert await coroutine_mock.f(context, 1) == 1
+
+class TestJobDirectory(object):
+    
+    '''
+    Test persisted(job_directory=True)
+    '''
+    
+    @pytest.fixture
+    def jobs_directory(self):
+        return Path('jobs')
+    
+    @pytest.fixture(autouse=True)
+    def initialise_pipeline(self, context, jobs_directory):
+        context.initialise_pipeline(jobs_directory)
+    
+    @pytest.mark.asyncio
+    async def test_happy_days(self, context, jobs_directory):
+        '''
+        When coroutine completes without error, job_directory remains and is
+        read-only
+        '''
+        @persisted(job_directory=True)
+        async def f(context, job_directory):
+            (job_directory / 'file').touch()
+            return job_directory
+        job_directory = await f(context)
+        assert jobs_directory in job_directory.parents
+        assert (job_directory / 'file').exists()
+        assert_is_read_only(job_directory)
+        
+    @pytest.mark.asyncio
+    async def test_raise(self, context):
+        '''
+        When coroutine raises, job_directory remains and is read-only
+        '''
+        class Error(Exception):
+            pass
+        job_directory_ = []
+        @persisted(job_directory=True)
+        async def f(context, job_directory):
+            job_directory_.append(job_directory)
+            raise Error()
+        with pytest.raises(Error):
+            await f(context)
+        assert_is_read_only(job_directory_[0])

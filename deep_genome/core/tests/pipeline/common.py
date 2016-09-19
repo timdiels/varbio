@@ -15,9 +15,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
+from contextlib import contextmanager
+from pathlib import Path
 import logging
 import re
-from contextlib import contextmanager
+import os
 
 @contextmanager
 def assert_task_log(caplog, type_name, name, events):
@@ -26,7 +28,7 @@ def assert_task_log(caplog, type_name, name, events):
     '''
     # collect log difference
     original_count = len(caplog.text().splitlines())
-    with caplog.atLevel(logging.INFO, logger='deep_genome.core.pipeline._persisted'):
+    with caplog.atLevel(logging.INFO, logger='deep_genome.core.pipeline._local'):
         yield
     lines = caplog.text().splitlines()[original_count:]
     
@@ -44,3 +46,13 @@ def assert_task_log(caplog, type_name, name, events):
             assert event not in events_seen, 'Event happens twice: {}'.format(event)
             events_seen.append(event)
     assert events_seen == events
+    
+def assert_is_read_only(directory):
+    '''
+    Assert directory and its descendants are read only
+    '''
+    for dir_, _, files in os.walk(str(directory)):
+            dir_ = Path(dir_)
+            assert (dir_.stat().st_mode & 0o777) == 0o500
+            for file in files:
+                assert ((dir_ / file).stat().st_mode & 0o777) == 0o400
