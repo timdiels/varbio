@@ -134,12 +134,20 @@ def call_repr(call_repr=None, exclude_arguments=()): #TODO update the example
         return decorated
     return decorator
 
-def _call_repr(f, args, kwargs, call_repr=None, exclude_arguments=()):
+def _call_repr(f, args, kwargs, call_repr=None, exclude_arguments=(), injected_arguments={'call_repr_'}):
     if call_repr and exclude_arguments:
         raise ValueError('call_repr and exclude_args are mutually exclusive.')
+    
+    argspec = inspect.getfullargspec(f)
+    for arg in injected_arguments:
+        required =  arg in argspec.args or arg in argspec.kwonlyargs
+        if required:
+            kwargs[arg] = None
     kwargs = inspect_.call_args(f, args, kwargs)
-    if 'call_repr_' in kwargs:
-        del kwargs['call_repr_']
+    for arg in injected_arguments:
+        if arg in kwargs:
+            del kwargs[arg]
+            
     if call_repr:
         return call_repr(f, kwargs)
     else:
@@ -148,7 +156,7 @@ def _call_repr(f, args, kwargs, call_repr=None, exclude_arguments=()):
                 del kwargs[arg]
         return format_call(f, kwargs)
 
-def persisted(call_repr=None, exclude_arguments=(), job_directory=False):
+def persisted(call_repr=None, exclude_arguments=()):
     '''
     Enable caching and persistence on coroutine functions of their awaited results
     
@@ -220,12 +228,6 @@ def persisted(call_repr=None, exclude_arguments=(), job_directory=False):
     #TODO fix examples. check example: no longer ignore context by default
     #TODO add example with job_directory=True
     
-    #
-    exclude_arguments = set(exclude_arguments)
-    if job_directory:
-        exclude_arguments.add('job_directory')
-    
-    #
     def decorator(f):
         # Note: can't check f with asyncio.iscoroutinefunction as it returns False for staticmethods for example
         if not asyncio.iscoroutinefunction(f):
@@ -239,11 +241,8 @@ def persisted(call_repr=None, exclude_arguments=(), job_directory=False):
         async def coroutine_function(*args, **kwargs):
             # get call_repr_ + add to kwargs if requested 
             add_call_repr = 'call_repr_' in argspec.args or 'call_repr_' in argspec.kwonlyargs or argspec.varkw
-            if add_call_repr:
-                kwargs['call_repr_'] = None
-            if job_directory:
-                kwargs['job_directory'] = None
-            call_repr_ = _call_repr(f, args, kwargs, call_repr=call_repr, exclude_arguments=exclude_arguments)
+            add_job_directory = 'job_directory' in argspec.args or 'job_directory' in argspec.kwonlyargs or argspec.varkw
+            call_repr_ = _call_repr(f, args, kwargs, call_repr=call_repr, exclude_arguments=exclude_arguments, injected_arguments={'call_repr_', 'job_directory'})
             if add_call_repr:
                 kwargs['call_repr_'] = call_repr_
                 
@@ -271,10 +270,10 @@ def persisted(call_repr=None, exclude_arguments=(), job_directory=False):
                 try:
                     _logger.info("Coroutine {} started. Repr: {}".format(call_id, call_repr_))
                     with ExitStack() as stack:
-                        if job_directory:
-                            job_directory_ = context.pipeline.job_directory('coroutine', call_id)
-                            kwargs['job_directory'] = job_directory_
-                            stack.enter_context(fresh_directory(job_directory_))
+                        if add_job_directory:
+                            job_directory = context.pipeline.job_directory('coroutine', call_id)
+                            kwargs['job_directory'] = job_directory
+                            stack.enter_context(fresh_directory(job_directory))
                         return_value = await f(*args, **kwargs)
                     with context.database.scoped_session() as session:
                         call = session.sa_session.query(context.database.e.CoroutineCall).get(call_id)

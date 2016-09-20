@@ -28,6 +28,14 @@ import asyncio
 import pytest
 
 #TODO move thorough call_repr testing in test_call_repr, here assume it defers to call_repr and just use one or 2 examples to check that it does so correctly
+
+@pytest.fixture
+def jobs_directory():
+    return Path('jobs')
+
+@pytest.fixture(autouse=True)
+def initialise_pipeline(context, jobs_directory):
+    context.initialise_pipeline(jobs_directory)
  
 class TestContextFinding(object):
     
@@ -277,16 +285,8 @@ async def test_cancel(coroutine_mock, context):
 class TestJobDirectory(object):
     
     '''
-    Test persisted(job_directory=True)
+    Test @persisted() def f(context, job_directory)
     '''
-    
-    @pytest.fixture
-    def jobs_directory(self):
-        return Path('jobs')
-    
-    @pytest.fixture(autouse=True)
-    def initialise_pipeline(self, context, jobs_directory):
-        context.initialise_pipeline(jobs_directory)
     
     @pytest.mark.asyncio
     async def test_happy_days(self, context, jobs_directory):
@@ -294,7 +294,7 @@ class TestJobDirectory(object):
         When coroutine completes without error, job_directory remains and is
         read-only
         '''
-        @persisted(job_directory=True)
+        @persisted()
         async def f(context, job_directory):
             (job_directory / 'file').touch()
             return job_directory
@@ -311,7 +311,7 @@ class TestJobDirectory(object):
         class Error(Exception):
             pass
         job_directory_ = []
-        @persisted(job_directory=True)
+        @persisted()
         async def f(context, job_directory):
             job_directory_.append(job_directory)
             raise Error()
