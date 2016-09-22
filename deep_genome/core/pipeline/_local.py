@@ -295,12 +295,12 @@ def persisted(call_repr=None, exclude_arguments=()):
         return coroutine_function
     return decorator
 
-async def execute(command, directory=Path(), prefix=None):
+async def execute(command, directory=Path(), stdout=None, stderr=None):
     '''
     Execute command in directory
     
-    Saves stdout and stderr to file. When cancelled, the command execution is
-    killed (first tries SIGTERM, after a little while uses SIGKILL).
+    When cancelled, the command execution is killed (first tries SIGTERM, after
+    a little while uses SIGKILL).
     
     Parameters
     ----------
@@ -311,38 +311,38 @@ async def execute(command, directory=Path(), prefix=None):
     directory : pathlib.Path
         Directory in which to execute the command. By default runs in the
         current working directory.
-    prefix : str or None
-        Prefix to use on the stdout and stderr file names.
+    stdout : Path or file or None
+        If Path, stdout is written as file to given path. If file object, stdout
+        is written to file object. If ``None``, `sys.stdout` is used.
+    stderr : Path or file or None
+        If Path, stdout is written as file to given path. If file object, stdout
+        is written to file object. If ``None``, `sys.stderr` is used.
         
-    Returns
-    -------
-    stdout_file : pathlib.Path
-    stderr_file : pathlib.Path
-    
     Raises
     ------
     ExitCodeError
         If exit code is non-zero
     '''
-    if prefix:
-        prefix += '.'
-    else:
-        prefix = ''
-    stdout_file = directory / '{}stdout'.format(prefix)
-    stderr_file = directory / '{}stderr'.format(prefix)
-    with stdout_file.open('w') as stdout:
-        with stderr_file.open('w') as stderr:
-            command = [str(x) for x in command]
-            command[0] = str(pb.local[command[0]].executable)
-            process = await asyncio.create_subprocess_exec(*command, cwd=str(directory), stdout=stdout, stderr=stderr)
-            try:
-                return_code = await process.wait()
-            except asyncio.CancelledError:
-                await _kill(process.pid)
-                raise
-            if return_code != 0:
-                raise ExitCodeError(format_exit_code_error(None, command, return_code, stdout_file, stderr_file))
-    return stdout_file, stderr_file
+    with ExitStack() as stack:
+        stds = []
+        std_files = [None, None]
+        for i, std in enumerate((stdout, stderr)):
+            if isinstance(std, Path):
+                std_files[i] = std
+                std = std.open('w')
+                stack.enter_context(std)
+            stds.append(std)
+        
+        command = [str(x) for x in command]
+        command[0] = str(pb.local[command[0]].executable)
+        process = await asyncio.create_subprocess_exec(*command, cwd=str(directory), stdout=stds[0], stderr=stds[1])
+        try:
+            return_code = await process.wait()
+        except asyncio.CancelledError:
+            await _kill(process.pid)
+            raise
+        if return_code != 0:
+            raise ExitCodeError(format_exit_code_error(None, command, return_code, std_files[0], std_files[1]))
     
 async def _kill(pid, timeout=10):
     '''

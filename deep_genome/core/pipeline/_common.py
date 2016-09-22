@@ -70,11 +70,11 @@ def format_exit_code_error(name, command, exit_code, stdout_file, stderr_file):
     
     message += '\n\nCommand (split):\n{}'.format(command)
     
-    stdout = path_.read(stdout_file).strip()
-    if stdout:
-        message += '\n\nstdout:\n{}'.format(stdout)
+    for std_file, name in ((stdout_file, 'stdout'), (stderr_file, 'stderr')):
+        if std_file:
+            content = path_.read(std_file).strip()
+            if content:
+                message += '\n\n{}:\n{}'.format(name, content)
     
-    stderr = path_.read(stderr_file).strip()
-    if stderr:
-        message += '\n\nstderr:\n{}'.format(stderr)
+    return message
         

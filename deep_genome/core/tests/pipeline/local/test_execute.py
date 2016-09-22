@@ -36,33 +36,46 @@ def ps_aux_contains(term):
 def autouse(temp_dir_cwd):
     pass
 
-@pytest.mark.asyncio
-async def test_stdout():
-    '''
-    Save stdout to file
-    '''
-    stdout_file, _ = await execute(['echo', 'hi'])
-    assert stdout_file.name == 'stdout'
-    assert path_.read(stdout_file) == 'hi\n'
+@pytest.mark.parametrize(
+    'command, std_name, index', 
+    (
+        (['echo', 'hi'], 'stdout', 0),
+        (['sh', '-c', 'echo hi >&2'], 'stderr', 1)
+    )
+)
+class TestStdOutErr(object):
     
-@pytest.mark.asyncio
-async def test_stderr():
     '''
-    Save stderr to file
+    Test execute(stdout=..., stderr=...)
     '''
-    _, stderr_file = await execute(['sh', '-c', 'echo hi >&2'])
-    assert stderr_file.name == 'stderr'
-    assert path_.read(stderr_file) == 'hi\n'
-
-@pytest.mark.asyncio
-async def test_prefix():
-    '''
-    When given prefix, stdout/stderr filenames are prefixed
-    '''
-    stdout_file, stderr_file = await execute(['true'], prefix='johncena')
-    assert stdout_file.name == 'johncena.stdout'
-    assert stderr_file.name == 'johncena.stderr'
-
+    
+    @pytest.mark.asyncio
+    async def test_path(self, command, std_name, index):
+        '''
+        When given path, write stdout to path
+        '''
+        path = Path('file')
+        await execute(command, **{std_name: path})
+        assert path_.read(path) == 'hi\n'
+        
+    @pytest.mark.asyncio
+    async def test_file(self, command, std_name, index):
+        '''
+        When given file object, write stdout to it
+        '''
+        path = Path('file')
+        with path.open('w') as f:
+            await execute(command, **{std_name: f})
+        assert path_.read(path) == 'hi\n'
+        
+    @pytest.mark.asyncio
+    async def test_none(self, capfd, command, std_name, index):
+        '''
+        When given None, write to sys.stdout
+        '''
+        await execute(command)
+        assert capfd.readouterr()[index] == 'hi\n'
+        
 @pytest.mark.asyncio
 async def test_directory_default():
     '''
@@ -80,8 +93,6 @@ async def test_directory():
     directory.mkdir()
     await execute(['touch', 'file'], directory=directory)
     assert (directory / 'file').exists()
-    assert (directory / 'stdout').exists()
-    assert (directory / 'stderr').exists()
 
 @pytest.mark.asyncio
 async def test_non_zero_exit():
