@@ -16,7 +16,7 @@
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-Things to execute on DRMAA cluster
+Stuff to execute on DRMAA cluster
 '''
 
 import asyncio
@@ -37,60 +37,39 @@ _logger = logging.getLogger(__name__)
 class Job(object):
     
     '''
-    A job with a command that can be submitted to a job server for execution
-    
-    The job can be run by awaiting it. It can be awaited at most once.
+    A command to submit and run on a DRMAA server
     
     Do not instantiate directly, use
     :meth:`deep_genome.core.pipeline.Pipeline.drmaa_job` instead.
     
     Parameters
     ----------
+    context : deep_genome.core.Context
+    drmaa_session : drmaa.Session
     name : str
         Unique job name. May use any characters, even whitespace (and nul
-        characters), but it's recommended to keep it readable.
+        characters), but it's recommended to keep it somewhat readable. It's
+        best to use the :func:`deep_genome.core.pipeline.call_repr` of the
+        surrounding call::
         
-        Avoid using counters to make names unique, one would then have to be
-        careful the numbers are assigned in the same order on the next run. For
-        example, when creating similar tasks, use the creation arguments in the
-        name::
-        
-            def create_job(server, arg1, arg2):
-                name = 'my.package.create_job({!r}, {!r})'.format(arg1, arg2)
-                return Job(name, server, ['command', arg1, arg2])
+            @call_repr()
+            async def mass_multiply(context, arg1, arg2, call_repr_):
+                job = context.pipeline.drmaa_job(call_repr_, server, ['command', arg1, arg2])
+                await job.run()
                 
-        Or equivalently using `deep_genome.core.pipeline.format_call`::
-        
-            def create_job(server, arg1, arg2):
-                name = format_call(create_job, arg1, arg2)
-                return Job(name, server, ['command', arg1, arg2])
+        Avoid using counters to make names unique, this fails when the function
+        is called in a different order in a next run, assigning different
+        numbers.
                 
     command : [any]
-        ``str(command[0])`` is the executable (script with shebang or binary)
-        to execute, ``map(str, command[1:])`` are the args to pass it. The
-        executable is looked up using the PATH env var if it's not absolute.
-    server_arguments : str
-        Additional arguments specific to the job server. E.g. in DRMAAJobServer
-        this corresponds to the `native specification`_, which in the case of
-        SGE or OGS is a string of options given to qsub (according to
+        The executable and its arguments as a single list. ``str(command[0])``
+        is the executable to execute, ``map(str, command[1:])`` are the args to
+        pass it. The executable is looked up using the PATH env var if it's not
+        an absolute path.
+    server_arguments : str or None
+        A DRMAA native specification, which in the case of SGE or OGS is a
+        string of options given to qsub (see also
         http://linux.die.net/man/3/drmaa_attributes).
-        
-    .. _native specification: http://gridscheduler.sourceforge.net/javadocs/org/ggf/drmaa/JobTemplate.html#setNativeSpecification(java.lang.String)
-    '''
-    #TODO old docstring
-    '''
-    Submits jobs to a cluster via a DRMAA interface on localhost.
-    
-    You may instantiate at most one DRMAAJobServer.
-    
-    Cluster software that supports the DRMAA interface: https://www.drmaa.org/implementations.php
-    
-    Parameters
-    ----------
-    context : deep_genome.core.Context
-    jobs_directory : pathlib.Path
-        Directory in which to create working directories for jobs. Should be
-        accessible on both the local machine and the cluster workers.
     '''
     
     # Note: If you get "drmaa.errors.DeniedByDrmException: code 17: error: no
@@ -201,6 +180,8 @@ class Job(object):
     def directory(self):
         '''
         Get working directory
+        
+        This is the cwd in which the command runs/ran.
         
         Returns
         -------

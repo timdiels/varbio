@@ -16,7 +16,7 @@
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-Things for both local and drmaa execution
+Stuff for both local and drmaa execution
 '''
 
 import asyncio
@@ -42,6 +42,7 @@ class Pipeline(object):
     
     Parameters
     ----------
+    context : deep_genome.core.Context
     jobs_directory : pathlib.Path
         Directory in which to create job directories. Job directories are
         provided to DRMAA jobs and @persisted(job_directory=True). They are
@@ -59,6 +60,8 @@ class Pipeline(object):
     def dispose(self): # TODO keep internal, to be called by Context.dispose
         '''
         Internal, use :meth:`deep_genome.core.Context.dispose` instead.
+        
+        Dispose pipeline instance, do not use afterwards. It's idempotent.
         '''
         if Pipeline._instance_counter == 1:
             # Do actual clean up
@@ -69,10 +72,39 @@ class Pipeline(object):
         
     def drmaa_job(self, name, command, server_arguments=None):
         '''
+        Create a DRMAA Job
+        
+        Parameters
+        ----------
+        name : str
+            Unique job name. May use any characters, even whitespace (and nul
+            characters), but it's recommended to keep it somewhat readable. It's
+            best to use the :func:`deep_genome.core.pipeline.call_repr` of the
+            surrounding call::
+            
+                @call_repr()
+                async def mass_multiply(context, arg1, arg2, call_repr_):
+                    job = context.pipeline.drmaa_job(call_repr_, server, ['command', arg1, arg2])
+                    await job.run()
+                    
+            Avoid using counters to make names unique, this fails when the function
+            is called in a different order in a next run, assigning different
+            numbers.
+                    
+        command : [any]
+            The executable and its arguments as a single list. ``str(command[0])``
+            is the executable to execute, ``map(str, command[1:])`` are the args to
+            pass it. The executable is looked up using the PATH env var if it's not
+            an absolute path.
+        server_arguments : str or None
+            A DRMAA native specification, which in the case of SGE or OGS is a
+            string of options given to qsub (see also
+            http://linux.die.net/man/3/drmaa_attributes).
+        
         Returns
         -------
         deep_genome.core.pipeline.Job
-        '''#TODO params from DRMAAJob
+        '''
         # Initialise _drmaa_session
         if _drmaa_import_error:
             raise _drmaa_import_error
@@ -108,12 +140,12 @@ def pipeline_cli(main, debug):
     Fault tolerance:
         
     - When signal interrupted (SIGTERM), stops all jobs and gracefully exits.
-    The run can be resumed correctly on a next invocation.
+      The run can be resumed correctly on a next invocation.
     
     - When killed (SIGKILL), or when server has power failure, or when
-    errors like out-of-memory raised, simply crash. Before resuming you
-    should kill any jobs started by the pipeline. Jobs that finished before
-    SIGKILL arrived, will not be rerun
+      errors like out-of-memory raised, simply crash. Before resuming you
+      should kill any jobs started by the pipeline. Jobs that finished before
+      SIGKILL arrived, will not be rerun
     
     Parameters
     ----------
@@ -141,11 +173,9 @@ def pipeline_cli(main, debug):
     
         $ python main.py
         Hello world
+        
         Pipeline: run completed
     '''
-    #TODO update example (some of that log messages)
-    #TODO maybe one small test to check: debug, and also check for log file in both cases
-    
     loop = asyncio.get_event_loop()
     task = asyncio.ensure_future(main)
     loop.add_signal_handler(signal.SIGTERM, task.cancel)

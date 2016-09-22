@@ -16,7 +16,7 @@
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-Things to execute on local machine
+Stuff to execute on local machine
 '''
 
 import asyncio
@@ -38,14 +38,25 @@ def format_call(f, kwargs):
     Parameters
     ----------
     f : function or str
-        Name of function in call. If str, use str as function name. If function, use its fully qualified name.
+        Name of function in call. If `str`, use  as function name. If function,
+        use its fully qualified name.
     kwargs : dict
-        Arguments the function is called with. Values are formatted with repr.
+        Arguments the function is called with as keyword arguments. Values are
+        formatted with repr. (Use `call_args` to convert your positional arguments
+        to kwargs, see 'See also')
         
     Returns
     -------
     str
         Formatted function call
+        
+    See also
+    --------
+    chicken_turtle_util.inspect.call_args : Get function call arguments as a single dict
+        
+    Notes
+    -----
+    The fully qualified name is derived from `f.__module__` and `f.__qualname__`.
     '''
     if not isinstance(f, str):
         f = _fully_qualified_name(f)
@@ -55,21 +66,26 @@ def format_call(f, kwargs):
 def _fully_qualified_name(f):
     return '{}.{}'.format(f.__module__, f.__qualname__)
 
-def call_repr(call_repr=None, exclude_arguments=()): #TODO update the example
+#TODO exclude_arguments: we are actually excluding parameters. Args are values, params are ~variables. But people usually mix anyway?
+def call_repr(call_repr=None, exclude_arguments=()):
     '''
     Add repr of function call as argument to function 
     
-    Function calls are uniquely mapped to strings (it's deterministic and
-    injective) and supplied to the decorated function as the `call_repr_`
-    keyword argument. The manner and order in which the arguments are supplied
-    are ignored. The format is
+    call_repr, analog to Python's `repr` function, maps function calls uniquely
+    to a string representation. Unlike `repr`, it is also deterministic and
+    injective. The manner and order in which the arguments are supplied are
+    ignored. The format is
     ``{f.__module__}.{f.__qualname__}(arg_name=repr(arg_value), ...)``.
+    
+    The call repr is supplied to the decorated function as the `call_repr_`
+    keyword argument.
     
     Parameters
     ----------
     call_repr : ((f :: function, kwargs :: dict) -> (call_repr :: str)) or None
         If provided, a function which is given the decorated function and all
-        arguments as kwargs and returns the repr of the call.
+        arguments as kwargs and returns the the call repr. This parameter is
+        mutually exclusive with all other parameters.
         
     exclude_arguments : iterable(str)
         Names of arguments to exclude from the function call repr. The 'context'
@@ -91,31 +107,14 @@ def call_repr(call_repr=None, exclude_arguments=()): #TODO update the example
     'package.module.f(*args=(), a=1, b=2, x=1)'
     >>> f(1, 2, 3, x=10, y=20)
     'package.module.f(*args=(1,), a=1, b=2, x=10, y=20)'
-    >>> @call_repr(name='my.func')
-    ... def g(call_repr_):
-    ...     return call_repr_
-    ...
-    >>> g()
-    'my.func()'
-    >>> @call_repr(exclude_args={'a'})
+    >>> @call_repr(exclude_arguments={'a'})
     ... def h(a, b, call_repr_):
     ...     return call_repr_
     ...
     >>> h(1, 2)
     'package.module.h(b=2)'
     
-    With parametrised nesting you may want to:
-    
-    >>> @call_repr()
-    ... def f(a, b, call_repr_):
-    ...     @call_repr(name=call_repr_ + '::g')
-    ...     def g(x, call_repr_):
-    ...         return call_repr_
-    ...
-    >>> f(1,2)('x')
-    "package.module.f(a=1, b=2)::g(x='x')"
-    
-    Optional arguments are always included and the order in which arguments
+    Optional parameters are always included and the order in which parameters
     appear in the function definition is ignored:
     
     >>> @call_repr()
@@ -168,6 +167,9 @@ def persisted(call_repr=None, exclude_arguments=()):
     instance as argument. The argument must be named `context` and may be a
     positional or keyword argument.
     
+    If the coroutine function has a `job_directory` parameter, a job directory
+    is created and its path is passed in as `job_directory` as a `pathlib.Path`.
+    
     When using `staticmethod` or `classmethod`, be sure to apply `persisted` to
     the inner function, i.e. in this order::
     
@@ -180,15 +182,12 @@ def persisted(call_repr=None, exclude_arguments=()):
     ----------
     call_repr : ((f :: function, kwargs :: dict) -> (call_repr :: str)) or None
         If provided, a function which is given the decorated function and all
-        arguments as kwargs and returns the repr of the call.
+        arguments as kwargs and returns the the call repr. This parameter is
+        mutually exclusive with all other parameters.
         
     exclude_arguments : iterable(str)
         Names of arguments to exclude from the function call repr. The 'context'
         arg is always excluded.
-        
-    job_directory : bool
-        If True, a job directory is created and a `pathlib.Path` to it provided
-        to the decorated function as the `job_directory` keyword argument.
     
     Returns
     -------
@@ -225,9 +224,6 @@ def persisted(call_repr=None, exclude_arguments=()):
             assert await add(context, 2, 2) == 4  # Does execute add's body (on the first application run) as its arguments are different from what we have in cache
             assert await add(context, 1, 2) == 3  # Previous cache entries aren't forgotten, this returns the result in cache
     '''
-    #TODO fix examples. check example: no longer ignore context by default
-    #TODO add example with job_directory=True
-    
     def decorator(f):
         # Note: can't check f with asyncio.iscoroutinefunction as it returns False for staticmethods for example
         if not asyncio.iscoroutinefunction(f):
@@ -305,9 +301,10 @@ async def execute(command, directory=Path(), stdout=None, stderr=None):
     Parameters
     ----------
     command : [any]
-        ``str(command[0])`` is the executable (script with shebang or binary)
-        to execute, ``map(str, command[1:])`` are the args to pass it. The
-        executable is looked up using the PATH env var if it's not absolute.
+        The executable and its arguments as a single list. ``str(command[0])``
+        is the executable to execute, ``map(str, command[1:])`` are the args to
+        pass it. The executable is looked up using the PATH env var if it's not
+        an absolute path.
     directory : pathlib.Path
         Directory in which to execute the command. By default runs in the
         current working directory.

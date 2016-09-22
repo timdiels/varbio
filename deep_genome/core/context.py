@@ -29,6 +29,8 @@ class Context(object):
     Deep Genome core context
     
     Provides context (i.e. semi-globals) to many Deep Geneome core functions.
+    Usually you want to construct just one and pass it to all functions that
+    need it.
 
     Parameters
     ----------
@@ -74,6 +76,16 @@ class Context(object):
         return self._cache_directory
     
     def initialise_pipeline(self, jobs_directory):
+        '''
+        Initialise self.pipeline attribute
+        
+        Parameters
+        ----------
+        jobs_directory : pathlib.Path
+            Directory in which to create job directories. Job directories are
+            provided to DRMAA jobs and @persisted(job_directory=True). They are
+            persistent and tied to a job's name (or a coroutine's call_repr).
+        '''
         #TODO steal docstring param from Pipeline
         self._pipeline = Pipeline(self, jobs_directory) 
         
