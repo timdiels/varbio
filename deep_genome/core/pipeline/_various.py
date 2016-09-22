@@ -37,6 +37,9 @@ class Pipeline(object):
     '''
     Pipeline context class
     
+    Do not instantiate directly, use
+    :meth:`deep_genome.core.Context.initialise_job` instead
+    
     Parameters
     ----------
     jobs_directory : pathlib.Path
@@ -68,7 +71,7 @@ class Pipeline(object):
         '''
         Returns
         -------
-        deep_genome.core.pipeline._drmaa.Job
+        deep_genome.core.pipeline.Job
         '''#TODO params from DRMAAJob
         # Initialise _drmaa_session
         if _drmaa_import_error:

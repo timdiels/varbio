@@ -41,6 +41,9 @@ class Job(object):
     
     The job can be run by awaiting it. It can be awaited at most once.
     
+    Do not instantiate directly, use
+    :meth:`deep_genome.core.pipeline.Pipeline.drmaa_job` instead.
+    
     Parameters
     ----------
     name : str

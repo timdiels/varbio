@@ -21,7 +21,7 @@ Deep Genome context
 
 from chicken_turtle_util.exceptions import InvalidOperationError
 from deep_genome.core.database import Database
-from deep_genome.core.pipeline._various import Pipeline
+from deep_genome.core.pipeline import Pipeline
 
 class Context(object):
     
@@ -86,7 +86,7 @@ class Context(object):
         
         Returns
         -------
-        deep_genome.core.pipeline._drmaa.Pipeline
+        deep_genome.core.pipeline.Pipeline
         '''
         if not self._pipeline:
             raise InvalidOperationError('Pipeline not initialised. Call context.initialise_pipeline first.')

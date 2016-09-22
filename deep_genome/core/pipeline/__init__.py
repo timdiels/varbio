@@ -25,6 +25,11 @@ Features:
 - persist the results of each of the above
 '''
 
+from deep_genome.core.pipeline._common import fresh_directory, ExitCodeError
+from deep_genome.core.pipeline._local import call_repr, persisted, execute, format_call
+from deep_genome.core.pipeline._various import pipeline_cli, Pipeline
+from deep_genome.core.pipeline._drmaa import Job
+
 #TODO in the guide, show how to do all the things: refer to a good asyncio intro, run some concurrent code that is persisted, show how Job works with LocalJobServer and DRMAAJobServer 
 '''
 A job can be run locally or on cluster via a DRMAA interface (e.g. Open Grid
@@ -48,10 +53,6 @@ The OGS jobs part is too specific, that will remain internal. Similar software
 to the pipeline stuff itself is http://www.ruffus.org.uk/index.html and there's
 more https://www.google.com/search?espv=2&q=pipeline+library+python&oq=pipeline+library+python&gs_l=serp.3..0i22i30k1.1080.1766.0.1846.7.7.0.0.0.0.61.343.6.6.0....0...1c.1.64.serp..1.6.343.XjhebQv9x3U
 ''' #TODO read ruffus and the other projects on the google search
-
-from deep_genome.core.pipeline._common import fresh_directory, ExitCodeError
-from deep_genome.core.pipeline._local import call_repr, persisted, execute, format_call
-from deep_genome.core.pipeline._various import pipeline_cli
 
 # TODO cache reset in core by using version numbers in task and job names. Or global version number thing (not related to app version).
 
