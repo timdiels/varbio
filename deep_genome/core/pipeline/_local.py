@@ -148,7 +148,10 @@ def _call_repr(f, args, kwargs, call_repr=None, exclude_arguments=(), injected_a
             del kwargs[arg]
             
     if call_repr:
-        return call_repr(f, kwargs)
+        call_repr_ = call_repr(f, kwargs)
+        if not isinstance(call_repr_, str):
+            raise ValueError('Given call_repr returned value other than str: {!r}'.format(call_repr_))
+        return call_repr_
     else:
         for arg in set(exclude_arguments) | {'context'}:
             if arg in kwargs:
