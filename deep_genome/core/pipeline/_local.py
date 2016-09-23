@@ -309,11 +309,11 @@ async def execute(command, directory=Path(), stdout=None, stderr=None):
         Directory in which to execute the command. By default runs in the
         current working directory.
     stdout : Path or file or None
-        If Path, stdout is written as file to given path. If file object, stdout
-        is written to file object. If ``None``, `sys.stdout` is used.
+        If Path, stdout is written as file to given path and the file mode is
+        set to 0440. If file object, stdout is written to file object. If
+        ``None``, `sys.stdout` is used.
     stderr : Path or file or None
-        If Path, stdout is written as file to given path. If file object, stdout
-        is written to file object. If ``None``, `sys.stderr` is used.
+        Analog to stdout. If ``None``, `sys.stderr` is used.
         
     Raises
     ------
@@ -325,6 +325,7 @@ async def execute(command, directory=Path(), stdout=None, stderr=None):
         std_files = [None, None]
         for i, std in enumerate((stdout, stderr)):
             if isinstance(std, Path):
+                stack.callback(path_.chmod, std, 0o440)
                 std_files[i] = std
                 std = std.open('w')
                 stack.enter_context(std)

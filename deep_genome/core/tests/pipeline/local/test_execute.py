@@ -56,6 +56,7 @@ class TestStdOutErr(object):
         '''
         path = Path('file')
         await execute(command, **{std_name: path})
+        path_.assert_mode(path, 0o440)
         assert path_.read(path) == 'hi\n'
         
     @pytest.mark.asyncio
