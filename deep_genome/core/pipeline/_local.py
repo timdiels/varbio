@@ -158,7 +158,7 @@ def _call_repr(f, args, kwargs, call_repr=None, exclude_arguments=(), injected_a
                 del kwargs[arg]
         return format_call(f, kwargs)
 
-def persisted(call_repr=None, exclude_arguments=()):
+def persisted(call_repr=None, exclude_arguments=(), version=1):
     '''
     Enable caching and persistence on coroutine functions of their awaited results
     
@@ -191,6 +191,12 @@ def persisted(call_repr=None, exclude_arguments=()):
     exclude_arguments : iterable(str)
         Names of arguments to exclude from the function call repr. The 'context'
         arg is always excluded.
+        
+    version : int
+        Version number of the decorated function. Cached results from other
+        versions are ignored. I.e. when the decorated funtion is called after a
+        version change, it will rerun and the new result overwrites the previous
+        in the cache.
     
     Returns
     -------
@@ -261,7 +267,7 @@ def persisted(call_repr=None, exclude_arguments=()):
                     sa_session.add(call)
                     sa_session.flush()
                 call_id = call.id
-                finished = call.finished
+                finished = call.finished == version
                 return_value = call.return_value
                 
             # Run if not finished and save result
@@ -278,7 +284,7 @@ def persisted(call_repr=None, exclude_arguments=()):
                         call = session.sa_session.query(context.database.e.CoroutineCall).get(call_id)
                         assert call
                         call.return_value = return_value
-                        call.finished = True
+                        call.finished = version
                     _logger.info("Coroutine {} finished. Repr: {}".format(call_id, call_repr_))
                 except asyncio.CancelledError:
                     _logger.info("Coroutine {} cancelled. Repr: {}".format(call_id, call_repr_))
@@ -287,7 +293,7 @@ def persisted(call_repr=None, exclude_arguments=()):
                     _logger.info("Coroutine {} failed. Repr: {}".format(call_id, call_repr_))
                     raise
             else:
-                _logger.debug("Coroutine result fetched from cache, not rerunning: {}".format(call_repr_))
+                _logger.debug("Coroutine {} result fetched from cache, not rerunning: {}".format(call_id, call_repr_))
             
             return return_value
         
@@ -336,6 +342,7 @@ async def execute(command, directory=Path(), stdout=None, stderr=None):
         
         command = [str(x) for x in command]
         command[0] = str(pb.local[command[0]].executable)
+        _logger.info('Executing: {}\nIn: {}'.format(' '.join(map(repr, command)), directory))
         process = await asyncio.create_subprocess_exec(*command, cwd=str(directory), stdout=stds[0], stderr=stds[1])
         try:
             return_code = await process.wait()

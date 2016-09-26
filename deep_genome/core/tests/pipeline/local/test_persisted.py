@@ -318,3 +318,27 @@ class TestJobDirectory(object):
         with pytest.raises(Error):
             await f(context)
         assert_is_read_only(job_directory_[0])
+
+@pytest.mark.asyncio
+async def test_version(context):
+    '''
+    When version changes, cache miss, i.e. rerun, then cache hits again
+    '''
+    # Mock
+    called = [0]
+    def create_f(version, called):
+        @persisted(version=version)
+        async def f(context):
+            called[0] += 1
+        return f
+    
+    # Run v1
+    f = create_f(version=1, called=[0])
+    await f(context)
+    
+    # Run v2
+    f = create_f(version=2, called=called)
+    await f(context)
+    assert called == [1]
+    await f(context)
+    assert called == [1]

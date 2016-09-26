@@ -63,7 +63,7 @@ def use_drmaa(context, jobs_directory):
     
 class JobMock(object):
     
-    def __init__(self, context, directory, caplog):
+    def __init__(self, context, directory, caplog, version):
         self._inhibitor = directory / 'inhibitor'
         self._file = directory / 'fail'
         self._token = 'jfpw39wuiurjw8w379jfosfus2e7edjf'
@@ -75,7 +75,8 @@ class JobMock(object):
                 'sh', '-c',
                 '{} ; echo {}; [ ! -e {} ]'
                 .format(wait_for_rm, self._token, self._file)
-            ]
+            ],
+            version=version
         )
         self.fail = 'succeed'
         
@@ -102,9 +103,9 @@ class JobMock(object):
         return getattr(self._job, attr)
             
 @contextmanager
-def JobMockFixture(context, caplog, directory):
+def JobMockFixture(context, caplog, directory, version=1):
     os.makedirs(str(directory), exist_ok=True)
-    yield JobMock(context, directory, caplog)
+    yield JobMock(context, directory, caplog, version)
 
 @pytest.yield_fixture
 def job_mock(context, caplog, jobs_directory):
@@ -208,3 +209,24 @@ async def test_drmaa_cancel(event_loop, context):
     job1 = context.pipeline.drmaa_job('job1', ['sleep', '99999999999'])
     with pytest.raises(Exception):
             await job1.run()
+
+@pytest.mark.asyncio
+async def test_version(context, context2, caplog, jobs_directory):
+    '''
+    When version changes, rerun even if cached, then fetch from cache because version matches
+    '''
+    
+    with JobMockFixture(context, caplog, jobs_directory / 'tmp1') as job_mock:
+        # when cache miss, run
+        with job_mock.assert_log(['started', 'finished']):
+            await job_mock.run()
+    
+    with JobMockFixture(context2, caplog, jobs_directory / 'tmp2', version=2) as job_mock:
+        # when cache miss (different version), run
+        with job_mock.assert_log(['started', 'finished']):
+            await job_mock.run()
+            
+        # when finished, don't rerun (cache)
+        with job_mock.assert_log([]):
+            await job_mock.run()
+            

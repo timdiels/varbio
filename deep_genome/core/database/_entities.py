@@ -167,7 +167,7 @@ def entities():
          
         id =  Column(Integer, primary_key=True)
         name = Column(Text, nullable=False)
-        finished = Column(Boolean, nullable=False)
+        finished = Column(Integer, nullable=True)  # When NULL, not finished, else version number it finished as
         return_value = Column(PickleType, nullable=True) 
          
         def __repr__(self):
@@ -179,7 +179,7 @@ def entities():
          
         id =  Column(Integer, primary_key=True)
         name = Column(Text, nullable=False)
-        finished = Column(Boolean, nullable=False)
+        finished = Column(Integer, nullable=True)  # When NULL, not finished, else version number it finished as
          
         def __repr__(self):
             return 'Job({!r}, {!r})'.format(self.id, self.name)

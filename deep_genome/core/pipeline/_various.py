@@ -70,7 +70,7 @@ class Pipeline(object):
                 Pipeline._drmaa_session = None
         Pipeline._instance_counter -= 1
         
-    def drmaa_job(self, name, command, server_arguments=None):
+    def drmaa_job(self, name, command, server_arguments=None, version=1):
         '''
         Create a DRMAA Job
         
@@ -100,6 +100,10 @@ class Pipeline(object):
             A DRMAA native specification, which in the case of SGE or OGS is a
             string of options given to qsub (see also
             http://linux.die.net/man/3/drmaa_attributes).
+        version : int
+            Version number of the command. Cached results from other versions are
+            ignored. I.e. when the job is run after a version change, it will rerun
+            and overwrite the result of a different version (if any) in the cache.
         
         Returns
         -------
@@ -113,7 +117,7 @@ class Pipeline(object):
             Pipeline._drmaa_session.initialize()
         
         #
-        return Job(self._context, Pipeline._drmaa_session, name, command, server_arguments)
+        return Job(self._context, Pipeline._drmaa_session, name, command, server_arguments, version)
     
     def job_directory(self, job_type, job_id):
         '''

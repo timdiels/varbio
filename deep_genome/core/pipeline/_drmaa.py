@@ -70,6 +70,10 @@ class Job(object):
         A DRMAA native specification, which in the case of SGE or OGS is a
         string of options given to qsub (see also
         http://linux.die.net/man/3/drmaa_attributes).
+    version : int
+        Version number of the command. Cached results from other versions are
+        ignored. I.e. when the job is run after a version change, it will rerun
+        and overwrite the result of a different version (if any) in the cache.
     '''
     
     # Note: If you get "drmaa.errors.DeniedByDrmException: code 17: error: no
@@ -78,7 +82,7 @@ class Job(object):
     # configured for it (see 
     # http://gridscheduler.sourceforge.net/howto/commonproblems.html#interactive)
     
-    def __init__(self, context, drmaa_session, name, command, server_arguments=None):
+    def __init__(self, context, drmaa_session, name, command, server_arguments=None, version=1):
         if _drmaa_import_error:
             raise _drmaa_import_error
         
@@ -89,6 +93,7 @@ class Job(object):
         self._executable = Path(str(pb.local[command[0]].executable))
         self._arguments = command[1:]
         self._server_arguments = server_arguments
+        self._version = version
         
         # Load/create from database 
         Job = self._context.database.e.Job
@@ -100,7 +105,7 @@ class Job(object):
                 sa_session.add(job)
                 sa_session.flush()
             self._id = job.id
-            self._finished = job.finished
+            self._finished = job.finished == version
             
         #
         self._job_directory = self._context.pipeline.job_directory('job', self._id)
@@ -121,7 +126,7 @@ class Job(object):
             with self._context.database.scoped_session() as session:
                 job = session.sa_session.query(self._context.database.e.Job).get(self._id)
                 assert job
-                job.finished = True
+                job.finished = self._version
             _logger.info("Job {} finished. Name: {}".format(self._id, self._name))
         except asyncio.CancelledError:
             _logger.info("Job {} cancelled. Name: {}".format(self._id, self._name))
