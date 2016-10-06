@@ -107,7 +107,10 @@ class Database(object):
             )
         
         self._context = context
-        self._engine = sa.create_engine('mysql+pymysql://{user}:{password}@{host}/{database}'.format(**attr.asdict(credentials)), echo=False)
+        self._engine = sa.create_engine(
+            'mysql+pymysql://{user}:{password}@{host}/{database}'.format(**attr.asdict(credentials)),
+            pool_recycle=3600  # throw away connections that have been unused for 1h as they might have gone stale (mysql by default disconnects a connection after 8h) 
+        )
         self._Session = sessionmaker(bind=self._engine)
         os.makedirs(str(_data_file_dir(context)), exist_ok=True)
         
