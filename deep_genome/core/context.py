@@ -34,10 +34,6 @@ class Context(object):
 
     Parameters
     ----------
-    data_directory : Path
-        Directory in which to store persistent data
-    cache_directory : Path
-        Directory to use as cache
     database_credentials : deep_genome.core.database.Credentials
         Passed to :class:`deep_genome.core.database.Database`.
     entities : {class.__name__ => class} or None
@@ -46,9 +42,7 @@ class Context(object):
         Passed to :class:`deep_genome.core.database.Database`.
     '''
     
-    def __init__(self, data_directory, cache_directory, database_credentials, entities=None, tables=None):
-        self._data_directory = data_directory.absolute()
-        self._cache_directory = cache_directory.absolute()
+    def __init__(self, database_credentials, entities=None, tables=None):
         self._database = Database(self, database_credentials, entities, tables)
         self._pipeline = None
         self._disposed = False
@@ -57,24 +51,6 @@ class Context(object):
     def database(self):
         return self._database
         
-    @property
-    def data_directory(self):
-        '''
-        Get data root directory
-        
-        Only data that needs to be persistent should be stored here.
-        '''
-        return self._data_directory
-    
-    @property
-    def cache_directory(self):
-        '''
-        Get cache root directory
-        
-        Only non-persistent data that is reused between runs should be stored here.
-        '''
-        return self._cache_directory
-    
     def initialise_pipeline(self, jobs_directory):
         '''
         Initialise self.pipeline attribute

@@ -19,7 +19,6 @@ from configparser import ConfigParser
 from chicken_turtle_util.test import temp_dir_cwd
 from deep_genome.core import Context, patch
 from deep_genome.core.database import Credentials
-from pathlib import Path
 import logging
 import pytest
 
@@ -54,8 +53,6 @@ def database_credentials(test_conf):
 
 def _create_context(database_credentials):
     return Context(
-        data_directory=Path('xdg_data_home'),
-        cache_directory=Path('xdg_cache_home'),
         database_credentials=database_credentials
     )
     
