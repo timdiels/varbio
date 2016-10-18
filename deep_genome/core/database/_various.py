@@ -39,9 +39,6 @@ _logger = logging.getLogger('deep_genome.core.Database')
 
 _ReturnTuple = namedtuple('_ReturnTuple', 'expression_matrices clusterings'.split())
 
-def _data_file_dir(context):
-    return context.data_directory / 'data_files'
-
 def _print_sql(stmt):
     print(pretty_sql(stmt))
     
@@ -112,7 +109,6 @@ class Database(object):
             pool_recycle=3600  # throw away connections that have been unused for 1h as they might have gone stale (mysql by default disconnects a connection after 8h) 
         )
         self._Session = sessionmaker(bind=self._engine)
-        os.makedirs(str(_data_file_dir(context)), exist_ok=True)
         
         if entities is None:
             entities, tables, _ = create_entities()
@@ -402,15 +398,6 @@ class Session(object):
             
         return genes
     
-    def _create_data_file(self):
-        file = self.e.DataFile()
-        self._session.add(file)
-        self._session.flush()
-        return file
-    
-    def _data_file_path(self, data_file):
-        return _data_file_dir(self._context) / str(data_file.id)
-        
     def add_gene_mapping(self, mapping):
         '''
         Add gene mapping

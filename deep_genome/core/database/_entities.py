@@ -153,16 +153,6 @@ def entities():
         
     entities_.append(GeneName)
         
-    class DataFile(DBEntity):
-        
-        '''
-        A data file in ``context.data_directory / data_files``
-        '''
-        
-        id =  Column(Integer, primary_key=True)
-        
-    entities_.append(DataFile)
-        
     class CoroutineCall(DBEntity):
          
         id =  Column(Integer, primary_key=True)
