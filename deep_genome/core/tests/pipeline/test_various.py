@@ -22,15 +22,16 @@ Test deep_genome.core.pipeline._various
 from deep_genome.core.pipeline import pipeline_cli
 from chicken_turtle_util import path as path_
 from chicken_turtle_util.exceptions import InvalidOperationError
+from textwrap import dedent
 from pathlib import Path
 import subprocess
 import asyncio
 import pytest
 import psutil
 import logging
+import signal
 import os
 import re
-from textwrap import dedent
 
 class TestContextPipeline(object):
     
@@ -119,6 +120,7 @@ class TestPipelineCLI(object):
         stderr = 'I: Fake info\n'
         if debug:
             stderr += 'D: Fake debug\n'
+        stderr += 'I: Pipeline: finished\n'
         actual = capsys.readouterr()[1]
         assert actual == stderr, '\n{}\n---\n{}'.format(actual, stderr)
         
@@ -127,27 +129,51 @@ class TestPipelineCLI(object):
         # - regardless of debug mode, level is DEBUG
         # - long format with fairly unambiguous source
         log_file_content = path_.read(Path('pipeline.log'))
-        infix = r' [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2},[0-9]{3} deep_genome.core.pipeline \(test_various:[0-9]+\):'
+        def prefix(log_type, package, module_name):
+            return r'{} [0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}},[0-9]{{3}} {} \({}:[0-9]+\):'.format(
+                log_type, package, module_name
+            )
         pattern = dedent('''\
-            I{0}
+            {}
             Fake info
              
-            D{0}
+            {}
             Fake debug
+            
+            {}
+            Pipeline: finished
             '''
-            .format(infix)
+            .format(
+                prefix('I', 'deep_genome.core.pipeline', 'test_various'),
+                prefix('D', 'deep_genome.core.pipeline', 'test_various'),
+                prefix('I', 'deep_genome.core.pipeline._various', '_various'),
+            )
         )
         assert re.match(pattern, log_file_content, re.MULTILINE)
          
+    @pytest.mark.parametrize('signal', (signal.SIGTERM, signal.SIGINT, signal.SIGHUP))
     @pytest.mark.asyncio
-    async def test_sigterm(self, temp_dir_cwd):  # temp_dir_cwd as dg-tests-pipeline-cli-forever puts cache in local directory
+    async def test_signal(self, temp_dir_cwd, signal):  # temp_dir_cwd as dg-tests-pipeline-cli-forever puts cache in local directory
         '''
-        When the pipeline controller is signal interrupted, cancel task and exit non-zero.
+        When the pipeline controller receives SIGTERM or SIGINT, cancel task and exit non-zero.
         '''
-        process = await asyncio.create_subprocess_exec('dg-tests-pipeline-cli-selfterm', stdout=subprocess.PIPE)
-        stdout, _ = await process.communicate()
+        process = await asyncio.create_subprocess_exec('dg-tests-pipeline-cli-selfterm', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        # Wait for pipeline to have started
+        assert (await process.stdout.readline()).decode() == 'Forever started\n'  # Note: reading stdout/stderr is fine as long as you don't write to stdin elsewhere
+        
+        # Send signal
+        process.send_signal(signal)
+        
+        # Wait for pipeline to have stopped
+        result = await process.communicate()
+        stdout = result[0].decode()
+        stderr = result[1].decode()
+        
+        # Assert
         assert process.returncode != 0
-        assert 'Forever cancelled' in stdout.decode()
+        assert 'I: Pipeline: cancelling, please wait\nI: Pipeline: cancelled' in stderr
+        assert 'Forever cancelled' in stdout
         
 # dg-tests-pipeline-cli-forever
 def selfterm_command():
@@ -156,6 +182,7 @@ def selfterm_command():
     '''
     async def selfterm():
         try:
+            print('Forever started')
             psutil.Process(os.getpid()).terminate()
             await asyncio.sleep(99999)
         except asyncio.CancelledError:

@@ -20,7 +20,6 @@ Stuff for both local and drmaa execution
 '''
 
 import asyncio
-import traceback
 import sys
 import signal
 import logging
@@ -31,6 +30,8 @@ try:
     _drmaa_import_error = None
 except RuntimeError as ex:  # drmaa isn't always used, don't complain immediately when it fails to load
     _drmaa_import_error = ex
+    
+_logger = logging.getLogger(__name__)
 
 class Pipeline(object):
     
@@ -143,13 +144,16 @@ def pipeline_cli(main, debug):
     
     Fault tolerance:
         
-    - When signal interrupted (SIGTERM), stops all jobs and gracefully exits.
-      The run can be resumed correctly on a next invocation.
+    - When signal interrupted (SIGTERM) or SIGHUP, cancels all jobs and exits
+      gracefully. The run can be resumed correctly on a next invocation.
     
-    - When killed (SIGKILL), or when server has power failure, or when
+    - When killed (SIGKILL), or when server has a power failure, or when
       errors like out-of-memory raised, simply crash. Before resuming you
       should kill any jobs started by the pipeline. Jobs that finished before
       SIGKILL arrived, will not be rerun
+    
+    - When the awaitable raises an exception, gracefully exits. The run can be
+      resumed correctly on a next invocation.
     
     Parameters
     ----------
@@ -182,7 +186,15 @@ def pipeline_cli(main, debug):
     '''
     loop = asyncio.get_event_loop()
     task = asyncio.ensure_future(main)
-    loop.add_signal_handler(signal.SIGTERM, task.cancel)
+    def cancel():
+        _logger.info('Pipeline: cancelling, please wait')
+        task.cancel()
+    def cancel_left_overs():
+        for task in asyncio.Task.all_tasks():
+            task.cancel()
+    loop.add_signal_handler(signal.SIGHUP, cancel)
+    loop.add_signal_handler(signal.SIGINT, cancel)
+    loop.add_signal_handler(signal.SIGTERM, cancel)
     
     # Note: do not use logging.basicConfig as it does not play along with caplog in testing
     root_logger = logging.getLogger()
@@ -204,15 +216,18 @@ def pipeline_cli(main, debug):
     try:
         loop.run_until_complete(task)
     except asyncio.CancelledError:
-        print()
-        print('Pipeline: run cancelled')
+        _logger.info('Pipeline: cancelled')
         sys.exit(1)
     except Exception:
-        traceback.print_exc()
-        print()
-        print('Pipeline: run failed to complete')
+        _logger.exception('Pipeline: failed: exception was raised:\n\n')
         sys.exit(1)
     finally:
+        # Assert no task left hanging
+        for task in asyncio.Task.all_tasks():
+            assert task.cancelled() or task.done()
+            
+        # Close loop
         loop.close()
-    print()
-    print('Pipeline: run completed')
+        
+    _logger.info('Pipeline: finished')
+    
