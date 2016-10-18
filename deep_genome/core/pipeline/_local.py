@@ -305,8 +305,9 @@ def persisted(call_repr=None, exclude_arguments=(), version=1):
 
 _next_execute_id = 1  # just for assigning ids to executions in logs. They're only valid for the current run.
 
+# TODO test valid_exit_codes
 # TODO test subprocess.DEVNULL
-async def execute(command, directory=Path(), stdout=None, stderr=None):
+async def execute(command, directory=Path(), stdout=None, stderr=None, valid_exit_codes=(0,)):
     '''
     Execute command in directory
     
@@ -329,11 +330,19 @@ async def execute(command, directory=Path(), stdout=None, stderr=None):
         ``None``, `sys.stdout` is used.
     stderr : Path or file or None or subprocess.DEVNULL
         Analog to stdout. If ``None``, `sys.stderr` is used.
+    valid_exit_codes : collections.abc.Container of int
+        Exit codes to accept. On any other exit code, ExitCodeError will be
+        raised.
+        
+    Returns
+    -------
+    int
+        The exit code with which the command exited
         
     Raises
     ------
     ExitCodeError
-        If exit code is non-zero
+        If exit code is not in valid_exit_codes
     '''
     global _next_execute_id
     with ExitStack() as stack:
@@ -361,8 +370,11 @@ async def execute(command, directory=Path(), stdout=None, stderr=None):
             await _kill(process)
             _logger.info('{}: cancelled'.format(name))
             raise
-        if return_code != 0:
-            raise ExitCodeError(format_exit_code_error(None, command, return_code, std_files[0], std_files[1]))
+        if return_code not in valid_exit_codes:
+            _logger.error('{}: failed'.format(name))
+            raise ExitCodeError(format_exit_code_error(name, command, return_code, std_files[0], std_files[1]))
+        else:
+            _logger.info('{}: finished'.format(name))
     
 async def _kill(process, timeout=10):
     '''

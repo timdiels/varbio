@@ -58,7 +58,7 @@ def fresh_directory(directory):
 class ExitCodeError(Exception):
     
     '''
-    Exit with non-zero exit code
+    Exit with error exit code
     '''
     
 def format_exit_code_error(name, command, exit_code, stdout_file, stderr_file):
@@ -66,7 +66,7 @@ def format_exit_code_error(name, command, exit_code, stdout_file, stderr_file):
         message = name + ' exited'
     else:
         message = 'Exited'
-    message += ' with non-zero exit code: {}'.format(exit_code)
+    message += ' with exit code {}'.format(exit_code)
     
     message += '\n\nCommand:\n{}'.format(' '.join(map(repr, command)))
     
