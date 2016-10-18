@@ -305,6 +305,7 @@ def persisted(call_repr=None, exclude_arguments=(), version=1):
 
 _next_execute_id = 1  # just for assigning ids to executions in logs. They're only valid for the current run.
 
+# TODO test subprocess.DEVNULL
 async def execute(command, directory=Path(), stdout=None, stderr=None):
     '''
     Execute command in directory
@@ -322,11 +323,11 @@ async def execute(command, directory=Path(), stdout=None, stderr=None):
     directory : pathlib.Path
         Directory in which to execute the command. By default runs in the
         current working directory.
-    stdout : Path or file or None
+    stdout : Path or file or None or subprocess.DEVNULL
         If Path, stdout is written as file to given path and the file mode is
         set to 0440. If file object, stdout is written to file object. If
         ``None``, `sys.stdout` is used.
-    stderr : Path or file or None
+    stderr : Path or file or None or subprocess.DEVNULL
         Analog to stdout. If ``None``, `sys.stderr` is used.
         
     Raises
