@@ -271,12 +271,13 @@ def persisted(call_repr=None, exclude_arguments=(), version=1):
                 return_value = call.return_value
                 
             # Run if not finished and save result
+            name = 'persisted_call[{}]'.format(call_id)
             if not finished:
                 try:
-                    _logger.info("Coroutine {} started. Repr: {}".format(call_id, call_repr_))
+                    _logger.info("{}: started. Repr:\n{}".format(name, call_repr_))
                     with ExitStack() as stack:
                         if add_job_directory:
-                            job_directory = context.pipeline.job_directory('coroutine', call_id)
+                            job_directory = context.pipeline.job_directory('persisted_call', call_id)
                             kwargs['job_directory'] = job_directory
                             stack.enter_context(fresh_directory(job_directory))
                         return_value = await f(*args, **kwargs)
@@ -285,20 +286,22 @@ def persisted(call_repr=None, exclude_arguments=(), version=1):
                         assert call
                         call.return_value = return_value
                         call.finished = version
-                    _logger.info("Coroutine {} finished. Repr: {}".format(call_id, call_repr_))
+                    _logger.info("{}: finished.".format(name))
                 except asyncio.CancelledError:
-                    _logger.info("Coroutine {} cancelled. Repr: {}".format(call_id, call_repr_))
+                    _logger.info("{}: cancelled.".format(name))
                     raise
                 except Exception:
-                    _logger.info("Coroutine {} failed. Repr: {}".format(call_id, call_repr_))
+                    _logger.error("{}: failed.".format(name))
                     raise
             else:
-                _logger.debug("Coroutine {} result fetched from cache, not rerunning: {}".format(call_id, call_repr_))
+                _logger.info("{}: fetched from cache. Repr:\n{}".format(name, call_repr_))
             
             return return_value
         
         return coroutine_function
     return decorator
+
+_next_execute_id = 1  # just for assigning ids to executions in logs. They're only valid for the current run.
 
 async def execute(command, directory=Path(), stdout=None, stderr=None):
     '''
@@ -329,6 +332,7 @@ async def execute(command, directory=Path(), stdout=None, stderr=None):
     ExitCodeError
         If exit code is non-zero
     '''
+    global _next_execute_id
     with ExitStack() as stack:
         stds = []
         std_files = [None, None]
@@ -342,9 +346,12 @@ async def execute(command, directory=Path(), stdout=None, stderr=None):
         
         command = [str(x) for x in command]
         command[0] = str(pb.local[command[0]].executable)
-        _logger.info('Executing: {}\nIn: {}'.format(' '.join(map(repr, command)), directory))
+        name = 'execute[{}]'.format(_next_execute_id)
+        _next_execute_id += 1
+        _logger.info('{}: started:\ncd {!r}\n{}'.format(name, str(directory), ' '.join(map(repr, command))))
         process = await asyncio.create_subprocess_exec(*command, cwd=str(directory), stdout=stds[0], stderr=stds[1])
         try:
+            _logger.debug('{}: pid={}'.format(name, process.pid))
             return_code = await process.wait()
         except asyncio.CancelledError:
             await _kill(process.pid)

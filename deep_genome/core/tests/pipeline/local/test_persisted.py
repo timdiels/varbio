@@ -219,12 +219,8 @@ class CoroutineMock(object):
     def action(self, action):
         self._action = action
         
-    def assert_log(self, events, x):
-        f = self.__class__.f.__wrapped__
-        kwargs = call_args(f, [self, None, x], {})
-        del kwargs['context']
-        del kwargs['self']
-        return assert_task_log(self._caplog, 'Coroutine', format_call(f, kwargs), events)
+    def assert_log(self, events, id_):
+        return assert_task_log(self._caplog, 'persisted_call', id_, events)
         
 @pytest.fixture
 def coroutine_mock(caplog):

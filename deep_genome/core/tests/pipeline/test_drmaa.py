@@ -97,7 +97,7 @@ class JobMock(object):
             assert False
             
     def assert_log(self, events):
-        return assert_task_log(self._caplog, 'Job', 'job1', events)
+        return assert_task_log(self._caplog, 'drmaa_job', 1, events)
     
     def __getattr__(self, attr):
         return getattr(self._job, attr)
@@ -154,7 +154,7 @@ async def test_asyncio_cancel(job_mock, context):
     job_mock.action = 'forever'
     task = asyncio.ensure_future(job_mock.run())
     asyncio.get_event_loop().call_later(3, task.cancel)
-    with job_mock.assert_log(['started', 'cancelled']):
+    with job_mock.assert_log(['started', 'cancelling', 'cancelled']):
         with pytest.raises(asyncio.CancelledError):
             await task
     

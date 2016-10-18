@@ -68,7 +68,7 @@ def format_exit_code_error(name, command, exit_code, stdout_file, stderr_file):
         message = 'Exited'
     message += ' with non-zero exit code: {}'.format(exit_code)
     
-    message += '\n\nCommand (split):\n{}'.format(command)
+    message += '\n\nCommand:\n{}'.format(' '.join(map(repr, command)))
     
     for std_file, name in ((stdout_file, 'stdout'), (stderr_file, 'stderr')):
         if std_file:

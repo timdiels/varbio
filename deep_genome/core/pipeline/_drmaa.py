@@ -25,6 +25,7 @@ from pathlib import Path
 import plumbum as pb
 from contextlib import suppress
 from deep_genome.core.pipeline._common import ExitCodeError, format_exit_code_error, fresh_directory
+import pprint
 
 try:
     import drmaa
@@ -110,29 +111,34 @@ class Job(object):
         #
         self._job_directory = self._context.pipeline.job_directory('job', self._id)
         
+    @property
+    def _command(self):
+        return [self._executable] + list(self._arguments)
+    
     async def run(self):
         '''
         Run job on server
         
         If job has already been run successfully before, return immediately.
         '''
+        _logger.debug("{}: name={!r}".format(self, self._name))
         if self._finished:
-            _logger.debug("Job {} already finished, not rerunning. Name: {}".format(self._id, self._name))
+            _logger.info("{}: fetched from cache.".format(self))
             return
         try:
-            _logger.info("Job {} started. Name: {}".format(self._id, self._name))
+            _logger.info("{}: started:\n{}".format(self, ' '.join(map(repr, self._command))))
             await self._run()
             self._finished = True
             with self._context.database.scoped_session() as session:
                 job = session.sa_session.query(self._context.database.e.Job).get(self._id)
                 assert job
                 job.finished = self._version
-            _logger.info("Job {} finished. Name: {}".format(self._id, self._name))
+            _logger.info("{}: finished.".format(self))
         except asyncio.CancelledError:
-            _logger.info("Job {} cancelled. Name: {}".format(self._id, self._name))
+            _logger.info("{}: cancelled.".format(self))
             raise
         except Exception:
-            _logger.info("Job {} failed. Name: {}".format(self._id, self._name))
+            _logger.error("{}: failed.".format(self))
             raise
         
     async def _run(self):
@@ -157,8 +163,10 @@ class Job(object):
                 
             # Wait for job
             try:
+                _logger.debug('{}: drmaa job id = {}'.format(self, job_id))
                 result = await loop.run_in_executor(None, self._drmaa_session.wait, job_id, drmaa.Session.TIMEOUT_WAIT_FOREVER)
             except asyncio.CancelledError as ex:
+                _logger.info("{}: cancelling (drmaa job id = {}).".format(self, job_id))
                 with suppress(drmaa.errors.InvalidJobException):  # perhaps job_id has already disappeared from server (because it finished or was terminated?)
                     await loop.run_in_executor(None, self._drmaa_session.control, job_id, drmaa.JobControlAction.TERMINATE)  # May return before job is actually terminated
                     await loop.run_in_executor(None, self._drmaa_session.wait, job_id, drmaa.Session.TIMEOUT_WAIT_FOREVER)  # So try to wait for termination
@@ -166,20 +174,24 @@ class Job(object):
         
         # Check result
         if result.wasAborted:
-            raise Exception('Job {} was aborted before it even started running'.format(self._id))
+            raise Exception(
+                '{} was aborted before it even started running. '
+                'Perhaps the configured job directory is inaccessible to the cluster?'
+                .format(self)
+            )
         elif result.hasSignal:
-            raise Exception('Job {} was killed with signal {}'.format(self._id, result.terminatedSignal))
+            raise Exception('{} was killed with signal {}'.format(self, result.terminatedSignal))
         elif not result.hasExited:
-            raise Exception('Job {} did not exit normally'.format(self._id))
+            raise Exception('{} did not exit normally'.format(self))  # not sure whether this can actually happen
         elif result.hasExited and result.exitStatus != 0:
             raise ExitCodeError(format_exit_code_error(
-                'Job {}'.format(self._id),
-                [self._executable] + list(self._arguments),
+                str(self),
+                self._command,
                 result.exitStatus,
                 self.stdout_file,
                 self.stderr_file
             ))
-        _logger.debug("Job {}'s resource usage was: {}".format(self._id, result.resourceUsage))
+        _logger.debug("{}: resource usage was:\n{}".format(self, pprint.pformat(result.resourceUsage)))
         
     @property
     def directory(self):
@@ -216,13 +228,8 @@ class Job(object):
         '''
         return self._job_directory / 'stdout'
             
-    def __str__(self):
-        max_ = 100
-        if len(self._name) > max_:
-            name = self._name[:max_] + '...'
-        else:
-            name = self._name
-        return 'Job({!r}, {!r})'.format(self._id, name)
-    
     def __repr__(self):
         return 'Job({!r})'.format(self._id)
+    
+    def __str__(self):
+        return 'drmaa_job[{!r}]'.format(self._id)

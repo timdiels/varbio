@@ -22,7 +22,7 @@ import re
 import os
 
 @contextmanager
-def assert_task_log(caplog, type_name, name, events):
+def assert_task_log(caplog, type_name, id_, events):
     '''
     Assert log contains task log messages in given order
     '''
@@ -33,16 +33,13 @@ def assert_task_log(caplog, type_name, name, events):
     lines = caplog.text().splitlines()[original_count:]
     
     # assert
-    if type_name == 'Job':
-        name_name = 'Name'
-    elif type_name == 'Coroutine':
-        name_name = 'Repr'
     events_seen = []
+    pattern = r'{}\[{}\]: (started|failed|finished|cancelling|cancelled)'.format(type_name, id_)
     for line in lines:
-        match = re.search(r"{} ([0-9]+) (started|failed|finished|cancelled). {}: (.+)".format(type_name, name_name), line)
+        print('l', line)
+        match = re.search(pattern, line)
         if match:
-            assert match.group(3) == name  # event happened on wrong task
-            event = match.group(2)
+            event = match.group(1)
             assert event not in events_seen, 'Event happens twice: {}'.format(event)
             events_seen.append(event)
     assert events_seen == events
