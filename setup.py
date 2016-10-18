@@ -70,6 +70,7 @@ setup(
                             'pandas',
                             'plumbum',
                             'psutil',
+                            'psutil',
                             'pymysql',
                             'scikit-learn',
                             'scipy',

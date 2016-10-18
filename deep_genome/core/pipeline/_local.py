@@ -21,6 +21,7 @@ Stuff to execute on local machine
 
 import asyncio
 from chicken_turtle_util import inspect as inspect_, path as path_
+from chicken_turtle_util.asyncio import stubborn_gather
 from deep_genome.core.pipeline._common import ExitCodeError, format_exit_code_error, fresh_directory
 from contextlib import suppress, ExitStack
 from functools import wraps
@@ -28,6 +29,7 @@ from pathlib import Path
 import plumbum as pb
 import logging
 import inspect
+import psutil
 
 _logger = logging.getLogger(__name__)
 
@@ -354,12 +356,14 @@ async def execute(command, directory=Path(), stdout=None, stderr=None):
             _logger.debug('{}: pid={}'.format(name, process.pid))
             return_code = await process.wait()
         except asyncio.CancelledError:
-            await _kill(process.pid)
+            _logger.info('{}: cancelling (pid={})'.format(name, process.pid))
+            await _kill(process)
+            _logger.info('{}: cancelled'.format(name))
             raise
         if return_code != 0:
             raise ExitCodeError(format_exit_code_error(None, command, return_code, std_files[0], std_files[1]))
     
-async def _kill(pid, timeout=10):
+async def _kill(process, timeout=10):
     '''
     Kill process and its children and wait for them to terminate
     
@@ -367,20 +371,47 @@ async def _kill(pid, timeout=10):
     
     Parameters
     ----------
-    pid
-        PID of parent
+    process : asyncio.Process
+        Process to kill
     timeout : int
         Timeout in seconds before sending SIGKILL.
     '''
-    import psutil
-    parent = psutil.Process(pid)
-    processes = [process for process in list(parent.children(recursive=True))] + [parent]
-    for process in processes:
+    # Find children
+    parent = psutil.Process(process.pid)
+    children = list(parent.children(recursive=True))
+    
+    # Kill parent and children
+    _logger.info('Terminating process {}, waiting {} seconds'.format(process.pid, timeout))
+    await stubborn_gather(
+        _kill_parent(process, timeout),
+        _kill_children(children, timeout)
+    )
+                
+async def _kill_parent(process, timeout):
+    # Send SIGTERM
+    process.terminate()
+    
+    # Wait
+    try:
+        await asyncio.wait_for(process.wait(), timeout)
+    except:
+        # Send SIGKILL
+        _logger.warning('Process did not terminate within timeout, sending SIGKILL')
+        process.kill()
+
+async def _kill_children(children, timeout):
+    # Send SIGTERM
+    for process in children:
         with suppress(psutil.NoSuchProcess):
             process.terminate()
-    _, processes = await asyncio.get_event_loop().run_in_executor(None, psutil.wait_procs, processes, timeout)
-    if processes:
-        _logger.warning('Process did not terminate within timeout, sending SIGKILL')
-        for process in processes:
+                
+    # Wait
+    _, children = await asyncio.get_event_loop().run_in_executor(None, psutil.wait_procs, children, timeout)
+    
+    # Send SIGKILL
+    if children:
+        _logger.warning('Some children did not terminate within timeout, sending SIGKILL')
+        for process in children:
             with suppress(psutil.NoSuchProcess):
                 process.kill()
+                

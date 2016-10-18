@@ -14,6 +14,7 @@ psutil
 sqlalchemy
 pymysql
 drmaa
+psutil
 
 -e /home/limyreth/doc/eclipse_workspace/chicken_turtle_util[path,exceptions,inspect,data_frame,series,test,pymysql,sqlalchemy]
 #chicken-turtle-util==1.1.0
