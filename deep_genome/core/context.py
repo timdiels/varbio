@@ -86,7 +86,6 @@ class Context(object):
             provided to DRMAA jobs and @persisted(job_directory=True). They are
             persistent and tied to a job's name (or a coroutine's call_repr).
         '''
-        #TODO steal docstring param from Pipeline
         self._pipeline = Pipeline(self, jobs_directory) 
         
     @property
