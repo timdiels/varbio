@@ -27,15 +27,6 @@ import pytest
 import sqlalchemy as sa
 from textwrap import dedent
 import pandas as pd
-
-@pytest.yield_fixture
-def session(db):
-    with db.scoped_session() as session:
-        yield session
-        
-        # No temp stuff left behind
-        assert session.sa_session.query(db.e.GeneNameQuery).count() == 0
-        assert session.sa_session.query(db.e.GeneNameQueryItem).count() == 0
         
 def test_clear_and_create(context):
     db = context.database

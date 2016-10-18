@@ -77,3 +77,13 @@ def db(context):
     db.clear()
     db.create()
     return db
+
+@pytest.yield_fixture
+def session(db):
+    with db.scoped_session() as session:
+        yield session
+        
+        # No temp stuff left behind
+        assert session.sa_session.query(db.e.GeneNameQuery).count() == 0
+        assert session.sa_session.query(db.e.GeneNameQueryItem).count() == 0
+        
