@@ -94,13 +94,12 @@ class TestPipelineCLI(object):
         async def raises():
             await asyncio.sleep(1)
             raise Exception('error')
-        future = raises()
         with pytest.raises(SystemExit) as ex:
-            pipeline_cli(future, debug=False)
+            pipeline_cli(raises(), debug=False)
         assert ex.value.code != 0
         
     @pytest.mark.parametrize('debug', (False, True))
-    def test_logging(self, debug, capsys, event_loop):  # Note: pipeline_cli fiddles with asyncio event loop, hence event_loop fixture is needed
+    def test_logging(self, debug, capsys):
         '''
         When debug, DEBUG is included in stderr as well
         

@@ -21,6 +21,7 @@ from deep_genome.core import Context, patch
 from deep_genome.core.database import Credentials
 import logging
 import pytest
+import asyncio
 
 # http://stackoverflow.com/a/30091579/1031434
 from signal import signal, SIGPIPE, SIG_DFL
@@ -84,3 +85,10 @@ def session(db):
         assert session.sa_session.query(db.e.GeneNameQuery).count() == 0
         assert session.sa_session.query(db.e.GeneNameQueryItem).count() == 0
         
+@pytest.yield_fixture
+def event_loop(event_loop):
+    original_loop = asyncio.get_event_loop()
+    asyncio.set_event_loop(event_loop)
+    yield event_loop
+    asyncio.set_event_loop(original_loop)
+    
