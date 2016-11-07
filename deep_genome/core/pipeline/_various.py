@@ -24,6 +24,7 @@ import sys
 import signal
 import logging
 from ._drmaa import Job
+from chicken_turtle_util import logging as logging_
 
 try:
     import drmaa
@@ -189,28 +190,15 @@ def pipeline_cli(main, debug):
     def cancel():
         _logger.info('Pipeline: cancelling, please wait')
         task.cancel()
-    def cancel_left_overs():
-        for task in asyncio.Task.all_tasks():
-            task.cancel()
     loop.add_signal_handler(signal.SIGHUP, cancel)
     loop.add_signal_handler(signal.SIGINT, cancel)
     loop.add_signal_handler(signal.SIGTERM, cancel)
     
-    # Note: do not use logging.basicConfig as it does not play along with caplog in testing
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)  # handlers will cut down on this
-    
-    # log info or debug to stderr in terse format (details go in log file, not stderr)
-    stderr_handler = logging.StreamHandler() # to stderr
-    stderr_handler.setLevel(logging.DEBUG if debug else logging.INFO)
-    stderr_handler.setFormatter(logging.Formatter('{levelname[0]}: {message}', style='{'))
-    root_logger.addHandler(stderr_handler)
-    
-    # log debug and higher to file in long format
-    file_handler = logging.FileHandler('pipeline.log')
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(logging.Formatter('{levelname[0]} {asctime} {name} ({module}:{lineno}):\n{message}\n', style='{'))
-    root_logger.addHandler(file_handler)
+    # Init logging
+    stderr_handler, _ = logging_.configure('pipeline.log')
+    if debug:
+        stderr_handler.setLevel(logging.DEBUG)
+    logging.getLogger('deep_genome.core.pipeline').setLevel(logging.DEBUG)
     
     #
     try:

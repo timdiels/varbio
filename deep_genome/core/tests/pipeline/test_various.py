@@ -22,7 +22,6 @@ Test deep_genome.core.pipeline._various
 from deep_genome.core.pipeline import pipeline_cli
 from chicken_turtle_util import path as path_
 from chicken_turtle_util.exceptions import InvalidOperationError
-from textwrap import dedent
 from pathlib import Path
 import subprocess
 import asyncio
@@ -31,7 +30,6 @@ import psutil
 import logging
 import signal
 import os
-import re
 
 class TestContextPipeline(object):
     
@@ -102,9 +100,12 @@ class TestPipelineCLI(object):
         assert ex.value.code != 0
         
     @pytest.mark.parametrize('debug', (False, True))
-    def test_logging(self, debug, capsys):
+    def test_logging(self, debug, capsys, event_loop):  # Note: pipeline_cli fiddles with asyncio event loop, hence event_loop fixture is needed
         '''
-        Test all logging
+        When debug, DEBUG is included in stderr as well
+        
+        Assumes chicken_turtle_util.logging.configure is used, thus we don't
+        test that part.
         '''
         # Run
         async def succeeds():
@@ -124,33 +125,6 @@ class TestPipelineCLI(object):
         actual = capsys.readouterr()[1]
         assert actual == stderr, '\n{}\n---\n{}'.format(actual, stderr)
         
-        # log file
-        #
-        # - regardless of debug mode, level is DEBUG
-        # - long format with fairly unambiguous source
-        log_file_content = path_.read(Path('pipeline.log'))
-        def prefix(log_type, package, module_name):
-            return r'{} [0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}} [0-9]{{2}}:[0-9]{{2}}:[0-9]{{2}},[0-9]{{3}} {} \({}:[0-9]+\):'.format(
-                log_type, package, module_name
-            )
-        pattern = dedent('''\
-            {}
-            Fake info
-             
-            {}
-            Fake debug
-            
-            {}
-            Pipeline: finished
-            '''
-            .format(
-                prefix('I', 'deep_genome.core.pipeline', 'test_various'),
-                prefix('D', 'deep_genome.core.pipeline', 'test_various'),
-                prefix('I', 'deep_genome.core.pipeline._various', '_various'),
-            )
-        )
-        assert re.match(pattern, log_file_content, re.MULTILINE)
-         
     @pytest.mark.parametrize('signal', (signal.SIGTERM, signal.SIGINT, signal.SIGHUP))
     @pytest.mark.asyncio
     async def test_signal(self, temp_dir_cwd, signal):  # temp_dir_cwd as dg-tests-pipeline-cli-forever puts cache in local directory
