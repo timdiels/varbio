@@ -204,7 +204,7 @@ class Job(object):
     @property
     def directory(self):
         '''
-        Get working directory
+        Working directory
         
         This is the cwd in which the command runs/ran.
         
@@ -217,7 +217,7 @@ class Job(object):
     @property
     def stderr_file(self):
         '''
-        Get path to stderr output file
+        Path to stderr output file
         
         Returns
         -------
@@ -228,7 +228,7 @@ class Job(object):
     @property
     def stdout_file(self):
         '''
-        Get path to stdout output file
+        Path to stdout output file
         
         Returns
         -------
