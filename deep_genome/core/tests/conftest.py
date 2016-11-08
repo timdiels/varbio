@@ -27,10 +27,10 @@ import asyncio
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE, SIG_DFL) # Ignore SIGPIPE
 
-patch()
-
 @pytest.fixture(autouse=True, scope='session')
 def common_init():
+    patch()
+    
     # log levels
     logging.getLogger('chicken_turtle_util').setLevel(logging.INFO)
 
