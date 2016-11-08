@@ -21,8 +21,14 @@ import logging
 import re
 import os
 
-@contextmanager
 def assert_task_log(caplog, type_name, id_, events):
+    '''
+    Assert log contains task log messages in given order
+    '''
+    return assert_task_log_(caplog, [(type_name, id_, event) for event in events])
+    
+@contextmanager
+def assert_task_log_(caplog, events):
     '''
     Assert log contains task log messages in given order
     '''
@@ -34,12 +40,13 @@ def assert_task_log(caplog, type_name, id_, events):
     
     # assert
     events_seen = []
-    pattern = r'{}\[{}\]: (started|failed|finished|cancelling|cancelled)'.format(type_name, id_)
+    pattern = r'(persisted_call|execute|drmaa_job)\[(.+)\]: (started|failed|finished|cancelling|cancelled)'
     for line in lines:
-        print('l', line)
         match = re.search(pattern, line)
         if match:
-            event = match.group(1)
+            event = list(match.groups())
+            event[1] = int(event[1])
+            event = tuple(event)
             assert event not in events_seen, 'Event happens twice: {}'.format(event)
             events_seen.append(event)
     assert events_seen == events

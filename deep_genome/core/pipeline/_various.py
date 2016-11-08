@@ -21,6 +21,7 @@ Stuff for both local and drmaa execution
 
 import asyncio
 import sys
+import attr
 import signal
 import logging
 from ._drmaa import Job
@@ -49,14 +50,18 @@ class Pipeline(object):
         Directory in which to create job directories. Job directories are
         provided to DRMAA jobs and @persisted(job_directory=True). They are
         persistent and tied to a job's name (or a coroutine's call_repr).
+    max_cores_used : int
+        Maximum number of cores used by all running jobs combined. I.e. it
+        limits ``sum(job.cores for job in running_jobs)``.
     '''
     
     _instance_counter = 0
     _drmaa_session = None  # `drmaa` cannot have multiple active sessions, so we share one across Pipeline instances
     
-    def __init__(self, context, jobs_directory):
+    def __init__(self, context, jobs_directory, max_cores_used):
         self._context = context
         self._jobs_directory = jobs_directory
+        self._core_pool = CorePool(max_cores_used)
         Pipeline._instance_counter += 1
     
     def dispose(self): # TODO keep internal, to be called by Context.dispose
@@ -72,7 +77,7 @@ class Pipeline(object):
                 Pipeline._drmaa_session = None
         Pipeline._instance_counter -= 1
         
-    def drmaa_job(self, name, command, server_arguments=None, version=1):
+    def drmaa_job(self, name, command, server_arguments=None, version=1, cores=1):
         '''
         Create a DRMAA Job
         
@@ -101,16 +106,29 @@ class Pipeline(object):
         server_arguments : str or None
             A DRMAA native specification, which in the case of SGE or OGS is a
             string of options given to qsub (see also
-            http://linux.die.net/man/3/drmaa_attributes).
+            http://linux.die.net/man/3/drmaa_attributes). When requesting more than
+            1 core, remember to also set `cores`.
         version : int
             Version number of the command. Cached results from other versions are
             ignored. I.e. when the job is run after a version change, it will rerun
             and overwrite the result of a different version (if any) in the cache.
+        cores : int
+            Number of cores used. To actually request them, use server_arguments.
+            This is required for adhering to ``Pipeline(max_total_cores)``.
         
         Returns
         -------
         deep_genome.core.pipeline.Job
         '''
+        # Validate `cores`
+        if cores > self._core_pool.cores:
+            raise ValueError(
+                'Created job would exceed Pipeline.max_cores_used: {} > {}. '
+                'The job would never run. '
+                'Either increase max_cores_used or decrease Job.cores.'
+                .format(cores, self._max_cores_used)
+            )
+        
         # Initialise _drmaa_session
         if _drmaa_import_error:
             raise _drmaa_import_error
@@ -119,7 +137,7 @@ class Pipeline(object):
             Pipeline._drmaa_session.initialize()
         
         #
-        return Job(self._context, Pipeline._drmaa_session, name, command, server_arguments, version)
+        return Job(self._context, Pipeline._drmaa_session, name, command, self._core_pool, server_arguments, version, cores)
     
     def job_directory(self, job_type, job_id):
         '''
@@ -136,6 +154,96 @@ class Pipeline(object):
             Path to job directory
         '''
         return self._jobs_directory / '{}{}'.format(job_type, job_id)
+    
+class CorePool(object):
+    
+    '''
+    Internal, do not use.
+    
+    A pool of cores
+    
+    Parameters
+    ----------
+    cores : int
+        Number of cores in pool
+    '''
+    
+    def __init__(self, cores):
+        self._data = _CorePoolData(cores)
+    
+    def reserve(self, cores):
+        '''
+        Temporarily reserve a number of cores
+        
+        Parameters
+        ----------
+        cores : int
+            Number of cores to reserve. Awaits if requested amount is not
+            yet available.
+            
+        Returns
+        -------
+        async context manager
+        
+        Raises
+        ------
+        ValueError
+            More cores requested than total number of cores (including reserved
+            cores)
+        '''
+        return _CoresReservation(cores, self._data)
+    
+    @property
+    def cores(self):
+        return self._data.cores
+    
+@attr.s
+class _CorePoolData(object):
+    
+    _cores = attr.ib()
+    reserved = attr.ib(default=0, init=False)
+    _condition = attr.ib(default=attr.Factory(asyncio.Condition), init=False)
+    
+    @property
+    def cores(self):
+        return self._cores
+    
+    @property
+    def condition(self):
+        return self._condition
+
+    @property
+    def available(self):
+        '''
+        Number of cores available (i.e. not reserved)
+        '''
+        return self.cores - self.reserved
+    
+class _CoresReservation(object):
+    
+    '''
+    Parameters
+    ----------
+    cores : int
+        Number of cores to reserve
+    _CorePoolData
+    '''
+    
+    def __init__(self, cores, core_pool_data):
+        self._cores = cores
+        self._core_pool_data = core_pool_data
+        
+    async def __aenter__(self):
+        async with self._core_pool_data._condition:
+            def predicate():
+                return self._core_pool_data.available >= self._cores
+            await self._core_pool_data._condition.wait_for(predicate)
+            self._core_pool_data.reserved += self._cores
+
+    async def __aexit__(self, exc_type, exc, tb):
+        self._core_pool_data.reserved -= self._cores
+        async with self._core_pool_data._condition:
+            self._core_pool_data._condition.notify_all()
     
 def pipeline_cli(main, debug):
     '''

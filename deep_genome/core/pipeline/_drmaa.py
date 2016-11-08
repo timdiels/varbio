@@ -67,14 +67,19 @@ class Job(object):
         is the executable to execute, ``map(str, command[1:])`` are the args to
         pass it. The executable is looked up using the PATH env var if it's not
         an absolute path.
+    core_pool : deep_genome.core.pipeline._various.CorePool
     server_arguments : str or None
         A DRMAA native specification, which in the case of SGE or OGS is a
         string of options given to qsub (see also
-        http://linux.die.net/man/3/drmaa_attributes).
+        http://linux.die.net/man/3/drmaa_attributes). When requesting more than
+        1 core, remember to also set `cores`.
     version : int
         Version number of the command. Cached results from other versions are
         ignored. I.e. when the job is run after a version change, it will rerun
         and overwrite the result of a different version (if any) in the cache.
+    cores : int
+        Number of cores used. To actually request them, use server_arguments.
+        This is required for adhering to ``Pipeline(max_total_cores)``.
     '''
     
     # Note: If you get "drmaa.errors.DeniedByDrmException: code 17: error: no
@@ -83,7 +88,7 @@ class Job(object):
     # configured for it (see 
     # http://gridscheduler.sourceforge.net/howto/commonproblems.html#interactive)
     
-    def __init__(self, context, drmaa_session, name, command, server_arguments=None, version=1):
+    def __init__(self, context, drmaa_session, name, command, core_pool, server_arguments=None, version=1, cores=1):
         if _drmaa_import_error:
             raise _drmaa_import_error
         
@@ -95,6 +100,8 @@ class Job(object):
         self._arguments = command[1:]
         self._server_arguments = server_arguments
         self._version = version
+        self._cores = cores
+        self._core_pool = core_pool
         
         # Load/create from database 
         Job = self._context.database.e.Job
@@ -126,8 +133,9 @@ class Job(object):
             _logger.info("{}: fetched from cache.".format(self))
             return
         try:
-            _logger.info("{}: started:\n{}".format(self, ' '.join(map(repr, self._command))))
-            await self._run()
+            async with self._core_pool.reserve(self.cores):
+                _logger.info("{}: started:\n{}".format(self, ' '.join(map(repr, self._command))))
+                await self._run()
             self._finished = True
             with self._context.database.scoped_session() as session:
                 job = session.sa_session.query(self._context.database.e.Job).get(self._id)
@@ -227,6 +235,17 @@ class Job(object):
         pathlib.Path
         '''
         return self._job_directory / 'stdout'
+    
+    @property
+    def cores(self):
+        '''
+        Number of cores used when running.
+        
+        Returns
+        -------
+        int
+        '''
+        return self._cores
             
     def __repr__(self):
         return 'Job({!r})'.format(self._id)

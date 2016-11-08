@@ -35,7 +35,7 @@ def jobs_directory():
 
 @pytest.fixture(autouse=True)
 def initialise_pipeline(context, jobs_directory):
-    context.initialise_pipeline(jobs_directory)
+    context.initialise_pipeline(jobs_directory, max_cores_used=10)
  
 class TestContextFinding(object):
     

@@ -51,7 +51,7 @@ class Context(object):
     def database(self):
         return self._database
         
-    def initialise_pipeline(self, jobs_directory):
+    def initialise_pipeline(self, jobs_directory, max_cores_used):
         '''
         Initialise self.pipeline attribute
         
@@ -61,8 +61,11 @@ class Context(object):
             Directory in which to create job directories. Job directories are
             provided to DRMAA jobs and @persisted(job_directory=True). They are
             persistent and tied to a job's name (or a coroutine's call_repr).
+        max_cores_used : int
+            Maximum number of cores used by all running jobs combined. I.e. it
+            limits ``sum(job.cores for job in running_jobs)``.
         '''
-        self._pipeline = Pipeline(self, jobs_directory) 
+        self._pipeline = Pipeline(self, jobs_directory, max_cores_used)
         
     @property
     def pipeline(self):

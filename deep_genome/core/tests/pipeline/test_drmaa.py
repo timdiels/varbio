@@ -20,13 +20,16 @@ Test deep_genome.core.pipeline._drmaa
 '''
 
 from .common import assert_task_log, assert_is_read_only
-from deep_genome.core.pipeline import ExitCodeError
+from deep_genome.core.pipeline import ExitCodeError, Job
 from chicken_turtle_util import path as path_
 from pathlib import Path
 from contextlib import contextmanager
 import os
 import asyncio
 import pytest
+import logging
+
+_logger = logging.getLogger(__name__)
 
 try:
     import drmaa
@@ -57,7 +60,7 @@ def jobs_directory(test_conf):
 
 @pytest.yield_fixture(autouse=True)
 def use_drmaa(context, jobs_directory):
-    context.initialise_pipeline(jobs_directory)
+    context.initialise_pipeline(jobs_directory, max_cores_used=10)
     yield
     assert_no_live_jobs(context)
     
@@ -115,7 +118,7 @@ def job_mock(context, caplog, jobs_directory):
         
 @pytest.fixture
 def context2(context2, jobs_directory):
-    context2.initialise_pipeline(jobs_directory)
+    context2.initialise_pipeline(jobs_directory, max_cores_used=10)
     return context2
 
 @pytest.mark.asyncio
@@ -230,3 +233,52 @@ async def test_version(context, context2, caplog, jobs_directory):
         with job_mock.assert_log([]):
             await job_mock.run()
             
+@pytest.mark.asyncio
+async def test_max_cores_used(context, caplog, job_mock, mocker):
+    '''
+    When threatening to exceed max_cores_used, wait until enough cores are free
+    '''
+    # Set up events on Job._run
+    original_run = Job._run
+    events_condition = asyncio.Condition()
+    events = []
+    async def _run(self):
+        events.append((self._id, 'started'))
+        async with events_condition:
+            events_condition.notify_all()
+        
+        await original_run(self)
+        
+        events.append((self._id, 'finished'))
+        async with events_condition:
+            events_condition.notify_all()
+    mocker.patch.object(Job, '_run', _run)
+    
+    # Set up both jobs
+    job_mock.action = 'forever'
+    job2 = context.pipeline.drmaa_job('job2', ['true'], cores=10)
+    
+    # Start running a job forever
+    asyncio.ensure_future(job_mock.run())
+    async with events_condition:
+        events_condition.wait_for(lambda: (1, 'started') in events)
+    
+    # Run a job that won't fit. I.e. it won't start yet
+    job2_future = asyncio.ensure_future(job2.run())
+    await asyncio.sleep(1)
+    assert (1, 'finished') not in events  # test the test
+    assert (2, 'started') not in events
+    
+    # Let job1 finish, and then job2 will start and finish
+    job_mock.action = 'succeed'
+    await job2_future
+    
+    # Assert events
+    expected = [
+        (job_mock._id, 'started'),
+        (job_mock._id, 'finished'),
+        (job2._id, 'started'),
+        (job2._id, 'finished'),
+    ]
+    assert events == expected
+

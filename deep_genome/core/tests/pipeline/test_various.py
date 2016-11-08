@@ -50,7 +50,7 @@ class TestContextPipeline(object):
         Test context.pipeline.job_directory (an internal function)
         '''
         jobs_directory = Path('jobs')
-        context.initialise_pipeline(jobs_directory)
+        context.initialise_pipeline(jobs_directory, max_cores_used=10)
         assert jobs_directory in context.pipeline.job_directory('type', 1).parents
 
 
