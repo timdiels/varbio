@@ -58,7 +58,8 @@ def _create_context(database_credentials):
     )
     
 @pytest.yield_fixture
-def context(database_credentials, temp_dir_cwd):
+def context(event_loop, database_credentials, temp_dir_cwd):
+    # Note: event_loop: when using initialise_pipeline, test event_loop needs already be set
     context = _create_context(database_credentials)
     yield context
     context.dispose()
@@ -87,8 +88,10 @@ def session(db):
         
 @pytest.yield_fixture
 def event_loop(event_loop):
+    # Restore old pytest-asyncio behaviour, wouldn't recommend doing this in new projects
     original_loop = asyncio.get_event_loop()
     asyncio.set_event_loop(event_loop)
     yield event_loop
-    asyncio.set_event_loop(original_loop)
+    if not original_loop.is_closed():
+        asyncio.set_event_loop(original_loop)
     
