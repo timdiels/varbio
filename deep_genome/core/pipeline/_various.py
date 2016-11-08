@@ -64,7 +64,7 @@ class Pipeline(object):
         self._core_pool = CorePool(max_cores_used)
         Pipeline._instance_counter += 1
     
-    def dispose(self): # TODO keep internal, to be called by Context.dispose
+    def dispose(self):
         '''
         Internal, use :meth:`deep_genome.core.Context.dispose` instead.
         
