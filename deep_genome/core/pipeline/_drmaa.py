@@ -167,14 +167,14 @@ class Job(object):
                 if self._server_arguments:
                     job_template.nativeSpecification = self._server_arguments
                 async with self._resources.drmaa_lock:
-                    job_id = await loop.run_in_executor(None, session.runJob, job_template)
+                    job_id = await loop.run_in_executor(self._resources.main_executor, session.runJob, job_template)
             finally:
                 session.deleteJobTemplate(job_template)
                 
             # Wait for job
             try:
                 _logger.debug('{}: drmaa job id = {}'.format(self, job_id))
-                result = await loop.run_in_executor(None, session.wait, job_id, drmaa.Session.TIMEOUT_WAIT_FOREVER)
+                result = await loop.run_in_executor(self._resources.main_executor, session.wait, job_id, drmaa.Session.TIMEOUT_WAIT_FOREVER)
             except asyncio.CancelledError as ex:
                 _logger.info("{}: cancelling (drmaa job id = {}).".format(self, job_id))
                 with suppress(drmaa.errors.InvalidJobException):  # don't mind if job has disappeared (e.g. was terminated or has completed)

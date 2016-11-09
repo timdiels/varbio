@@ -67,6 +67,7 @@ class Pipeline(object):
             drmaa_lock=asyncio.Lock(),
             core_pool=CorePool(max_cores_used),
             job_directory=self.job_directory,
+            main_executor=ThreadPoolExecutor(max_workers=max_cores_used),
             cancellation_executor=ThreadPoolExecutor(max_workers=max_cores_used)
         )
         Pipeline._instance_counter += 1
@@ -180,6 +181,9 @@ class JobResources(object):
     
     # runJob/control lock (they're not thread safe with each other)
     drmaa_lock = attr.ib()
+    
+    # Executor to use when when not cancelling
+    main_executor = attr.ib()
     
     # Executor to use when cancelling jobs. (main_executor may be too busy to
     # take on new work, so by using a separate pool we ensure cancellation
