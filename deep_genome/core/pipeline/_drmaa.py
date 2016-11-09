@@ -166,7 +166,8 @@ class Job(object):
                 job_template.args = self._arguments
                 if self._server_arguments:
                     job_template.nativeSpecification = self._server_arguments
-                job_id = await loop.run_in_executor(None, session.runJob, job_template)
+                async with self._resources.drmaa_lock:
+                    job_id = await loop.run_in_executor(None, session.runJob, job_template)
             finally:
                 session.deleteJobTemplate(job_template)
                 
@@ -176,9 +177,13 @@ class Job(object):
                 result = await loop.run_in_executor(None, session.wait, job_id, drmaa.Session.TIMEOUT_WAIT_FOREVER)
             except asyncio.CancelledError as ex:
                 _logger.info("{}: cancelling (drmaa job id = {}).".format(self, job_id))
-                with suppress(drmaa.errors.InvalidJobException):  # perhaps job_id has already disappeared from server (because it finished or was terminated?)
-                    await loop.run_in_executor(None, session.control, job_id, drmaa.JobControlAction.TERMINATE)  # May return before job is actually terminated
-                    await loop.run_in_executor(None, session.wait, job_id, drmaa.Session.TIMEOUT_WAIT_FOREVER)  # So try to wait for termination
+                with suppress(drmaa.errors.InvalidJobException):  # don't mind if job has disappeared (e.g. was terminated or has completed)
+                    # Request termination
+                    async with self._resources.drmaa_lock:
+                        await loop.run_in_executor(None, session.control, job_id, drmaa.JobControlAction.TERMINATE)
+                        
+                    # Wait for termination to complete (may already have happened)
+                    await loop.run_in_executor(None, session.wait, job_id, drmaa.Session.TIMEOUT_WAIT_FOREVER)
                 raise ex
         
         # Check result

@@ -63,6 +63,7 @@ class Pipeline(object):
         self._jobs_directory = jobs_directory
         self._job_resources = JobResources(
             drmaa_session=Pipeline._drmaa_session,
+            drmaa_lock=asyncio.Lock(),
             core_pool=CorePool(max_cores_used),
             job_directory=self.job_directory,
         )
@@ -174,6 +175,9 @@ class JobResources(object):
     
     # see Pipeline.job_directory
     job_directory = attr.ib()
+    
+    # runJob/control lock (they're not thread safe with each other)
+    drmaa_lock = attr.ib()
     
 class CorePool(object):
     
