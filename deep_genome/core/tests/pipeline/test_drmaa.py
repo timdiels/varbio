@@ -79,7 +79,8 @@ class JobMock(object):
                 '{} ; echo {}; [ ! -e {} ]'
                 .format(wait_for_rm, self._token, self._file)
             ],
-            version=version
+            version=version,
+            cores=1
         )
         self.fail = 'succeed'
         
@@ -174,7 +175,7 @@ async def test_succeed_output(context, jobs_directory):
     '''
     When success, correct output files
     '''
-    job1 = context.pipeline.drmaa_job('job1', ['sh', '-c', 'pwd; echo $$; echo stderr >&2; echo extra; touch file; mkdir dir'])
+    job1 = context.pipeline.drmaa_job('job1', ['sh', '-c', 'pwd; echo $$; echo stderr >&2; echo extra; touch file; mkdir dir'], cores=1)
     assert jobs_directory in job1.directory.parent.parents
         
     await job1.run()
@@ -209,7 +210,7 @@ async def test_drmaa_cancel(event_loop, context):
     event_loop.call_later(3, kill_job)
     
     # Run job
-    job1 = context.pipeline.drmaa_job('job1', ['sleep', '99999999999'])
+    job1 = context.pipeline.drmaa_job('job1', ['sleep', '99999999999'], cores=1)
     with pytest.raises(Exception):
             await job1.run()
 

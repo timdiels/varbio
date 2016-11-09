@@ -66,6 +66,9 @@ class Job(object):
         is the executable to execute, ``map(str, command[1:])`` are the args to
         pass it. The executable is looked up using the PATH env var if it's not
         an absolute path.
+    cores : int
+        Number of cores used. To actually request them, use server_arguments.
+        This is required for adhering to ``Pipeline(max_total_cores)``.
     job_resources : deep_genome.core.pipeline._various.JobResources
     server_arguments : str or None
         A DRMAA native specification, which in the case of SGE or OGS is a
@@ -76,9 +79,6 @@ class Job(object):
         Version number of the command. Cached results from other versions are
         ignored. I.e. when the job is run after a version change, it will rerun
         and overwrite the result of a different version (if any) in the cache.
-    cores : int
-        Number of cores used. To actually request them, use server_arguments.
-        This is required for adhering to ``Pipeline(max_total_cores)``.
     '''
     
     # Note: If you get "drmaa.errors.DeniedByDrmException: code 17: error: no
@@ -89,7 +89,7 @@ class Job(object):
     
     # Note: should not use context.pipeline here, that would be a cyclic dependency.
     
-    def __init__(self, context, name, command, job_resources, server_arguments=None, version=1, cores=1):
+    def __init__(self, context, name, command, cores, job_resources, server_arguments=None, version=1):
         if _drmaa_import_error:
             raise _drmaa_import_error
         

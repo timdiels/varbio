@@ -85,7 +85,7 @@ class Pipeline(object):
                 Pipeline._drmaa_session = None
         Pipeline._instance_counter -= 1
         
-    def drmaa_job(self, name, command, server_arguments=None, version=1, cores=1):
+    def drmaa_job(self, name, command, cores, server_arguments=None, version=1):
         '''
         Create a DRMAA Job
         
@@ -111,6 +111,9 @@ class Pipeline(object):
             is the executable to execute, ``map(str, command[1:])`` are the args to
             pass it. The executable is looked up using the PATH env var if it's not
             an absolute path.
+        cores : int
+            Number of cores used. To actually request them, use server_arguments.
+            This is required for adhering to ``Pipeline(max_total_cores)``.
         server_arguments : str or None
             A DRMAA native specification, which in the case of SGE or OGS is a
             string of options given to qsub (see also
@@ -120,9 +123,6 @@ class Pipeline(object):
             Version number of the command. Cached results from other versions are
             ignored. I.e. when the job is run after a version change, it will rerun
             and overwrite the result of a different version (if any) in the cache.
-        cores : int
-            Number of cores used. To actually request them, use server_arguments.
-            This is required for adhering to ``Pipeline(max_total_cores)``.
         
         Returns
         -------
@@ -146,7 +146,7 @@ class Pipeline(object):
         
         #
         job_resources = attr.assoc(self._job_resources, drmaa_session=Pipeline._drmaa_session)
-        return Job(self._context, name, command, job_resources, server_arguments, version, cores)
+        return Job(self._context, name, command, cores, job_resources, server_arguments, version)
     
     def job_directory(self, job_type, job_id):
         '''
