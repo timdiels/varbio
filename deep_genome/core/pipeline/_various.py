@@ -61,7 +61,11 @@ class Pipeline(object):
     def __init__(self, context, jobs_directory, max_cores_used):
         self._context = context
         self._jobs_directory = jobs_directory
-        self._core_pool = CorePool(max_cores_used)
+        self._job_resources = JobResources(
+            drmaa_session=Pipeline._drmaa_session,
+            core_pool=CorePool(max_cores_used),
+            job_directory=self.job_directory,
+        )
         Pipeline._instance_counter += 1
     
     def dispose(self):
@@ -121,12 +125,12 @@ class Pipeline(object):
         deep_genome.core.pipeline.Job
         '''
         # Validate `cores`
-        if cores > self._core_pool.cores:
+        if cores > self._job_resources.core_pool.cores:
             raise ValueError(
                 'Created job would exceed Pipeline.max_cores_used: {} > {}. '
                 'The job would never run. '
                 'Either increase max_cores_used or decrease Job.cores.'
-                .format(cores, self._max_cores_used)
+                .format(cores, self._job_resources.core_pool.cores)
             )
         
         # Initialise _drmaa_session
@@ -137,11 +141,14 @@ class Pipeline(object):
             Pipeline._drmaa_session.initialize()
         
         #
-        return Job(self._context, Pipeline._drmaa_session, name, command, self._core_pool, server_arguments, version, cores)
+        job_resources = attr.assoc(self._job_resources, drmaa_session=Pipeline._drmaa_session)
+        return Job(self._context, name, command, job_resources, server_arguments, version, cores)
     
     def job_directory(self, job_type, job_id):
         '''
-        Internal: Get job directory.
+        Internal, do not use.
+        
+        Get job directory.
         
         Parameters
         ----------
@@ -155,12 +162,25 @@ class Pipeline(object):
         '''
         return self._jobs_directory / '{}{}'.format(job_type, job_id)
     
+@attr.s(frozen=True)
+class JobResources(object):
+    '''
+    Internal, do not use
+    
+    Bundle of objects used by a Job (for easier passing around).
+    '''
+    drmaa_session = attr.ib()
+    core_pool = attr.ib()
+    
+    # see Pipeline.job_directory
+    job_directory = attr.ib()
+    
 class CorePool(object):
     
     '''
     Internal, do not use.
     
-    A pool of cores
+    A pool of cores.
     
     Parameters
     ----------

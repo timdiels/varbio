@@ -46,7 +46,6 @@ class Job(object):
     Parameters
     ----------
     context : deep_genome.core.Context
-    drmaa_session : drmaa.Session
     name : str
         Unique job name. May use any characters, even whitespace (and nul
         characters), but it's recommended to keep it somewhat readable. It's
@@ -67,7 +66,7 @@ class Job(object):
         is the executable to execute, ``map(str, command[1:])`` are the args to
         pass it. The executable is looked up using the PATH env var if it's not
         an absolute path.
-    core_pool : deep_genome.core.pipeline._various.CorePool
+    job_resources : deep_genome.core.pipeline._various.JobResources
     server_arguments : str or None
         A DRMAA native specification, which in the case of SGE or OGS is a
         string of options given to qsub (see also
@@ -88,12 +87,14 @@ class Job(object):
     # configured for it (see 
     # http://gridscheduler.sourceforge.net/howto/commonproblems.html#interactive)
     
-    def __init__(self, context, drmaa_session, name, command, core_pool, server_arguments=None, version=1, cores=1):
+    # Note: should not use context.pipeline here, that would be a cyclic dependency.
+    
+    def __init__(self, context, name, command, job_resources, server_arguments=None, version=1, cores=1):
         if _drmaa_import_error:
             raise _drmaa_import_error
         
         self._context = context
-        self._drmaa_session = drmaa_session
+        self._resources = job_resources
         self._name = name
         command = [str(x) for x in command]
         self._executable = Path(str(pb.local[command[0]].executable))
@@ -101,7 +102,6 @@ class Job(object):
         self._server_arguments = server_arguments
         self._version = version
         self._cores = cores
-        self._core_pool = core_pool
         
         # Load/create from database 
         Job = self._context.database.e.Job
@@ -116,7 +116,7 @@ class Job(object):
             self._finished = job.finished == version
             
         #
-        self._job_directory = self._context.pipeline.job_directory('job', self._id)
+        self._job_directory = self._resources.job_directory('job', self._id)
         
     @property
     def _command(self):
@@ -133,7 +133,7 @@ class Job(object):
             _logger.info("{}: fetched from cache.".format(self))
             return
         try:
-            async with self._core_pool.reserve(self.cores):
+            async with self._resources.core_pool.reserve(self.cores):
                 _logger.info("{}: started:\n{}".format(self, ' '.join(map(repr, self._command))))
                 await self._run()
             self._finished = True
@@ -151,12 +151,13 @@ class Job(object):
         
     async def _run(self):
         loop = asyncio.get_event_loop()
+        session = self._resources.drmaa_session
         
         with fresh_directory(self._job_directory):
             self.directory.mkdir()
             
             # Submit job
-            job_template = self._drmaa_session.createJobTemplate()
+            job_template = session.createJobTemplate()
             try:
                 job_template.workingDirectory = str(self.directory)
                 job_template.outputPath = ':' + str(self.stdout_file)
@@ -165,19 +166,19 @@ class Job(object):
                 job_template.args = self._arguments
                 if self._server_arguments:
                     job_template.nativeSpecification = self._server_arguments
-                job_id = await loop.run_in_executor(None, self._drmaa_session.runJob, job_template)
+                job_id = await loop.run_in_executor(None, session.runJob, job_template)
             finally:
-                self._drmaa_session.deleteJobTemplate(job_template)
+                session.deleteJobTemplate(job_template)
                 
             # Wait for job
             try:
                 _logger.debug('{}: drmaa job id = {}'.format(self, job_id))
-                result = await loop.run_in_executor(None, self._drmaa_session.wait, job_id, drmaa.Session.TIMEOUT_WAIT_FOREVER)
+                result = await loop.run_in_executor(None, session.wait, job_id, drmaa.Session.TIMEOUT_WAIT_FOREVER)
             except asyncio.CancelledError as ex:
                 _logger.info("{}: cancelling (drmaa job id = {}).".format(self, job_id))
                 with suppress(drmaa.errors.InvalidJobException):  # perhaps job_id has already disappeared from server (because it finished or was terminated?)
-                    await loop.run_in_executor(None, self._drmaa_session.control, job_id, drmaa.JobControlAction.TERMINATE)  # May return before job is actually terminated
-                    await loop.run_in_executor(None, self._drmaa_session.wait, job_id, drmaa.Session.TIMEOUT_WAIT_FOREVER)  # So try to wait for termination
+                    await loop.run_in_executor(None, session.control, job_id, drmaa.JobControlAction.TERMINATE)  # May return before job is actually terminated
+                    await loop.run_in_executor(None, session.wait, job_id, drmaa.Session.TIMEOUT_WAIT_FOREVER)  # So try to wait for termination
                 raise ex
         
         # Check result
