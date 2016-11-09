@@ -26,6 +26,7 @@ import signal
 import logging
 from ._drmaa import Job
 from chicken_turtle_util import logging as logging_
+from concurrent.futures import ThreadPoolExecutor
 
 try:
     import drmaa
@@ -66,6 +67,7 @@ class Pipeline(object):
             drmaa_lock=asyncio.Lock(),
             core_pool=CorePool(max_cores_used),
             job_directory=self.job_directory,
+            cancellation_executor=ThreadPoolExecutor(max_workers=max_cores_used)
         )
         Pipeline._instance_counter += 1
     
@@ -178,6 +180,11 @@ class JobResources(object):
     
     # runJob/control lock (they're not thread safe with each other)
     drmaa_lock = attr.ib()
+    
+    # Executor to use when cancelling jobs. (main_executor may be too busy to
+    # take on new work, so by using a separate pool we ensure cancellation
+    # starts right now)
+    cancellation_executor = attr.ib()
     
 class CorePool(object):
     

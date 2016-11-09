@@ -180,10 +180,10 @@ class Job(object):
                 with suppress(drmaa.errors.InvalidJobException):  # don't mind if job has disappeared (e.g. was terminated or has completed)
                     # Request termination
                     async with self._resources.drmaa_lock:
-                        await loop.run_in_executor(None, session.control, job_id, drmaa.JobControlAction.TERMINATE)
+                        await loop.run_in_executor(self._resources.cancellation_executor, session.control, job_id, drmaa.JobControlAction.TERMINATE)
                         
                     # Wait for termination to complete (may already have happened)
-                    await loop.run_in_executor(None, session.wait, job_id, drmaa.Session.TIMEOUT_WAIT_FOREVER)
+                    await loop.run_in_executor(self._resources.cancellation_executor, session.wait, job_id, drmaa.Session.TIMEOUT_WAIT_FOREVER)
                 raise ex
         
         # Check result
