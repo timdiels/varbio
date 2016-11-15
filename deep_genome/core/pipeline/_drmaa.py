@@ -193,19 +193,23 @@ class Job(object):
                 'Perhaps the configured job directory is inaccessible to the cluster?'
                 .format(self)
             )
-        elif result.hasSignal:
-            raise Exception('{} was killed with signal {}'.format(self, result.terminatedSignal))
-        elif not result.hasExited:
-            raise Exception('{} did not exit normally'.format(self))  # not sure whether this can actually happen
-        elif result.hasExited and result.exitStatus != 0:
-            raise ExitCodeError(format_exit_code_error(
-                str(self),
-                self._command,
-                result.exitStatus,
-                self.stdout_file,
-                self.stderr_file
-            ))
-        _logger.debug("{}: resource usage was:\n{}".format(self, pprint.pformat(result.resourceUsage)))
+        
+        try:
+            if result.hasSignal:
+                raise Exception('{} was killed with signal {}'.format(self, result.terminatedSignal))
+            elif not result.hasExited:
+                # TODO check drmaa spec whether this can actually happen (probably not)
+                raise Exception('{} did not exit normally, but was not killed or aborted either'.format(self))
+            elif result.hasExited and result.exitStatus != 0:
+                raise ExitCodeError(format_exit_code_error(
+                    str(self),
+                    self._command,
+                    result.exitStatus,
+                    self.stdout_file,
+                    self.stderr_file
+                ))
+        finally:
+            _logger.debug("{}: resource usage was:\n{}".format(self, pprint.pformat(result.resourceUsage)))
         
     @property
     def directory(self):
