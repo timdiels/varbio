@@ -6,7 +6,7 @@ Links
 
 - `Documentation <http://pythonhosted.org/deep-genome-core/>`_
 - `PyPI <https://pypi.python.org/pypi/deep-genome-core/>`_
-- `GitLab <https://github.com/deep_genome/core/>`_
+- `GitLab <https://gitlab.psb.ugent.be/deep_genome/core>`_
 
 API stability
 =============
@@ -31,3 +31,5 @@ Changelog
 v1.0.0
 ------
 Initial release.
+
+.. _semver: http://semver.org/spec/v2.0.0.html

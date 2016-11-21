@@ -81,7 +81,7 @@ setup(
                         '\n'
                         '- `Documentation <http://pythonhosted.org/deep-genome-core/>`_\n'
                         '- `PyPI <https://pypi.python.org/pypi/deep-genome-core/>`_\n'
-                        '- `GitLab <https://github.com/deep_genome/core/>`_\n'
+                        '- `GitLab <https://gitlab.psb.ugent.be/deep_genome/core>`_\n'
                         '\n'
                         'API stability\n'
                         '=============\n'
@@ -105,7 +105,9 @@ setup(
                         '\n'
                         'v1.0.0\n'
                         '------\n'
-                        'Initial release.\n',
+                        'Initial release.\n'
+                        '\n'
+                        '.. _semver: http://semver.org/spec/v2.0.0.html\n',
     'name': 'deep-genome-core',
     'package_data': {'deep_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml']},
     'packages': [   'deep_genome',
