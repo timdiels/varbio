@@ -1,84 +1,33 @@
 Deep Genome Core (DG Core) is a bioinformatics library for writing
-bioinformatics algorithms.
-
-Features
-========
-TODO feature overview
-
-parsers (deep_genome.core.parse):
-- affymetrix expression matrices
-- other expression matrices
-- NCBI bulk data files: gene_info
-
-cleaning (deep_genome.core.clean):
-- plain_text: fix malformed line-endings in plain text files, presence of nul-characters,
-  ...
-- remove low variance rows from expression matrix
-
-pipelines (deep_genome.core.pipeline):
-- define a pipeline of jobs with dependencies
-- run jobs concurrently locally or on a cluster (via DRMAA, e.g. Open Grid Scheduler)
-- generate a CLI to run your pipeline or run directly in code
-- interrupt and resume jobs later
+bioinformatics algorithms, mainly used by the Deep Genome projects.
 
 Links
 =====
 
-- `Documentation <http://pythonhosted.org/dg_core/>`_
-- `PyPI <https://pypi.python.org/pypi/dg_core/>`_
-- `GitLab <https://github.com/timdiels/dg_core/>`_ TODO
+- `Documentation <http://pythonhosted.org/deep-genome-core/>`_
+- `PyPI <https://pypi.python.org/pypi/deep-genome-core/>`_
+- `GitLab <https://github.com/deep_genome/core/>`_
 
-Project decisions
-=================
+API stability
+=============
+While all features are documented (docstrings only) and tested, the API is
+changed frequently.  When doing so, the `major version <semver_>`_ is bumped
+and a changelog is kept to help upgrade. Fixes will not be backported. It is
+recommended to pin the major version in your setup.py, e.g. for 2.x.y::
 
-TODO this belongs in a separate doc, link to it from links e.g. or rather in Developer doc
+    install_requires = ['deep-genome-core>=2.0.0,<3.0.0', ...]
 
-We use the same decisions and docstring convention as used in `Chicken Turtle
-Util <https://github.com/timdiels/chicken_turtle_util/>`_.
+If you see something you like but need long term stability (e.g. if low
+maintenance cost is required), request to have it moved to a stable library
+(one with fewer major releases) by `opening an issue`_.
 
-DG database is a MySQL database. Though we use sqlalchemy, supporting other
-databases would require to check for MySQL specific SQL, any reliance on MySQL
-default configuration and DB limits.
+.. _opening an issue: https://gitlab.psb.ugent.be/deep_genome/core/issues
 
-`parse` package understands various file formats, but does not use the
-database. This offers users some basics without requiring them to set up a
-database.  For more advanced use, the parsed data is loaded in the database,
-then returned from the database in its structured form with all bells and
-whistles.  The idea here is that advanced features require a database to work
-memory efficiently. For single-use data you would indeed have to add, use, then
-remove (as it's no longer needed) the data from the database.
+Changelog
+=========
 
-'Large' (>1M) blobs of data that are always fetched as a whole (e.g. gene
-expression data) are stored in regular binary files on the file system where
-the OS can cache them.  This is more efficient (See
-http://research.microsoft.com/apps/pubs/default.aspx?id=64525), but comes at
-the cost of some added complexity when loading the data (you first have to get
-the path to the file from the database, then load the file).
+`Semantic versioning <semver_>`_ is used.
 
-
-Pipeline
---------
-
-We decided to use shell commands as the basis for jobs instead of e.g. a
-Python function that is pickled and sent to a server to be executed. This
-better matches DRMAA, is more flexible and more KISS.  This way you can run
-scripts in different venv's, and run non-Python code directly. The DG CLI
-utilities should make it easy enough to make scripts to run as jobs.
-
-We no longer add a suffix number to ambiguous task names. It is tricky to
-ensure the same task is reassigned the same suffix in different contexts (e.g.
-if the order in which ambiguous tasks are created is not deterministic).
-
-Comparison to Celery: Celery allows running Python functions and using the
-output of one function as the input to a next function. It distributes
-computation to different nodes.  DG pipeline allows executing Python code and
-executables concurrently and allows you to specify required resources such as
-the number of processors the job requires (via server_args to some
-`DRMAAJobServer`\ s). DG pipeline's results are passed via the filesystem, each
-job gets its own working directory in which a job can write its output, or it
-can simply write to stdout and stderr. Python code can be run concurrently on a
-single node, but not distributed. Jobs can be distributed using a
-DRMAAJobServer.
-
-Jobs and their output directories are immutable; this simplifies things without
-really getting in the way of ease of use.
+v1.0.0
+------
+Initial release.

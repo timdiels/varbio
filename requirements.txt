@@ -1,9 +1,9 @@
--e file:///home/limyreth/doc/eclipse_workspace/chicken_turtle_util
 alabaster==0.7.9
 apipkg==1.4
 attrs==16.2.0
 babel==2.3.4
 bottleneck==1.2.0
+chicken-turtle-util[data_frame,exceptions,inspect,path,pymysql,series,sqlalchemy,test]==4.0.1
 click==6.6
 coverage-pth==0.0.1
 coverage==4.2

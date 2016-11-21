@@ -29,20 +29,16 @@ setup(
                        'Programming Language :: Python',
                        'Programming Language :: Python :: 3',
                        'Programming Language :: Python :: 3 :: Only',
-                       'Programming Language :: Python :: 3.2',
-                       'Programming Language :: Python :: 3.3',
-                       'Programming Language :: Python :: 3.4',
                        'Programming Language :: Python :: 3.5',
                        'Programming Language :: Python :: Implementation',
                        'Programming Language :: Python :: Implementation :: CPython',
                        'Programming Language :: Python :: Implementation :: Stackless',
                        'Topic :: Scientific/Engineering',
-                       'Topic :: Scientific/Engineering :: Artificial Intelligence',
                        'Topic :: Scientific/Engineering :: Bio-Informatics',
                        'Topic :: Software Development',
                        'Topic :: Software Development :: Libraries',
                        'Topic :: Software Development :: Libraries :: Python Modules'],
-    'description': 'Genome analysis platform',
+    'description': 'Genome analysis library',
     'entry_points': {   'console_scripts': [   'dg-tests-pipeline-cli-selfterm = '
                                                'deep_genome.core.tests.pipeline.test_various:selfterm_command']},
     'extras_require': {   'dev': ['numpydoc', 'sphinx', 'sphinx-rtd-theme'],
@@ -60,7 +56,7 @@ setup(
                                       'pytest-xdist']},
     'install_requires': [   'attrs',
                             'bottleneck',
-                            'chicken-turtle-util[path,exceptions,inspect,data_frame,series,test,pymysql,sqlalchemy]',
+                            'chicken-turtle-util[path,exceptions,inspect,data_frame,series,test,pymysql,sqlalchemy]>=4.0.0,<5.0.0',
                             'click',
                             'drmaa',
                             'inflection',
@@ -78,89 +74,38 @@ setup(
     'keywords': 'bioinformatics genome-analysis',
     'license': 'LGPL3',
     'long_description': 'Deep Genome Core (DG Core) is a bioinformatics library for writing\n'
-                        'bioinformatics algorithms.\n'
-                        '\n'
-                        'Features\n'
-                        '========\n'
-                        'TODO feature overview\n'
-                        '\n'
-                        'parsers (deep_genome.core.parse):\n'
-                        '- affymetrix expression matrices\n'
-                        '- other expression matrices\n'
-                        '- NCBI bulk data files: gene_info\n'
-                        '\n'
-                        'cleaning (deep_genome.core.clean):\n'
-                        '- plain_text: fix malformed line-endings in plain text files, presence of nul-characters,\n'
-                        '  ...\n'
-                        '- remove low variance rows from expression matrix\n'
-                        '\n'
-                        'pipelines (deep_genome.core.pipeline):\n'
-                        '- define a pipeline of jobs with dependencies\n'
-                        '- run jobs concurrently locally or on a cluster (via DRMAA, e.g. Open Grid Scheduler)\n'
-                        '- generate a CLI to run your pipeline or run directly in code\n'
-                        '- interrupt and resume jobs later\n'
+                        'bioinformatics algorithms, mainly used by the Deep Genome projects.\n'
                         '\n'
                         'Links\n'
                         '=====\n'
                         '\n'
-                        '- `Documentation <http://pythonhosted.org/dg_core/>`_\n'
-                        '- `PyPI <https://pypi.python.org/pypi/dg_core/>`_\n'
-                        '- `GitLab <https://github.com/timdiels/dg_core/>`_ TODO\n'
+                        '- `Documentation <http://pythonhosted.org/deep-genome-core/>`_\n'
+                        '- `PyPI <https://pypi.python.org/pypi/deep-genome-core/>`_\n'
+                        '- `GitLab <https://github.com/deep_genome/core/>`_\n'
                         '\n'
-                        'Project decisions\n'
-                        '=================\n'
+                        'API stability\n'
+                        '=============\n'
+                        'While all features are documented (docstrings only) and tested, the API is\n'
+                        'changed frequently.  When doing so, the `major version <semver_>`_ is bumped\n'
+                        'and a changelog is kept to help upgrade. Fixes will not be backported. It is\n'
+                        'recommended to pin the major version in your setup.py, e.g. for 2.x.y::\n'
                         '\n'
-                        'TODO this belongs in a separate doc, link to it from links e.g. or rather in Developer doc\n'
+                        "    install_requires = ['deep-genome-core>=2.0.0,<3.0.0', ...]\n"
                         '\n'
-                        'We use the same decisions and docstring convention as used in `Chicken Turtle\n'
-                        'Util <https://github.com/timdiels/chicken_turtle_util/>`_.\n'
+                        'If you see something you like but need long term stability (e.g. if low\n'
+                        'maintenance cost is required), request to have it moved to a stable library\n'
+                        '(one with fewer major releases) by `opening an issue`_.\n'
                         '\n'
-                        'DG database is a MySQL database. Though we use sqlalchemy, supporting other\n'
-                        'databases would require to check for MySQL specific SQL, any reliance on MySQL\n'
-                        'default configuration and DB limits.\n'
+                        '.. _opening an issue: https://gitlab.psb.ugent.be/deep_genome/core/issues\n'
                         '\n'
-                        '`parse` package understands various file formats, but does not use the\n'
-                        'database. This offers users some basics without requiring them to set up a\n'
-                        'database.  For more advanced use, the parsed data is loaded in the database,\n'
-                        'then returned from the database in its structured form with all bells and\n'
-                        'whistles.  The idea here is that advanced features require a database to work\n'
-                        'memory efficiently. For single-use data you would indeed have to add, use, then\n'
-                        "remove (as it's no longer needed) the data from the database.\n"
+                        'Changelog\n'
+                        '=========\n'
                         '\n'
-                        "'Large' (>1M) blobs of data that are always fetched as a whole (e.g. gene\n"
-                        'expression data) are stored in regular binary files on the file system where\n'
-                        'the OS can cache them.  This is more efficient (See\n'
-                        'http://research.microsoft.com/apps/pubs/default.aspx?id=64525), but comes at\n'
-                        'the cost of some added complexity when loading the data (you first have to get\n'
-                        'the path to the file from the database, then load the file).\n'
+                        '`Semantic versioning <semver_>`_ is used.\n'
                         '\n'
-                        '\n'
-                        'Pipeline\n'
-                        '--------\n'
-                        '\n'
-                        'We decided to use shell commands as the basis for jobs instead of e.g. a\n'
-                        'Python function that is pickled and sent to a server to be executed. This\n'
-                        'better matches DRMAA, is more flexible and more KISS.  This way you can run\n'
-                        "scripts in different venv's, and run non-Python code directly. The DG CLI\n"
-                        'utilities should make it easy enough to make scripts to run as jobs.\n'
-                        '\n'
-                        'We no longer add a suffix number to ambiguous task names. It is tricky to\n'
-                        'ensure the same task is reassigned the same suffix in different contexts (e.g.\n'
-                        'if the order in which ambiguous tasks are created is not deterministic).\n'
-                        '\n'
-                        'Comparison to Celery: Celery allows running Python functions and using the\n'
-                        'output of one function as the input to a next function. It distributes\n'
-                        'computation to different nodes.  DG pipeline allows executing Python code and\n'
-                        'executables concurrently and allows you to specify required resources such as\n'
-                        'the number of processors the job requires (via server_args to some\n'
-                        "`DRMAAJobServer`\\ s). DG pipeline's results are passed via the filesystem, each\n"
-                        'job gets its own working directory in which a job can write its output, or it\n'
-                        'can simply write to stdout and stderr. Python code can be run concurrently on a\n'
-                        'single node, but not distributed. Jobs can be distributed using a\n'
-                        'DRMAAJobServer.\n'
-                        '\n'
-                        'Jobs and their output directories are immutable; this simplifies things without\n'
-                        'really getting in the way of ease of use.\n',
+                        'v1.0.0\n'
+                        '------\n'
+                        'Initial release.\n',
     'name': 'deep-genome-core',
     'package_data': {'deep_genome': ['data/coexpnetviz/README.txt', 'data/coexpnetviz/coexpnetviz_style.xml']},
     'packages': [   'deep_genome',

@@ -1,14 +1,12 @@
 Welcome to Deep Genome Core's documentation!
 ============================================
 
-TODO.
-
 Contents:
 
 .. toctree::
    :maxdepth: 2
 
-   todo
+   developer_documentation
 
 
 Indices and tables

@@ -2,13 +2,12 @@ project = dict(
     name='deep-genome-core',
     package_name='deep_genome.core',
     human_friendly_name='Deep Genome Core',
-    description='Genome analysis platform',
+    description='Genome analysis library',
     author='VIB/BEG/UGent',
     author_email='timdiels.m@gmail.com',
     python_version=(3,5),
     readme_file='README.rst',
     url='https://gitlab.psb.ugent.be/deep_genome/core', # project homepage.
-    download_url='https://example.com/TODO/{version}', # Template for url to download source archive from. You can refer to the current version with {version}. You can get one from github or gitlab for example.
     license='LGPL3',
 
     # What does your project relate to?
@@ -48,16 +47,12 @@ project = dict(
         Programming Language :: Python
         Programming Language :: Python :: 3
         Programming Language :: Python :: 3 :: Only
-        Programming Language :: Python :: 3.2
-        Programming Language :: Python :: 3.3
-        Programming Language :: Python :: 3.4
         Programming Language :: Python :: 3.5
         Programming Language :: Python :: Implementation
         Programming Language :: Python :: Implementation :: CPython
         Programming Language :: Python :: Implementation :: Stackless
         Topic :: Scientific/Engineering
         Topic :: Scientific/Engineering :: Bio-Informatics
-        Topic :: Scientific/Engineering :: Artificial Intelligence
         Topic :: Software Development
         Topic :: Software Development :: Libraries
         Topic :: Software Development :: Libraries :: Python Modules
