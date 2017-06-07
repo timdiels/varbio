@@ -38,31 +38,31 @@ from collections import defaultdict
 def expression_matrix(reader):
     '''
     Parse expression matrix in tabular plain text format
-    
+
     The expected format is a table with 1 header line. The first column is the
     gene (or gene variant) name. Each other column contains the gene expression
     values under a certain condition. Rows are separated by
     '\n', columns are separated by whitespace.
-    
+
     Parameters
     ----------
     reader : io.BufferedReader
         Text reader whose content is an expression matrix
-    
+
     Returns
     -------
     pd.DataFrame({condition_name => [gene_expression :: float]}, index=pd.Index([str], name='gene'))
-    
+
     Examples
     --------
     Format example::
-    
+
         ignored<tab>condition1<tab>condition2
         gene1<tab>1.5<tab>5
         gene2<tab>.89<tab>-.1
-        
+
     Usage:
-    
+
     >>> with Path('your_file').open() as f:
     >>>    matrix = parse.expression_matrix(f)
     '''
@@ -76,36 +76,36 @@ def expression_matrix(reader):
 def clustering(reader, name_index=0):
     '''
     Parse plain text formatted clustering
-    
+
     Each cluster can be specified on a single line::
-    
+
         cluster1<tab>item1<tab>item2<tab>item3
         cluster2<tab>item5
-        
+
     or across multiple lines::
-    
+
         cluster1<tab>item1
         cluster1<tab>item2
         cluster2<tab>item5
         cluster1<tab>item3
-        
+
     or a combination of the two::
-    
+
         cluster1<tab>item1<tab>item2
         cluster2<tab>item5
         cluster1<tab>item3
-    
+
     Items may be assigned to multiple clusters. Clusters are treated as sets.
     When an item appears in a cluster multiple times, a warning is logged and
     the duplicate is ignored.
-    
+
     Parameters
     ----------
     reader : io.BufferedReader
         Text reader whose content is a clustering
     name_index : int or None
         Index of the 'column' with the cluster name. If None, each line is an unnamed cluster.
-        
+
     Returns
     -------
     {cluster_id :: str => items :: {str}}

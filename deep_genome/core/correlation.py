@@ -1,17 +1,17 @@
 # Copyright (C) 2015 VIB/BEG/UGent - Tim Diels <timdiels.m@gmail.com>
-# 
+#
 # This file is part of Deep Genome.
-# 
+#
 # Deep Genome is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # Deep Genome is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -39,11 +39,11 @@ from sklearn.metrics import mutual_info_score
 def generic(correlation_function, data, indices):
     '''
     Get correlation of each row in a 2d array compared to a subset thereof
-    
+
     This function is less efficient than those specialised to a specific
     correlation function. See the 'See also' section for whether a specialised
     alternative is available for your correlation function.
-    
+
     Parameters
     ----------
     correlation_function : ((x :: array-like(dtype=float)), (y :: array-like(dtype=float)) -> float
@@ -54,13 +54,13 @@ def generic(correlation_function, data, indices):
     indices
         Indices to derive the subset `data[indices]` to compare against. You
         may use any form of numpy indexing.
-        
+
     Returns
     -------
     correlation_matrix : np.array(dtype=float, shape=(len(data), len(indices)))
         2D array containing all correlations. ``correlation_matrix[i,j]``
         contains ``correlation_function(data[i], data[indices][j]``.
-    
+
     See also
     --------
     pearson : Get Pearson's r of each row in a 2d array compared to a subset thereof
@@ -74,7 +74,7 @@ def generic(correlation_function, data, indices):
 def pearson(data, indices):
     '''
     Get Pearson's r of each row in a 2d array compared to a subset thereof
-      
+
     Parameters
     ----------
     data : np.array(dtype=float, dimensions=2)
@@ -82,38 +82,38 @@ def pearson(data, indices):
     indices
         Indices to derive the subset `data[indices]` to compare against. You
         may use any form of numpy indexing.
-          
+
     Returns
     -------
     correlation_matrix : np.array(dtype=float, shape=(len(data), len(indices)))
         2D array containing all correlations. ``correlation_matrix[i,j]``
         contains the correlation between ``data[i]`` and ``data[indices][j]``.
-          
+
     Notes
     -----
     The current implementation is a vectorised form of `gsl_stats_correlation`
     from the GNU Scientific Library. Unlike GSL's implementation,
     correlations are clipped to [-1, 1].
-      
+
     Pearson's r is also, perhaps more commonly, known as the product-moment
     correlation coefficient.
     '''
     if not data.size or not len(indices):
         return np.empty((data.shape[0], len(indices)))
-  
+
     matrix = data
     mean = matrix[:,0].copy()
     delta = np.empty(matrix.shape[0])
     sum_sq = np.zeros(matrix.shape[0])  # sum of squares
     sum_cross = np.zeros((matrix.shape[0], len(indices)))
-    
+
     for i in range(1,matrix.shape[1]):
         ratio = i / (i+1)
         delta = matrix[:,i] - mean
         sum_sq += (delta**2) * ratio;
         sum_cross += np.outer(delta, delta[indices]) * ratio;
         mean += delta / (i+1);
-     
+
     sum_sq = np.sqrt(sum_sq)
     with np.errstate(divide='ignore',invalid='ignore'):  # divide by zero, it happens
         correlations = sum_cross / np.outer(sum_sq, sum_sq[indices])
@@ -149,7 +149,7 @@ def mutual_information(data, indices): #TODO docstring + mention it's slow imple
 def generic_df(vectorised_correlation_function, data, subset):
     '''
     Get correlation of each row in a DataFrame compared to a subset thereof
-    
+
     Parameters
     ----------
     vectorised_correlation_function : (data :: np.array(dimensions=2), indices) -> correlation_matrix :: np.array
@@ -160,7 +160,7 @@ def generic_df(vectorised_correlation_function, data, subset):
     subset
         Subset of `data` to compare against. Additionally, ``subset.index``
         must be a subset of ``data.index``.
-        
+
     Returns
     -------
     correlation_matrix : pd.DataFrame([[float]], index=data.index, columns=subset.index)
