@@ -30,8 +30,3 @@ def common_init():
     
     # log levels
     logging.getLogger('chicken_turtle_util').setLevel(logging.INFO)
-
-def pytest_runtest_setup(item): #TODO unused? Might be useful someday though
-    marker = item.get_marker('skip_unless_current')
-    if marker and not item.get_marker('current'):
-        pytest.skip(marker.args[0])
