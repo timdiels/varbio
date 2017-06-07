@@ -1,0 +1,20 @@
+# List of required dependencies
+attrs
+click
+numpy
+scipy
+scikit-learn
+pandas
+numexpr
+bottleneck
+plumbum
+inflection
+more_itertools
+psutil
+sqlalchemy
+pymysql
+drmaa
+psutil
+
+#-e /home/limyreth/doc/eclipse_workspace/chicken_turtle_util[path,exceptions,inspect,data_frame,series,test,pymysql,sqlalchemy]
+chicken-turtle-util[path,exceptions,inspect,data_frame,series,test,pymysql,sqlalchemy]>=4.0.0,<5.0.0
