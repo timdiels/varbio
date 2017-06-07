@@ -15,10 +15,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
 
-from configparser import ConfigParser
 from chicken_turtle_util.test import temp_dir_cwd
-from deep_genome.core import Context, patch
-from deep_genome.core.database import Credentials
+from deep_genome.core import patch
 import logging
 import pytest
 
@@ -37,48 +35,3 @@ def pytest_runtest_setup(item): #TODO unused? Might be useful someday though
     marker = item.get_marker('skip_unless_current')
     if marker and not item.get_marker('current'):
         pytest.skip(marker.args[0])
-
-@pytest.fixture(scope='session')
-def test_conf(pytestconfig):
-    config = ConfigParser()
-    config.read([str(pytestconfig.rootdir / 'test.conf')])  # machine specific testing conf goes here
-    return config
-
-@pytest.fixture(scope='session')
-def database_credentials(test_conf):
-    '''
-    Arguments to prepend to any DG CLI invocation
-    '''
-    return Credentials(**test_conf['database'])
-
-def _create_context(database_credentials):
-    return Context(
-        database_credentials=database_credentials
-    )
-    
-@pytest.yield_fixture
-def context(event_loop, database_credentials, temp_dir_cwd):
-    # Note: event_loop: when using initialise_pipeline, test event_loop needs already be set
-    context = _create_context(database_credentials)
-    yield context
-
-@pytest.yield_fixture
-def context2(database_credentials, temp_dir_cwd):
-    context = _create_context(database_credentials)
-    yield context
-
-@pytest.fixture
-def db(context):
-    db = context.database
-    db.clear()
-    db.create()
-    return db
-
-@pytest.yield_fixture
-def session(db):
-    with db.scoped_session() as session:
-        yield session
-        
-        # No temp stuff left behind
-        assert session.sa_session.query(db.e.GeneNameQuery).count() == 0
-        assert session.sa_session.query(db.e.GeneNameQueryItem).count() == 0

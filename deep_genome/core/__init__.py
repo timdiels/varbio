@@ -1,5 +1,3 @@
-from .context import Context
-
 _patched = False
 def patch():
     '''
@@ -7,7 +5,6 @@ def patch():
     
     Applied patches:
     
-    - register numpy types in pymysql
     - monkey patch these issues (if not fixed yet): https://github.com/pydata/pandas/issues/8222
     
     This function is idempotent. I.e. any calls but the first to `patch` are ignored. 
@@ -17,11 +14,7 @@ def patch():
         return
     
     import pandas as pd
-    from chicken_turtle_util import pymysql as pymysql_
     from functools import wraps
-    
-    # Patch pymysql
-    pymysql_.patch()
     
     # Fix https://github.com/pydata/pandas/issues/8222 which releases aug 2017 with 0.19.x
     if tuple(map(int, pd.__version__.split('.')[0:1])) < (0, 19):
