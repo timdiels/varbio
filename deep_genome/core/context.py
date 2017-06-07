@@ -19,9 +19,7 @@
 Deep Genome context
 '''
 
-from chicken_turtle_util.exceptions import InvalidOperationError
 from deep_genome.core.database import Database
-from deep_genome.core.pipeline import Pipeline
 
 class Context(object):
     
@@ -44,53 +42,7 @@ class Context(object):
     
     def __init__(self, database_credentials, entities=None, tables=None):
         self._database = Database(self, database_credentials, entities, tables)
-        self._pipeline = None
-        self._disposed = False
         
     @property
     def database(self):
         return self._database
-        
-    def initialise_pipeline(self, jobs_directory, max_cores_used):
-        '''
-        Initialise self.pipeline attribute
-        
-        Parameters
-        ----------
-        jobs_directory : pathlib.Path
-            Directory in which to create job directories. Job directories are
-            provided to DRMAA jobs and @persisted(job_directory=True). They are
-            persistent and tied to a job's name (or a coroutine's call_repr).
-        max_cores_used : int
-            Maximum number of cores used by all running jobs combined. I.e. it
-            limits ``sum(job.cores for job in running_jobs)``.
-        '''
-        self._pipeline = Pipeline(self, jobs_directory, max_cores_used)
-        
-    @property
-    def pipeline(self):
-        '''
-        Get pipeline context
-        
-        Call `initialise_pipeline` before using this attribute.
-        
-        Returns
-        -------
-        deep_genome.core.pipeline.Pipeline
-        '''
-        if not self._pipeline:
-            raise InvalidOperationError('Pipeline not initialised. Call context.initialise_pipeline first.')
-        return self._pipeline
-    
-    def dispose(self):
-        '''
-        Release any resources
-        
-        The context instance should not be used after this call, though multiple
-        calls to dispose are allowed
-        '''
-        if self._disposed:
-            return
-        if self._pipeline:
-            self._pipeline.dispose()
-        self._disposed = True

@@ -21,7 +21,6 @@ from deep_genome.core import Context, patch
 from deep_genome.core.database import Credentials
 import logging
 import pytest
-import asyncio
 
 # http://stackoverflow.com/a/30091579/1031434
 from signal import signal, SIGPIPE, SIG_DFL
@@ -62,13 +61,11 @@ def context(event_loop, database_credentials, temp_dir_cwd):
     # Note: event_loop: when using initialise_pipeline, test event_loop needs already be set
     context = _create_context(database_credentials)
     yield context
-    context.dispose()
 
 @pytest.yield_fixture
 def context2(database_credentials, temp_dir_cwd):
     context = _create_context(database_credentials)
     yield context
-    context.dispose()
 
 @pytest.fixture
 def db(context):
@@ -85,13 +82,3 @@ def session(db):
         # No temp stuff left behind
         assert session.sa_session.query(db.e.GeneNameQuery).count() == 0
         assert session.sa_session.query(db.e.GeneNameQueryItem).count() == 0
-        
-@pytest.yield_fixture
-def event_loop(event_loop):
-    # Restore old pytest-asyncio behaviour, wouldn't recommend doing this in new projects
-    original_loop = asyncio.get_event_loop()
-    asyncio.set_event_loop(event_loop)
-    yield event_loop
-    if not original_loop.is_closed():
-        asyncio.set_event_loop(original_loop)
-    
