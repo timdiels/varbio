@@ -33,7 +33,6 @@ remove genes that are duplicated (not in the biological sense) in the input.
 
 import pandas as pd
 import csv
-from chicken_turtle_util.data_frame import split_array_like
 from collections import defaultdict
 
 def expression_matrix(reader):
