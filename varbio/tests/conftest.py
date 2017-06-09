@@ -25,5 +25,6 @@ signal(SIGPIPE, SIG_DFL) # Ignore SIGPIPE
 
 @pytest.fixture(autouse=True, scope='session')
 def common_init():
-    # log levels
-    logging.getLogger('chicken_turtle_util').setLevel(logging.INFO)
+    # Make anything but our own loggers very quiet
+    logging.getLogger().setLevel(logging.ERROR)
+    logging.getLogger('varbio').setLevel(logging.INFO)
