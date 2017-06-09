@@ -1,27 +1,27 @@
 # Copyright (C) 2016 VIB/BEG/UGent - Tim Diels <timdiels.m@gmail.com>
 #
-# This file is part of Deep Genome.
+# This file is part of varbio.
 #
-# Deep Genome is free software: you can redistribute it and/or modify
+# varbio is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# Deep Genome is distributed in the hope that it will be useful,
+# varbio is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with Deep Genome.  If not, see <http://www.gnu.org/licenses/>.
+# along with varbio.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-Test deep_genome.core.correlation
+Test varbio.correlation
 '''
 
+from varbio import correlation
 from sklearn.metrics import mutual_info_score
 from chicken_turtle_util import data_frame as df_
-from deep_genome.core import correlation
 from functools import partial
 from copy import copy
 import scipy.stats

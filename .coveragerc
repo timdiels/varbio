@@ -1,3 +1,5 @@
 [run]
-omit = deep_genome/core/tests/*
+omit =
+    varbio/tests/*
+    venv/*
 
