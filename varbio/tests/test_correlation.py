@@ -21,7 +21,7 @@ Test varbio.correlation
 
 from varbio import correlation
 from sklearn.metrics import mutual_info_score
-from chicken_turtle_util import data_frame as df_
+from pytil import data_frame as df_
 from functools import partial
 from copy import copy
 import scipy.stats
