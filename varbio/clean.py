@@ -35,12 +35,12 @@ def plain_text(reader):
 
     Parameters
     ----------
-    reader : io.BufferedReader of file
+    reader : file object
         Plain text file stream
 
     Returns
     -------
-    io.BufferedReader
+    file object
         Stream of sanitised text
     '''
     cmd = (_sed['-r', '-e', r's/[\x0]//g', '-e', r's/(\t)+/\t/g'] < reader) | _tr['-s', r'\r', r'\n'] 

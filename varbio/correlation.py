@@ -52,7 +52,7 @@ def generic(correlation_function, data, indices):
     data : np.array(dtype=float, dimensions=2)
         Data for which to calculate correlations
     indices
-        Indices to derive the subset `data[indices]` to compare against. You
+        Indices to derive the subset ``data[indices]`` to compare against. You
         may use any form of numpy indexing.
 
     Returns
@@ -80,7 +80,7 @@ def pearson(data, indices):
     data : np.array(dtype=float, dimensions=2)
         Data for which to calculate correlations
     indices
-        Indices to derive the subset `data[indices]` to compare against. You
+        Indices to derive the subset ``data[indices]`` to compare against. You
         may use any form of numpy indexing.
 
     Returns
@@ -154,11 +154,11 @@ def generic_df(vectorised_correlation_function, data, subset):
     ----------
     vectorised_correlation_function : (data :: np.array(dimensions=2), indices) -> correlation_matrix :: np.array
         Function for creating a correlation matrix. This function is exactly
-        like `generic` with a `correlation_function` already applied.
+        like ``generic`` with a ``correlation_function`` already applied.
     data : pd.DataFrame([[float]])
         Data for which to calculate correlations
     subset
-        Subset of `data` to compare against. Additionally, ``subset.index``
+        Subset of ``data`` to compare against. Additionally, ``subset.index``
         must be a subset of ``data.index``.
 
     Returns
@@ -174,7 +174,26 @@ def generic_df(vectorised_correlation_function, data, subset):
     correlations = pd.DataFrame(correlations, index=data.index, columns=subset.index)
     return correlations
 
-def pearson_df(data, subset): #TODO docstring from generic_df
+def pearson_df(data, subset):
+    # Docstring copy pasted from generic_df and adjusted to refer to pearson
+    '''
+    Get Pearson correlation of each row in a DataFrame compared to a subset thereof
+
+    Parameters
+    ----------
+    data : pd.DataFrame([[float]])
+        Data for which to calculate correlations
+    subset
+        Subset of ``data`` to compare against. Additionally, ``subset.index``
+        must be a subset of ``data.index``.
+
+    Returns
+    -------
+    correlation_matrix : pd.DataFrame([[float]], index=data.index, columns=subset.index)
+        Data frame with all correlations. ``correlation_matrix.iloc[i,j]``
+        contains the correlation between ``data.iloc[i]`` and
+        ``subset.iloc[j]``.
+    '''
     return generic_df(pearson, data, subset)
 
 def mutual_information_df(data, subset): #TODO docstring from generic_df

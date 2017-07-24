@@ -12,7 +12,7 @@ else ifeq ($(OS),Darwin)
 endif
 
 # You can set these variables from the command line.
-SPHINXOPTS    = -j$(PROC_COUNT) #-W #TODO reenable when sphinx fixes autosummary+numpydoc issue https://github.com/sphinx-doc/sphinx/issues/1462 or https://github.com/sphinx-doc/sphinx/issues/2387
+SPHINXOPTS    = -j$(PROC_COUNT) -W
 SPHINXBUILD   = sphinx-build
 PAPER         =
 BUILDDIR      = build

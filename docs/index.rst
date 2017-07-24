@@ -15,6 +15,8 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   api_reference
+   file_formats
    developer_documentation
    changelog
 

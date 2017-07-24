@@ -15,20 +15,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with varbio.  If not, see <http://www.gnu.org/licenses/>.
 
-#TODO no such thing as strict_input_validation
 '''
-Parsing of expression matrices, clusterings, ...
+Parsing of file contents
 
-When a parsing error occurs, a warning is logged. With strict_input_validation
-on, an exception is raised, else a best-effort approach is used to recover,
-within sane bounds.
-
-No cleaning is applied. If your files are dirty, use
-`deep_genome.core.clean` first.
-
-The results of parsing may still be fairly raw, further interpretation and
-validation happens when the data is added to Database. E.g. parsing will not
-remove genes that are duplicated (not in the biological sense) in the input.
+No cleaning is applied. If your files are dirty, use `varbio.clean` first.
 '''
 
 import pandas as pd
@@ -37,16 +27,13 @@ from collections import defaultdict
 
 def expression_matrix(reader):
     '''
-    Parse expression matrix in tabular plain text format
+    Parse expression matrix in TSV format
 
-    The expected format is a table with 1 header line. The first column is the
-    gene (or gene variant) name. Each other column contains the gene expression
-    values under a certain condition. Rows are separated by
-    '\n', columns are separated by whitespace.
+    For the exact format, see the File Formats page on RTD.
 
     Parameters
     ----------
-    reader : io.BufferedReader
+    reader : file object
         Text reader whose content is an expression matrix
 
     Returns
@@ -55,24 +42,14 @@ def expression_matrix(reader):
 
     Examples
     --------
-    Format example::
-
-        ignored<tab>condition1<tab>condition2
-        gene1<tab>1.5<tab>5
-        gene2<tab>.89<tab>-.1
-
-    Usage:
-
     >>> with Path('your_file').open() as f:
-    >>>    matrix = parse.expression_matrix(f)
+    ...    matrix = parse.expression_matrix(f)
     '''
     mat = pd.read_table(reader, index_col=0, header=0, engine='python').astype(float)
-    mat = mat[mat.index.to_series().notnull()]  # TODO log warnings for dropped rows #TODO do we ever need this?
+    mat = mat[mat.index.to_series().notnull()]  # drop rows with no gene name
     mat.index.name = 'gene'
     return mat
 
-#TODO strictness should have us fail on duplicate genes
-# Note for old calls: set_.merge_by_overlap + #TODO in DG make a NamedSet(set) hidden in some module that has names property and merges its names with other `NamedSet`s when merging the set. Preferably find a way to call it metadata instead of names MetaSet or something)
 def clustering(reader, name_index=0):
     '''
     Parse plain text formatted clustering
@@ -101,7 +78,7 @@ def clustering(reader, name_index=0):
 
     Parameters
     ----------
-    reader : io.BufferedReader
+    reader : file object
         Text reader whose content is a clustering
     name_index : int or None
         Index of the 'column' with the cluster name. If None, each line is an unnamed cluster.
