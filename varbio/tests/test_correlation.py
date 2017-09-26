@@ -27,6 +27,7 @@ from copy import copy
 import scipy.stats
 import numpy as np
 import pandas as pd
+import warnings
 import pytest
 
 pearsonr = lambda x, y: scipy.stats.pearsonr(x,y)[0]
@@ -208,17 +209,28 @@ class TestOther(object):
     '''
 
     def assert_(self, correlation_function, data, indices):
-        vectorised, plain = correlation_function
-        data_original = data.copy()
-        indices_original = copy(indices)
-        actual = vectorised(data, indices)
-        np.testing.assert_array_equal(data, data_original)
-        assert indices == indices_original
+        with warnings.catch_warnings():
+            # Suppress division by zero warnings. For performance, vectorised
+            # correlation functions needn't check for rows such as
+            # (1, 1, 1), which cause division by zero in pearson.
+            warnings.filterwarnings('ignore', 'invalid value encountered in double_scalars', RuntimeWarning)
 
-        # Note: we should actually take twice the default error in allclose as
-        # we compare to another algorithm which also has numerical errors
-        expected = correlation.generic(lambda x, y: plain(x, y), data, indices)
-        np.testing.assert_allclose(actual, expected, equal_nan=True)
+            # Calculate actual
+            vectorised, plain = correlation_function
+            data_original = data.copy()
+            indices_original = copy(indices)
+            actual = vectorised(data, indices)
+            np.testing.assert_array_equal(data, data_original)
+            assert indices == indices_original
+
+            # Calculate expected
+            #
+            # Note: we should actually take twice the default error in allclose as
+            # we compare to another algorithm which also has numerical errors
+            expected = correlation.generic(lambda x, y: plain(x, y), data, indices)
+
+            # Assert actual == expected
+            np.testing.assert_allclose(actual, expected, equal_nan=True)
 
     def test_subset_everything(self, correlation_function, data):
         '''
