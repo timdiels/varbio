@@ -16,7 +16,7 @@
 # along with varbio.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-Parsing of file contents
+Parsing of file contents.
 
 No cleaning is applied. If your files are dirty, use `varbio.clean` first.
 '''
@@ -27,18 +27,21 @@ from collections import defaultdict
 
 def expression_matrix(reader):
     '''
-    Parse expression matrix in TSV format
+    Parse expression matrix in TSV format.
 
-    For the exact format, see the File Formats page on RTD.
+    For a description of the file format, see the :ref:`Expression matrix file`
+    section in the documentation.
 
     Parameters
     ----------
-    reader : file object
-        Text reader whose content is an expression matrix
+    reader : ~typing.TextIO
+        Text reader whose content is an expression matrix.
 
     Returns
     -------
-    pd.DataFrame({condition_name => [gene_expression :: float]}, index=pd.Index([str], name='gene'))
+    ~pandas.DataFrame[Float]
+        Expression matrix as data frame with condition names as columns and gene
+        names (or whatever the expression matrix file uses) as index.
 
     Examples
     --------
@@ -52,41 +55,26 @@ def expression_matrix(reader):
 
 def clustering(reader, name_index=0):
     '''
-    Parse plain text formatted clustering
+    Parse plain text formatted clustering.
 
-    Each cluster can be specified on a single line::
+    For a description of the file format, see the :ref:`Clustering file`
+    section in the documentation.
 
-        cluster1<tab>item1<tab>item2<tab>item3
-        cluster2<tab>item5
-
-    or across multiple lines::
-
-        cluster1<tab>item1
-        cluster1<tab>item2
-        cluster2<tab>item5
-        cluster1<tab>item3
-
-    or a combination of the two::
-
-        cluster1<tab>item1<tab>item2
-        cluster2<tab>item5
-        cluster1<tab>item3
-
-    Items may be assigned to multiple clusters. Clusters are treated as sets.
-    When an item appears in a cluster multiple times, a warning is logged and
-    the duplicate is ignored.
+    Warnings are issued for items appearing multiple times in a cluster (as this
+    indicates a bug in the software that created the clustering).
 
     Parameters
     ----------
-    reader : file object
-        Text reader whose content is a clustering
+    reader : ~typing.TextIO
+        Text reader whose content is a clustering.
     name_index : int or None
-        Index of the 'column' with the cluster name. If None, each line is an unnamed cluster.
+        Index of the 'column' with the cluster name. If `None`, each line is an
+        unnamed cluster.
 
     Returns
     -------
-    {cluster_id :: str => items :: {str}}
-        Clustering as multi-dict.
+    ~typing.Dict[str, ~typing.Set[str]]
+        Clustering as multi-dict mapping each cluster id to its items.
     '''
     if name_index and name_index < 0:
         raise ValueError('name_index must be >=0 or None')

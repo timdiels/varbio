@@ -17,7 +17,7 @@ setup_args = dict(
     install_requires=[
         'pandas==0.*',
         'plumbum==1.*',
-        'pytil[test,data_frame]==5.*',
+        'pytil[test,data_frame]==6.*',
         'scikit-learn==0.*',
         'scipy==0.*',
         'numpy==1.*',

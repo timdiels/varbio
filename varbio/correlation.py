@@ -16,7 +16,7 @@
 # along with varbio.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-Vectorised correlation statistics and correlation matrices
+Vectorised correlation statistics and correlation matrices.
 
 Efficient implementations for Pearson's r. A slow generic implementation for
 other correlation statistics.
@@ -36,9 +36,55 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mutual_info_score
 
+def correlation_function(x, y):
+    '''
+    Get correlation between 2 arrays.
+
+    Parameters
+    ----------
+    x : ~pytil.numpy.ArrayLike[float]
+    y : ~pytil.numpy.ArrayLike[float]
+
+    Returns
+    -------
+    float
+        Correlation between ``x`` and ``y``
+    '''
+    raise Exception(
+        'This is an abstract function intended to be referenced in '
+        'documentation only, do not call it in code'
+    )
+
+def vectorised_correlation_function(data, indices):
+    '''
+    Get correlations between rows of data.
+
+    Note that applying a `correlation_function` to `generic` yields a
+    `vectorised_correlation_function`.
+
+    Parameters
+    ----------
+    data : ArrayLike[float]
+        2D array for which to calculate correlations between rows.
+    indices
+        Indices to derive the subset ``data[indices]`` to compare against. You
+        may use any form of numpy indexing.
+
+    Returns
+    -------
+    correlation_matrix : ArrayLike[float]
+        2D array containing all correlations. ``correlation_matrix[i,j]``
+        contains ``correlation_function(data[i], data[indices][j]``. Its shape
+        is ``(len(data), len(indices))``.
+    '''
+    raise Exception(
+        'This is an abstract function intended to be referenced in '
+        'documentation only, do not call it in code'
+    )
+
 def generic(correlation_function, data, indices):
     '''
-    Get correlation of each row in a 2d array compared to a subset thereof
+    Get correlation of each row in a 2D array compared to a subset thereof.
 
     This function is less efficient than those specialised to a specific
     correlation function. See the 'See also' section for whether a specialised
@@ -46,24 +92,23 @@ def generic(correlation_function, data, indices):
 
     Parameters
     ----------
-    correlation_function : ((x :: array-like(dtype=float)), (y :: array-like(dtype=float)) -> float
-        Function that returns a correlation statistic when given 2 numpy array-
-        like's.
-    data : np.array(dtype=float, dimensions=2)
-        Data for which to calculate correlations
+    correlation_function : correlation_function
+    data : ArrayLike[float]
+        2D array for which to calculate correlations between rows.
     indices
         Indices to derive the subset ``data[indices]`` to compare against. You
         may use any form of numpy indexing.
 
     Returns
     -------
-    correlation_matrix : np.array(dtype=float, shape=(len(data), len(indices)))
+    correlation_matrix : ArrayLike[float]
         2D array containing all correlations. ``correlation_matrix[i,j]``
-        contains ``correlation_function(data[i], data[indices][j]``.
+        contains ``correlation_function(data[i], data[indices][j]``. Its shape
+        is ``(len(data), len(indices))``.
 
     See also
     --------
-    pearson : Get Pearson's r of each row in a 2d array compared to a subset thereof
+    pearson : Get Pearson's r of each row in a 2D array compared to a subset thereof.
     '''
     # TODO: optimise: can be sped up (turn into metric specific linalg, or keep generic and use np ~enumerate). For vectorising mutual info further, see https://github.com/scikit-learn/scikit-learn/blob/c957249/sklearn/metrics/cluster/supervised.py#L507
     if not data.size or not len(indices):
@@ -73,27 +118,28 @@ def generic(correlation_function, data, indices):
 # Note: GSL's pearson also returns .999...98 instead of 1 when comparing (1,2,3) to itself
 def pearson(data, indices):
     '''
-    Get Pearson's r of each row in a 2d array compared to a subset thereof
+    Get Pearson's r of each row in a 2D array compared to a subset thereof.
 
     Parameters
     ----------
-    data : np.array(dtype=float, dimensions=2)
-        Data for which to calculate correlations
+    data : ArrayLike[float]
+        2D array for which to calculate correlations between rows.
     indices
         Indices to derive the subset ``data[indices]`` to compare against. You
         may use any form of numpy indexing.
 
     Returns
     -------
-    correlation_matrix : np.array(dtype=float, shape=(len(data), len(indices)))
+    correlation_matrix : ArrayLike[float]
         2D array containing all correlations. ``correlation_matrix[i,j]``
-        contains the correlation between ``data[i]`` and ``data[indices][j]``.
+        contains ``correlation_function(data[i], data[indices][j]``. Its shape
+        is ``(len(data), len(indices))``.
 
     Notes
     -----
-    The current implementation is a vectorised form of `gsl_stats_correlation`
+    The current implementation is a vectorised form of ``gsl_stats_correlation``
     from the GNU Scientific Library. Unlike GSL's implementation,
-    correlations are clipped to [-1, 1].
+    correlations are clipped to ``[-1, 1]``.
 
     Pearson's r is also, perhaps more commonly, known as the product-moment
     correlation coefficient.
@@ -148,25 +194,25 @@ def mutual_information(data, indices): #TODO docstring + mention it's slow imple
 
 def generic_df(vectorised_correlation_function, data, subset):
     '''
-    Get correlation of each row in a DataFrame compared to a subset thereof
+    Get correlation of each row in a DataFrame compared to a subset thereof.
 
     Parameters
     ----------
-    vectorised_correlation_function : (data :: np.array(dimensions=2), indices) -> correlation_matrix :: np.array
-        Function for creating a correlation matrix. This function is exactly
-        like ``generic`` with a ``correlation_function`` already applied.
-    data : pd.DataFrame([[float]])
-        Data for which to calculate correlations
+    vectorised_correlation_function : vectorised_correlation_function
+        Function to create the correlation matrix with.
+    data : ~pandas.DataFrame[float]
+        Data for which to calculate correlations between rows.
     subset
-        Subset of ``data`` to compare against. Additionally, ``subset.index``
-        must be a subset of ``data.index``.
+        Subset of ``data`` to compare against. ``subset.index`` must be a subset
+        of ``data.index``.
 
     Returns
     -------
-    correlation_matrix : pd.DataFrame([[float]], index=data.index, columns=subset.index)
+    correlation_matrix : pandas.DataFrame[float]
         Data frame with all correlations. ``correlation_matrix.iloc[i,j]``
         contains the correlation between ``data.iloc[i]`` and
-        ``subset.iloc[j]``.
+        ``subset.iloc[j]``. The data frame has ``data.index`` as index and
+        ``subset.index`` as columns.
     '''
     if not data.index.is_unique:
         raise ValueError('``data.index`` must be unique')
@@ -175,27 +221,10 @@ def generic_df(vectorised_correlation_function, data, subset):
     return correlations
 
 def pearson_df(data, subset):
-    # Docstring copy pasted from generic_df and adjusted to refer to pearson
-    '''
-    Get Pearson correlation of each row in a DataFrame compared to a subset thereof
-
-    Parameters
-    ----------
-    data : pd.DataFrame([[float]])
-        Data for which to calculate correlations
-    subset
-        Subset of ``data`` to compare against. Additionally, ``subset.index``
-        must be a subset of ``data.index``.
-
-    Returns
-    -------
-    correlation_matrix : pd.DataFrame([[float]], index=data.index, columns=subset.index)
-        Data frame with all correlations. ``correlation_matrix.iloc[i,j]``
-        contains the correlation between ``data.iloc[i]`` and
-        ``subset.iloc[j]``.
-    '''
     return generic_df(pearson, data, subset)
 
-def mutual_information_df(data, subset): #TODO docstring from generic_df
+pearson_df.__doc__ = generic_df.__doc__.replace('Get correlation', 'Get Pearson correlation')
+
+def mutual_information_df(data, subset): #TODO docstring from generic_df if it's indeed a correlation func
     return generic_df(mutual_information, data, subset)
 

@@ -12,7 +12,7 @@ else ifeq ($(OS),Darwin)
 endif
 
 # You can set these variables from the command line.
-SPHINXOPTS    = -j$(PROC_COUNT) -W
+SPHINXOPTS    = -j$(PROC_COUNT)
 SPHINXBUILD   = sphinx-build
 PAPER         =
 BUILDDIR      = build
@@ -63,7 +63,7 @@ clean:
 
 .PHONY: html
 html:
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html || true # ignore errors, TODO rm this when 
+	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 

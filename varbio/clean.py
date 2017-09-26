@@ -16,7 +16,7 @@
 # along with varbio.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-Cleaning of (file) input
+Cleaning of (file) input.
 '''
 
 import plumbum as pb
@@ -29,19 +29,19 @@ def plain_text(reader):
     '''
     Get sanitised contents of plain text file.
 
-    - Remove null characters
-    - Fix newlines, drop empty lines
+    - Remove null characters.
+    - Fix newlines, drop empty lines.
     - Replace multiple tabs by single tab.
 
     Parameters
     ----------
-    reader : file object
-        Plain text file stream
+    reader : ~typing.TextIO
+        Plain text file stream.
 
     Returns
     -------
-    file object
-        Stream of sanitised text
+    ~typing.TextIO
+        Stream of sanitised text.
     '''
     cmd = (_sed['-r', '-e', r's/[\x0]//g', '-e', r's/(\t)+/\t/g'] < reader) | _tr['-s', r'\r', r'\n'] 
     return io.TextIOWrapper(cmd.popen().stdout, encoding='UTF-8')

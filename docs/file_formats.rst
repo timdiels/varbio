@@ -2,6 +2,37 @@ File formats
 ============
 Description of all file formats.
 
+
+.. _Clustering file:
+
+Clustering file
+---------------
+A clustering file is a plain text file.
+
+Each cluster can be specified on a single line::
+
+    cluster1<tab>item1<tab>item2<tab>item3
+    cluster2<tab>item5
+
+or across multiple lines::
+
+    cluster1<tab>item1
+    cluster1<tab>item2
+    cluster2<tab>item5
+    cluster1<tab>item3
+
+or a combination of the two::
+
+    cluster1<tab>item1<tab>item2
+    cluster2<tab>item5
+    cluster1<tab>item3
+
+Items may be assigned to multiple clusters. Clusters are treated as sets;
+when an item appears in a cluster multiple times, only a single copy is kept and
+a warning is logged.
+
+.. _Expression matrix file:
+
 Expression matrix file
 ----------------------
 A matrix file is a TSV file, i.e. it starts with a header line of column names
