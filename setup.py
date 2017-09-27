@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 
 setup_args = dict(
-    version='2.0.0.dev1',
+    version='2.0.0',
     name='varbio',
     description='Bioinformatics utility library',
     long_description=Path('README.rst').read_text(),
