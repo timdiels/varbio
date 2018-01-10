@@ -18,10 +18,10 @@
 from pytil.test import temp_dir_cwd  # @UnusedImport
 import logging
 import pytest
+import signal
 
 # http://stackoverflow.com/a/30091579/1031434
-from signal import signal, SIGPIPE, SIG_DFL
-signal(SIGPIPE, SIG_DFL) # Ignore SIGPIPE
+signal.signal(signal.SIGPIPE, signal.SIG_IGN)  # Ignore SIGPIPE
 
 @pytest.fixture(autouse=True, scope='session')
 def common_init():
