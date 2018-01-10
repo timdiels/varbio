@@ -19,11 +19,14 @@
 Test varbio.parse
 '''
 
-from varbio import parse
-import pytest
 from textwrap import dedent
-import pandas as pd
 import io
+
+import pandas as pd
+import pytest
+
+from varbio import parse
+
 
 class TestParseExpressionMatrix(object):
 

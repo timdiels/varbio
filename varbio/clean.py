@@ -19,8 +19,10 @@
 Cleaning of (file) input.
 '''
 
-import plumbum as pb
 import io
+
+import plumbum as pb
+
 
 _sed = pb.local['sed']
 _tr = pb.local['tr']

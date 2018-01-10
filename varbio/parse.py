@@ -21,9 +21,10 @@ Parsing of file contents.
 No cleaning is applied. If your files are dirty, use `varbio.clean` first.
 '''
 
-import pandas as pd
-import csv
 from collections import defaultdict
+import csv
+import pandas as pd
+
 
 def expression_matrix(reader):
     '''

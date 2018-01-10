@@ -19,16 +19,19 @@
 Test varbio.correlation
 '''
 
-from varbio import correlation
-from sklearn.metrics import mutual_info_score
-from pytil import data_frame as df_
-from functools import partial
 from copy import copy
-import scipy.stats
+from functools import partial
+import warnings
+
+from pytil import data_frame as df_
+from sklearn.metrics import mutual_info_score
 import numpy as np
 import pandas as pd
-import warnings
 import pytest
+import scipy.stats
+
+from varbio import correlation
+
 
 pearsonr = lambda x, y: scipy.stats.pearsonr(x,y)[0]
 

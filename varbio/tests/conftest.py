@@ -15,10 +15,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with varbio.  If not, see <http://www.gnu.org/licenses/>.
 
-from pytil.test import temp_dir_cwd  # @UnusedImport
 import logging
-import pytest
 import signal
+
+from pytil.test import temp_dir_cwd  # @UnusedImport
+import pytest
+
 
 # http://stackoverflow.com/a/30091579/1031434
 signal.signal(signal.SIGPIPE, signal.SIG_IGN)  # Ignore SIGPIPE

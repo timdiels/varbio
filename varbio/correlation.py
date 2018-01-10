@@ -32,9 +32,10 @@ other correlation statistics.
 # - actually implement a more efficient version below
 # - remove the mention of slowness in the docstring of its _df func
 
+from sklearn.metrics import mutual_info_score
 import numpy as np
 import pandas as pd
-from sklearn.metrics import mutual_info_score
+
 
 def correlation_function(x, y):
     '''

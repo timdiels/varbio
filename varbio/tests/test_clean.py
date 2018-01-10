@@ -19,8 +19,10 @@
 Test varbio.clean
 '''
 
-from varbio import clean
 from pathlib import Path
+
+from varbio import clean
+
 
 def test_plain_text(temp_dir_cwd):
     '''
