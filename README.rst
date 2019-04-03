@@ -1,5 +1,7 @@
-varbio (various bioinformatics) is a bioinformatics utility library, not
-recommended for public use due to frequent major releases without backports.
+varbio (various bioinformatics) is a library of functions shared by MORPH and
+CoExpNetViz, in all likelihood you wouldn't want to use it for anything else,
+though you are free to do so (under the terms of the license) but there is no
+guarantee of API stability.
 
 Links
 =====
