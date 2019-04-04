@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 
 setup_args = dict(
-    version='2.0.1.dev',
+    version='3.0.0.dev',
     name='varbio',
     description='Bioinformatics utility library',
     long_description=Path('README.rst').read_text(),
@@ -15,22 +15,26 @@ setup_args = dict(
     keywords='bioinformatics parsing',
     packages=find_packages(),
     install_requires=[
-        'pandas==0.*',
-        'plumbum==1.*',
-        'pytil[test,data_frame]==6.*',
-        'scikit-learn==0.*',
-        'scipy==0.*',
-        'numpy==1.*',
+        'attrs',
+        'chardet',
+        'humanize',
+        'numpy>=1',
+        'pandas',
+        'pytil[test,data_frame]>7',
+        'pyyaml',
+        'scipy',
     ],
     extras_require={
         'dev': [
-            'numpydoc==0.*',
-            'sphinx==1.*',
-            'sphinx-rtd-theme==0.*',
-            'coverage-pth==0.*',
-            'pytest==3.*',
-            'pytest-cov==2.*',
-            'pytest-env==0.*',
+            'coverage-pth',
+            'numpydoc',
+            'pytest>=3',
+            'pytest-cov>=2',
+            'pytest-env',
+            'pytest-mock',
+            'pytil[pkg_resources]>7',
+            'sphinx>=1',
+            'sphinx-rtd-theme',
         ],
     },
     # https://pypi.python.org/pypi?%3Aaction=list_classifiers
@@ -95,4 +99,3 @@ setup_args['package_data'] = {k: sorted(v) for k,v in package_data.items()}  # s
 
 # setup
 setup(**setup_args)
-
