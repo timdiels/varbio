@@ -1,4 +1,4 @@
-# Copyright (C) 2016 VIB/BEG/UGent - Tim Diels <timdiels.m@gmail.com>
+# Copyright (C) 2016 VIB/BEG/UGent - Tim Diels <tim@diels.me>
 #
 # This file is part of varbio.
 #
@@ -20,14 +20,15 @@ from copy import copy
 import warnings
 
 from pytil.data_frame import assert_df_equals
-from pytil.pkg_resources import resource_path, resource_stream
+from pytil.pkg_resources import resource_path
 import numpy as np
 import pandas as pd
 import pytest
 import scipy.stats
 
 from varbio import (
-    pearson, pearson_df, parse_yaml, open_text, ExpressionMatrix, UserError
+    pearson, pearson_df, parse_yaml, ExpressionMatrix, UserError, parse_csv,
+    parse_baits
 )
 
 
@@ -35,43 +36,141 @@ pearsonr = lambda x, y: scipy.stats.pearsonr(x, y)[0]
 np.random.seed(0)
 
 
-class TestParseYAML:
+class TestParseCSV:
 
-    # Background: https://gitlab.psb.ugent.be/deep_genome/coexpnetviz/issues/7
+    def _parse(self, name):
+        path = resource_path(__name__, f'data/parse_csv_is_robust/{name}')
+        return list(parse_csv(path))
 
     @pytest.mark.parametrize('name', (
-        'dos', 'incorrect_line_endings', 'latin1', 'utf16_le_bom_dos',
-        'utf16le_bom', 'utf8_bom', 'utf8', 'whitespace_tabs', 'whitespace',
+        # Autodetect encoding
+        'latin1.csv',
+        'utf16_le_bom_dos.csv',
+        'utf16le_bom.csv',
+        'utf8.csv',
+        'utf8_bom.csv',
+
+        # Autodetect line ending
+        'dos.csv',
+        'strange_line_endings.csv',
+        'inconsistent_line_endings.csv',
+
+        # Autodetect quotes and separators.
+        #
+        # We give up if they mix quotes/separators as that is too hard to
+        # detect without making too many assumptions (we could show a warning
+        # if multiple separators/quote chars appear in the text, but that would
+        # cause false positives too; best wait for use cases and add warnings
+        # for those specific input examples)
+        'no_quotes.csv',
+        'semicolon_separator.csv',
+        'tab_separator.csv',
+        'some_dquote.csv',
+        'some_squote.csv',
+
+        # Ignore empty lines
+        'empty_lines.csv',
     ))
     def test_is_robust(self, name):
-        '''
-        open_text parse_yaml combo should autodetect encoding, handle
-        whitespace and strange line endings
-        '''
-        path = resource_path(__name__, 'data/parse_yaml_is_robust/{}.yaml'.format(name))
-        with open_text(path) as f:
-            assert parse_yaml(f) == [
-                ['gene', 'col1', 'col2'],
-                ['gene1', 12.2, 34.5],
-            ]
+        'See #3'
+        assert self._parse(name) == [
+            ['gene', 'col1', 'col2'],
+            ['gene1', '12.2', '34.5'],
+        ]
 
-    def test_include(self):
-        actual = parse_yaml(resource_stream(__name__, 'data/parse_yaml_include/main.yaml'))
-        assert actual == {'baits': ['one', 'two']}
+    def test_trim(self):
+        'Trim row/header values, but preserve inner whitespace'
+        assert self._parse('untrimmed_value.csv') == [
+            ['gene', 'col 	1', 'col2'],
+            ['gene 1', '12.2', '34.5'],
+        ]
 
-class TestExpressionMatrixFromDict:
+    @pytest.mark.parametrize('name,line_number,col,line', (
+        ('empty_header_value.csv', 1, 1, ' 	,col1,col2'),
+        ('empty_row_value.csv', 3, 2, 'gene1, 	,34.5'),
+    ))
+    def test_raise_if_empty_value(self, name, line_number, col, line):
+        'Raise if a header/row value is just whitespace'
+        with pytest.raises(UserError) as ex:
+            self._parse(name)
+        msg = str(ex.value).lower()
+        assert 'empty' in msg
+        assert f'line {line_number}, column {col} (1-based)' in msg
+        assert line in msg
 
-    # See coexpnetviz #7
+    def test_raise_if_cannot_autodetect(self):
+        with pytest.raises(UserError) as ex:
+            self._parse('inconsistent_col_count_2nd_row.csv')
+        msg = str(ex.value).lower()
+        assert 'autodetect' in msg
+        assert 'first 2 non-empty lines' in msg
 
-    def test_happy_days(self):
-        matrix = ExpressionMatrix.from_dict({
-            'name': 'myname',
-            'data': [
-                ['mygene', 'col1', 'col2'],
-                ['row1', 1.2, 3.4],
-                ['row2', 5.6, 7.8],
-            ]
-        })
+    def test_raise_if_inconsistent_col_count(self):
+        with pytest.raises(UserError) as ex:
+            self._parse('inconsistent_col_count_3rd_row.csv')
+        msg = str(ex.value).lower()
+        assert 'has 2 columns' in msg
+        assert 'expected 3' in msg
+        assert 'line 4 (1-based)' in msg
+        assert 'gene3,5.6' in msg
+
+    def test_raise_if_empty_file(self):
+        with pytest.raises(UserError) as ex:
+            self._parse('empty_file.csv')
+        msg = str(ex.value).lower()
+        assert 'must contain at least a header' in msg
+
+@pytest.mark.parametrize('name', (
+    # Handle inconsistent line endings
+    'dos.yaml', 'incorrect_line_endings.yaml',
+
+    # Autodetect encoding
+    'utf8.yaml', 'latin1.yaml', 'utf8_bom.yaml', 'utf16_le_bom_dos.yaml',
+    'utf16le_bom.yaml',
+
+    # Ignore valid whitespace
+    'valid_whitespace.yaml',
+))
+def test_parse_yaml_is_robust(name):
+    'See #3'
+    path = resource_path(__name__, f'data/parse_yaml_is_robust/{name}')
+    assert parse_yaml(path) == [
+        ['gene', 'col1', 'col2'],
+        ['gene1', 12.2, 34.5],
+    ]
+
+def test_parse_yaml_wraps_yaml_error():
+    'Raise UserError for yaml errors, such as invalid whitespace'
+    with pytest.raises(UserError) as ex:
+        path = resource_path(__name__, 'data/parse_yaml_is_robust/whitespace_tabs.yaml')
+        parse_yaml(path)
+    msg = str(ex.value)
+    assert 'YAML file' in msg
+    assert 'whitespace_tabs.yaml' in msg
+    assert r'\t' in msg
+
+class TestParseBaits:
+
+    '''
+    Encodings and line endings have already been covered by parse_yaml/csv
+    tests which use open_text as well
+    '''
+
+    def test_worst_valid_input(self):
+        path = resource_path(__name__, 'data/parse_baits')
+        actual = parse_baits(path, min_baits=8)
+        assert actual == ['1', '2', '3', '4', '5', '6', '7', 'bait8']
+
+    def test_too_few_baits(self):
+        path = resource_path(__name__, 'data/parse_baits')
+        with pytest.raises(UserError) as ex:
+            actual = parse_baits(path, min_baits=9)
+        assert 'at least 9' in str(ex.value)
+
+class TestExpressionMatrixHappyDays:
+
+    @staticmethod
+    def _assert(matrix):
         assert matrix.name == 'myname'
         assert_df_equals(matrix.data, pd.DataFrame(
             index=pd.Index(
@@ -91,6 +190,34 @@ class TestExpressionMatrixFromDict:
             # df values are the remainder of the data matrix
             data=[[1.2, 3.4], [5.6, 7.8]],
         ))
+
+    def test_from_dict(self):
+        matrix = ExpressionMatrix.from_dict({
+            'name': 'myname',
+            'data': [
+                ['mygene', 'col1', 'col2'],
+                ['row1', 1.2, 3.4],
+                ['row2', 5.6, 7.8],
+            ]
+        })
+        self._assert(matrix)
+
+    def test_from_csv(self):
+        '''
+        relies on _from_array and already got validated a lot by parse_csv so
+        we only need test its happy days case
+        '''
+        matrix = ExpressionMatrix.from_csv(
+            name='myname',
+            data=[
+                ['mygene', 'col1', 'col2'],
+                ['row1', '1.2', '3.4'],
+                ['row2', '5.6', '7.8'],
+            ]
+        )
+        self._assert(matrix)
+
+class TestExpressionMatrixFromDict:
 
     def test_convert_values(self, caplog):
         'Ensure rows and cols are str, values are float, with warning'
@@ -119,8 +246,6 @@ class TestExpressionMatrixFromDict:
         assert '1 values are not of a number type' in caplog.text
         assert "'1.3'" in caplog.text
 
-    # Only trickier validation cases are tested, the rest is only tested
-    # manually because in the end you have to check the formatting anyway
     def test_raise_on_single_row(self):
         'Raise user friendly error when only a single row'
         with pytest.raises(UserError) as ex:
@@ -149,6 +274,64 @@ class TestExpressionMatrixFromDict:
         msg = str(ex.value)
         assert '2nd' in msg
         assert 'less columns' in msg
+
+class TestExpressionMatrixFromArray:
+
+    def test_keep_index_and_cols_as_str(self):
+        matrix = ExpressionMatrix._from_array(
+            name='myname',
+            data=np.array([
+                ['1', '2'],
+                ['3', 1.2],
+            ])
+        )
+        df = matrix.data
+        assert df.index.name == '1'
+        assert df.index[0] == '3'
+        assert df.columns[0] == '2'
+
+    def test_raise_if_duplicate_index(self):
+        with pytest.raises(UserError) as ex:
+            ExpressionMatrix._from_array(
+                name='myname',
+                data=np.array([
+                    ['gene', 'col1'],
+                    ['row1', 1.2],
+                    ['row1', 1.3],
+                ])
+            )
+        msg = str(ex.value)
+        assert 'duplicate row names' in msg
+        assert 'myname' in msg
+        assert 'row1' in msg
+
+    def test_raise_if_duplicate_columns(self):
+        with pytest.raises(UserError) as ex:
+            ExpressionMatrix._from_array(
+                name='myname',
+                data=np.array([
+                    ['gene', 'col1', 'col1'],
+                    ['row1', 1.2, 1.3],
+                ])
+            )
+        msg = str(ex.value)
+        assert 'duplicate column names' in msg
+        assert 'myname' in msg
+        assert 'col1' in msg
+
+    @pytest.mark.parametrize('value', ['1.000,2', '1,2'])
+    def test_raise_if_invalid_float(self, value):
+        with pytest.raises(UserError) as ex:
+            ExpressionMatrix._from_array(
+                name='myname',
+                data=np.array([
+                    ['gene', 'col1'],
+                    ['row1', value],
+                ])
+            )
+        msg = str(ex.value)
+        assert 'could not convert string to float' in msg
+        assert value in msg
 
 def unvectorised_pearson(data, indices):
     if not data.size or not len(indices):  # pylint: disable=len-as-condition
@@ -183,19 +366,20 @@ def unvectorised_pearson(data, indices):
     # Blob of random data
     np.random.rand(100, 100),
 ))
-class TestOther:
+class TestPearson:
 
-    '''
-    Test pearson and mutual_information against their automatically vectorised
-    equivalent
-    '''
+    'Test pearson against its automatically vectorised equivalent'
 
     def assert_(self, data, indices):
         with warnings.catch_warnings():
             # Suppress division by zero warnings. For performance, vectorised
             # correlation functions needn't check for rows such as
             # (1, 1, 1), which cause division by zero in pearson.
-            warnings.filterwarnings('ignore', 'invalid value encountered in double_scalars', RuntimeWarning)
+            warnings.filterwarnings(
+                'ignore',
+                'invalid value encountered in double_scalars',
+                RuntimeWarning
+            )
 
             # Calculate actual
             data_original = data.copy()
@@ -254,7 +438,7 @@ class TestOther:
         assert not actual.size
         assert actual.shape == (0, 0)
 
-class TestPearsonDf(object):
+class TestPearsonDf:
 
     @pytest.fixture(scope='session')
     def data(self):
@@ -273,6 +457,7 @@ class TestPearsonDf(object):
             return np.dot(data, data[indices].T + 1)
         mocker.patch('varbio.pearson', vectorised)
 
+    # TODO rename to _assert
     def assert_(self, data, indices):
         data_original = data.copy()
         subset = data.iloc[indices]

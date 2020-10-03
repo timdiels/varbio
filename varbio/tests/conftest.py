@@ -1,4 +1,4 @@
-# Copyright (C) 2015 VIB/BEG/UGent - Tim Diels <timdiels.m@gmail.com>
+# Copyright (C) 2015 VIB/BEG/UGent - Tim Diels <tim@diels.me>
 #
 # This file is part of varbio.
 #
@@ -18,15 +18,12 @@
 import logging
 import signal
 
-from pytil.test import temp_dir_cwd  # @UnusedImport
 import pytest
 
 
 # http://stackoverflow.com/a/30091579/1031434
 signal.signal(signal.SIGPIPE, signal.SIG_IGN)  # Ignore SIGPIPE
 
-@pytest.fixture(autouse=True, scope='session')
+@pytest.fixture(autouse=True)
 def common_init():
-    # Make anything but our own loggers very quiet
-    logging.getLogger().setLevel(logging.ERROR)
-    logging.getLogger('varbio').setLevel(logging.INFO)
+    logging.getLogger().setLevel(logging.INFO)
