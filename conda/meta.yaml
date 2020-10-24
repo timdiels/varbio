@@ -1,0 +1,34 @@
+# Conda recipe
+{% set data = load_setup_py_data() %}
+package:
+  name: varbio
+  version: '{{ data['version'] }}'
+source:
+  path: ..
+build:
+  script: '{{ PYTHON }} -m pip install . -vv'
+requirements:
+  build:
+    - pip
+    - python
+  host:
+    # Conda recommends always adding the interpreter as a host dep
+    - python
+  run:
+    - python
+    - attrs
+    - chardet
+    - humanize
+    - numpy>=1
+    - pandas
+    - pyyaml
+    - scipy
+test:
+  # A very simple test, ensure we can import it
+  imports:
+    - varbio
+about:
+  home: https://gitlab.psb.ugent.be/deep_genome/varbio
+  license: LGPL3
+  license_file: LICENSE.txt
+  summary: Internal library with common code of coexpnetviz and morph
