@@ -15,9 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with varbio.  If not, see <http://www.gnu.org/licenses/>.
 
-from contextlib import ExitStack
 from numbers import Number
-from pathlib import Path
 from textwrap import dedent
 import logging
 import re
@@ -28,6 +26,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from varbio import __version__
 from varbio._util import open_text, UserError, join_lines
 
 
@@ -353,3 +352,25 @@ def pearson_df(data, subset):
     correlations = pearson(data.values, subset.index.map(data.index.get_loc))
     correlations = pd.DataFrame(correlations, index=data.index, columns=subset.index)
     return correlations
+
+def init_logging(program, version, log_file):
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter('{asctime} {levelname[0]}: {message}', style='{')
+
+    # Log to stderr
+    stderr_handler = logging.StreamHandler() # to stderr
+    stderr_handler.setLevel(logging.DEBUG)
+    stderr_handler.setFormatter(formatter)
+    root_logger.addHandler(stderr_handler)
+
+    # and to file
+    file_handler = logging.FileHandler(str(log_file))
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    root_logger.addHandler(file_handler)
+
+    # Log versions
+    logging.info(f'{program} version: {version}')
+    logging.info(f'varbio version: {__version__}')

@@ -21,6 +21,6 @@ __version__ = '3.0.0.dev'
 from ._util import UserError, join_lines, open_text
 from ._various import (
     ExpressionMatrix, parse_yaml, pearson, pearson_df,
-    parse_baits
+    parse_baits, init_logging
 )
 from ._csv import parse_csv
