@@ -1,12 +1,16 @@
 # Conda recipe
 {% set data = load_setup_py_data() %}
+
 package:
   name: varbio
   version: '{{ data['version'] }}'
+
 source:
   path: ..
+
 build:
   script: '{{ PYTHON }} -m pip install . -vv'
+
 requirements:
   build:
     - pip
@@ -15,20 +19,27 @@ requirements:
     # Conda recommends always adding the interpreter as a host dep
     - python
   run:
-    - python
+    - python >=3.6  # a reasonable minimum
     - attrs
     - chardet
     - humanize
-    - numpy>=1
+    - numpy >=1
     - pandas
     - pyyaml
     - scipy
+
 test:
-  # A very simple test, ensure we can import it
-  imports:
-    - varbio
+  source_files:
+    - pytest.ini
+    - tests
+  requires:
+    - pytest >=3
+    - pytil ==8.*
+  commands:
+    - pytest
+
 about:
-  home: https://gitlab.psb.ugent.be/deep_genome/varbio
+  home: https://github.com/timdiels/varbio
   license: LGPL3
   license_file: LICENSE.txt
   summary: Internal library with common code of coexpnetviz and morph
