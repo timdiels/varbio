@@ -344,27 +344,11 @@ def unvectorised_pearson(data, indices):
 
 @pytest.mark.parametrize('data', (
     # Data for which no pair of rows has the same correlation, taking into
-    # account Pearson's reflexivity an symmetry.
+    # account Pearson's reflexivity and symmetry.
     np.array([
         [1.1, 2, 3],
         [4.9, 8.1, 7],
         [20, -1, -20.2]
-    ]),
-
-    # Data which leads to some NaN and pearson extreme values (1, -1)
-    np.array([
-        [1, 2, 3],
-        [3, 2, 1],
-        [2, 4, 6],
-        [1, 1, 1],
-        [1, 2, np.nan]
-    ]),
-
-    # All NaN output
-    np.array([
-        [1.1, np.nan, 3],
-        [4.9, 8.1, np.nan],
-        [20, np.nan, -20.2]
     ]),
 
     # Blob of random data

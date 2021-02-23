@@ -300,6 +300,9 @@ def pearson(data, indices):
     Pearson's r is also, perhaps more commonly, known as the product-moment
     correlation coefficient.
     '''
+    # Taking pearson of NaN, inf, -inf values is not supported
+    assert np.isfinite(data).all()
+
     # `not len` is required instead of just `not`, otherwise you get
     # 'ValueError: The truth value of a Int64Index is ambiguous'
     #
