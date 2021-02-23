@@ -374,7 +374,7 @@ class TestPearson:
 
     'Test pearson against its automatically vectorised equivalent'
 
-    def assert_(self, data, indices):
+    def assert_pearson(self, data, indices):
         with warnings.catch_warnings():
             # Suppress division by zero warnings. For performance, vectorised
             # correlation functions needn't check for rows such as
@@ -403,32 +403,32 @@ class TestPearson:
 
     def test_subset_everything(self, data):
         'When subset is everything'
-        self.assert_(data, list(range(len(data))))
+        self.assert_pearson(data, list(range(len(data))))
 
     def test_subset_range(self, data):
         'When subset is given as a range'
-        self.assert_(data, range(3))
+        self.assert_pearson(data, range(3))
 
     def test_subset_between(self, data):
         'When subset is more than 1 but less than all rows'
-        self.assert_(data, list(range(len(data)-1)))
+        self.assert_pearson(data, list(range(len(data)-1)))
 
     def test_subset_1_row(self, data):
         'When subset is 1 row'
-        self.assert_(data, [1])
+        self.assert_pearson(data, [1])
 
     def test_subset_empty(self, data):
         'When subset is empty'
-        self.assert_(data, [])
+        self.assert_pearson(data, [])
 
     def test_subset_duplicate(self, data):
         'When subset refers to the same row twice'
         indices = [1, 2, 1]
-        self.assert_(data, indices)
+        self.assert_pearson(data, indices)
 
     def test_data_1_row(self, data):
         'When data is 1 row'
-        self.assert_(data[[0]], [0])
+        self.assert_pearson(data[[0]], [0])
 
     def test_data_empty(self, data):
         'When data is empty'
@@ -456,13 +456,12 @@ class TestPearsonDf:
         # We only need to test the df wrapper part, not the vectorised pearson
         # calculation itself, so replace it with something simple
         def vectorised(data, indices):
-            if not data.size or not len(indices):
+            if not data.size or len(indices) == 0:
                 return np.empty((0, 0))
             return np.dot(data, data[indices].T + 1)
         mocker.patch('varbio.pearson', vectorised)
 
-    # TODO rename to _assert
-    def assert_(self, data, indices):
+    def assert_pearson(self, data, indices):
         data_original = data.copy()
         subset = data.iloc[indices]
         subset_original = subset.copy()
@@ -486,28 +485,28 @@ class TestPearsonDf:
 
     def test_subset_everything(self, data):
         'When subset is everything'
-        self.assert_(data, list(range(len(data))))
+        self.assert_pearson(data, list(range(len(data))))
 
     def test_subset_between(self, data):
         'When subset is more than 1 but less than all rows'
-        self.assert_(data, list(range(len(data)-1)))
+        self.assert_pearson(data, list(range(len(data)-1)))
 
     def test_subset_1_row(self, data):
         'When subset is 1 row'
-        self.assert_(data, [1])
+        self.assert_pearson(data, [1])
 
     def test_subset_empty(self, data):
         'When subset is empty'
-        self.assert_(data, [])
+        self.assert_pearson(data, [])
 
     def test_subset_duplicate(self, data):
         'When subset refers to the same row twice'
         indices = [1, 2, 1]
-        self.assert_(data, indices)
+        self.assert_pearson(data, indices)
 
     def test_data_1_row(self, data):
         'When data is 1 row'
-        self.assert_(data.iloc[[0]], [0])
+        self.assert_pearson(data.iloc[[0]], [0])
 
     def test_data_empty(self, data):
         'When data is empty'
@@ -523,6 +522,9 @@ def test_pearson_df():
         index=['a', 'b', 'c'],
         columns=indices
     )
-    assert actual.index.equals(expected.index) # TODO allow reorder, use df_equals(ignore_order={0,1}, values_close=True) values_close: if True, use np.isclose(df.values); later can add a dict as its value, being the kwargs to isclose
+    # TODO allow reorder, use df_equals(ignore_order={0,1}, values_close=True)
+    # values_close: if True, use np.isclose(df.values); later can add a dict as
+    # its value, being the kwargs to isclose
+    assert actual.index.equals(expected.index)
     assert actual.columns.equals(expected.columns)
     np.testing.assert_allclose(actual.values, expected.values, equal_nan=True)
