@@ -466,7 +466,7 @@ class TestPearsonDf:
         subset = data.iloc[indices]
         subset_original = subset.copy()
         expected = pd.DataFrame(
-            np.dot(data.values, data.iloc[indices].values.T + 1),
+            np.dot(data.values, subset.values.T + 1),
             index=data.index,
             columns=data.index[indices]
         )
