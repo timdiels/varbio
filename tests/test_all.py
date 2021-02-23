@@ -452,14 +452,14 @@ class TestPearsonDf:
         )
 
     @pytest.fixture(autouse=True)
-    def mock_pearson(self, mocker):
+    def mock_pearson(self, monkeypatch):
         # We only need to test the df wrapper part, not the vectorised pearson
         # calculation itself, so replace it with something simple
         def vectorised(data, indices):
             if not data.size or len(indices) == 0:
                 return np.empty((0, 0))
             return np.dot(data, data[indices].T + 1)
-        mocker.patch('varbio.pearson', vectorised)
+        monkeypatch.setattr('varbio._various.pearson', vectorised)
 
     def assert_pearson(self, data, indices):
         data_original = data.copy()
