@@ -17,10 +17,10 @@
 
 
 from copy import copy
+from importlib import resources
 import warnings
 
 from pytil.data_frame import assert_df_equals
-from pytil.pkg_resources import resource_path
 import numpy as np
 import pandas as pd
 import pytest
@@ -39,8 +39,9 @@ np.random.seed(0)
 class TestParseCSV:
 
     def _parse(self, name):
-        path = resource_path(__name__, f'data/parse_csv_is_robust/{name}')
-        return list(parse_csv(path))
+        ctx = resources.path('tests.data.parse_csv_is_robust', name)
+        with ctx as path:
+            return list(parse_csv(path))
 
     @pytest.mark.parametrize('name', (
         # Autodetect encoding
@@ -133,17 +134,20 @@ class TestParseCSV:
 ))
 def test_parse_yaml_is_robust(name):
     'See #3'
-    path = resource_path(__name__, f'data/parse_yaml_is_robust/{name}')
-    assert parse_yaml(path) == [
-        ['gene', 'col1', 'col2'],
-        ['gene1', 12.2, 34.5],
-    ]
+    with resources.path('tests.data.parse_yaml_is_robust', name) as path:
+        assert parse_yaml(path) == [
+            ['gene', 'col1', 'col2'],
+            ['gene1', 12.2, 34.5],
+        ]
 
 def test_parse_yaml_wraps_yaml_error():
     'Raise UserError for yaml errors, such as invalid whitespace'
     with pytest.raises(UserError) as ex:
-        path = resource_path(__name__, 'data/parse_yaml_is_robust/whitespace_tabs.yaml')
-        parse_yaml(path)
+        ctx = resources.path(
+            'tests.data.parse_yaml_is_robust', 'whitespace_tabs.yaml'
+        )
+        with ctx as path:
+            parse_yaml(path)
     msg = str(ex.value)
     assert 'YAML file' in msg
     assert 'whitespace_tabs.yaml' in msg
@@ -157,14 +161,14 @@ class TestParseBaits:
     '''
 
     def test_worst_valid_input(self):
-        path = resource_path(__name__, 'data/parse_baits')
-        actual = parse_baits(path, min_baits=8)
+        with resources.path('tests.data', 'parse_baits') as path:
+            actual = parse_baits(path, min_baits=8)
         assert actual == ['1', '2', '3', '4', '5', '6', '7', 'bait8']
 
     def test_too_few_baits(self):
-        path = resource_path(__name__, 'data/parse_baits')
-        with pytest.raises(UserError) as ex:
-            actual = parse_baits(path, min_baits=9)
+        with resources.path('tests.data', 'parse_baits') as path:
+            with pytest.raises(UserError) as ex:
+                parse_baits(path, min_baits=9)
         assert 'at least 9' in str(ex.value)
 
 class TestExpressionMatrixHappyDays:
