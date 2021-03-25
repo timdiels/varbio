@@ -16,7 +16,7 @@
 # along with varbio.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '3.0.0.dev'
+__version__ = '3.0.0'
 
 from ._util import UserError, join_lines, open_text
 from ._various import (
