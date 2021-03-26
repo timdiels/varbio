@@ -358,7 +358,8 @@ def pearson_df(data, subset):
 
 def init_logging(program, version, log_file):
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
+    root_logger.setLevel(logging.INFO)
+    logging.getLogger(program).setLevel(logging.DEBUG)
 
     formatter = logging.Formatter('{asctime} {levelname[0]}: {message}', style='{')
 
