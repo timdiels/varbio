@@ -1,4 +1,4 @@
-# Copyright (C) 2020 VIB/BEG/UGent - Tim Diels <tim@diels.me>
+# Copyright (C) 2020-2021 VIB/BEG/UGent - Tim Diels <tim@diels.me>
 #
 # This file is part of varbio.
 #
