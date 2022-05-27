@@ -19,12 +19,12 @@ requirements:
     # Conda recommends always adding the interpreter as a host dep
     - python
   run:
-    - python ==3.8.*
+    - python >=3.8
     - attrs
     - chardet
     - humanize
     - numpy >=1
-    - pandas
+    - pandas ==1.2.*
     - pyyaml
     - scipy
 
